@@ -1,0 +1,1952 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper to identify Platform Admins
+    function isAdmin() {
+      return request.auth != null &&
+        request.auth.token.email_verified == true &&
+        (
+          request.auth.token.platformAdmin == true ||
+          request.auth.token.email == 'thekada@gmail.com' ||
+          request.auth.token.email == 'thekadaapp@gmail.com' ||
+          // Delegated staff (setAdminRole). The claim is server-written, so
+          // a user cannot grant it to themselves.
+          request.auth.token.adminRole in [
+            'super_admin', 'platform_admin', 'ops_manager', 'finance_manager',
+            'support_manager', 'support_agent', 'vendor_manager', 'delivery_manager',
+            'stay_manager', 'marketing_manager', 'analytics', 'developer', 'auditor'
+          ]
+        );
+    }
+
+    // Caller's delegated admin role (spec §35 RBAC). Bootstrap owners /
+    // platformAdmin holders without an explicit `adminRole` claim default to
+    // super_admin, so existing owners keep full access. Used to scope the
+    // highest-risk writes (admin management, money) by role. The admin SDK
+    // (backend callables) bypasses rules entirely, so this only constrains the
+    // client-side direct-write paths.
+    function adminRole() {
+      return isAdmin() ? request.auth.token.get('adminRole', 'super_admin') : '';
+    }
+    function hasAdminRole(roles) {
+      return isAdmin() && (adminRole() in roles);
+    }
+
+    // Money ledgers. Support and marketing staff are isAdmin() for operations,
+    // but they must not read payout books or forge settlement rows.
+    function canReadFinance() {
+      return hasAdminRole([
+        'super_admin', 'platform_admin', 'finance_manager', 'auditor', 'analytics'
+      ]);
+    }
+    function canWriteFinance() {
+      return hasAdminRole(['super_admin', 'platform_admin', 'finance_manager']);
+    }
+    function canReadPayoutRequests() {
+      return hasAdminRole([
+        'super_admin', 'platform_admin', 'finance_manager', 'auditor',
+        'delivery_manager', 'ops_manager'
+      ]);
+    }
+
+    function protectedRestaurantBillingFields() {
+      return [
+        // A merchant must never set their OWN billing model: switching to
+        // "subscription" waives their commission, so self-service here is a
+        // direct money exploit. Admin-only (adminPlatformAction.setBillingModel).
+        "billingModel",
+        "billingModelUpdatedAt",
+        "billingModelUpdatedBy",
+        "commissionRate",
+        "platformCommission",
+        // Zone decides delivery pricing, dispatch and which customers see the
+        // shop, so it is resolved server-side from the vendor's coordinates
+        // and can never be self-assigned.
+        "zoneId",
+        "marketId",
+        "zoneName",
+        "zoneAssignment",
+        "zoneResolvedAt",
+        // The tier itself gates paid features, so a merchant must not be able
+        // to promote themselves. Set at signup only, then server-owned.
+        "planTier",
+        "subscriptionPlan",
+        "subscriptionType",
+        "subscriptionStartDate",
+        "subscriptionEndDate",
+        "subscriptionExpiry",
+        "trialStartDate",
+        "trialEndDate",
+        "trialExpiry",
+        "lastRenewalDate",
+        "lastPaymentAt",
+        "lastReceiptValidatedAt",
+        "transactions",
+        // Legacy in-app-purchase fields. IAP is gone (subscriptions are sold
+        // on the web via Razorpay), but these stay denied so a client can
+        // never write receipt-shaped data that older readers might trust.
+        "iapAppleLatestReceipt",
+        "iapAppleEnvironment",
+        "iapAppleOriginalTransactionId",
+        "iapAppleProductId",
+        "iapGooglePurchaseToken",
+        "iapGoogleProductId",
+        // ── Onboarding / KYC / activation engine ──────────────────────────
+        // `onboarding` holds the lifecycle state, per-step completion map and
+        // admin step reviews. It is written ONLY by the transition engine
+        // (functions/src/onboarding/transition.ts) via callables, so a partner
+        // can never self-advance to "active" or self-tick a mandatory step.
+        "onboarding",
+        // `bank` carries the verification state that gates payouts. Details are
+        // submitted through the submitBankDetails callable (which forces
+        // pending_verification); only a finance-grade admin sets "verified".
+        // A client write here would let a partner mark their own account
+        // verified and pull money to an unchecked destination.
+        "bank",
+        // Legacy activation flags the engine now owns and mirrors.
+        "isActive",
+        "isVerified",
+        "kycStatus",
+        "riskFlags",
+        "serviceable",
+        // Automatic document verdicts decide go-live; a partner writing
+        // "auto_verified" themselves would activate with no real check.
+        "onboardingChecks"
+      ];
+    }
+
+
+    // True only when the property has reached `active` in the onboarding
+    // engine — every mandatory KYC, document, zone and banking gate passed.
+    // Uses the defaulted accessor so a legacy hotel with no `onboarding` map
+    // reads as "" and is refused rather than erroring the whole rule.
+    function hotelIsOperational(hotelId) {
+      return exists(/databases/$(database)/documents/hotels/$(hotelId)) &&
+        get(/databases/$(database)/documents/hotels/$(hotelId))
+          .data.get("onboarding", {}).get("state", "") == "active";
+    }
+
+    // Vendor equivalent of hotelIsOperational, with one deliberate difference:
+    // an ABSENT onboarding record passes. Hotels fail closed because that flow
+    // was non-functional anyway, but restaurants carry the live order volume —
+    // failing closed here would take every existing vendor offline the moment
+    // this deploys, before the backfill has run. So this refuses only a vendor
+    // we KNOW is not operational. It becomes a strict gate once the backfill
+    // has stamped every vendor.
+    function restaurantIsOperational(restaurantId) {
+      return exists(/databases/$(database)/documents/restaurants/$(restaurantId)) &&
+        (
+          !("onboarding" in get(/databases/$(database)/documents/restaurants/$(restaurantId)).data) ||
+          get(/databases/$(database)/documents/restaurants/$(restaurantId))
+            .data.get("onboarding", {}).get("state", "active") == "active"
+        );
+    }
+
+    function isRestaurantOwner(restaurantId) {
+      return request.auth != null && (
+        request.auth.uid == restaurantId ||
+        (
+          // Caller is the PARENT of the document's restaurant (for existing docs)
+          exists(/databases/$(database)/documents/restaurants/$(restaurantId)) &&
+          get(/databases/$(database)/documents/restaurants/$(restaurantId)).data.parentId == request.auth.uid
+        ) ||
+        (
+          // Caller is the PARENT of the document's restaurant (for new docs being created)
+          !exists(/databases/$(database)/documents/restaurants/$(restaurantId)) &&
+          request.resource != null &&
+          request.resource.data.parentId == request.auth.uid
+        ) ||
+        (
+          // Caller is an OUTLET of the document's restaurant
+          exists(/databases/$(database)/documents/restaurants/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/restaurants/$(request.auth.uid)).data.parentId == restaurantId
+        )
+      );
+    }
+
+
+    // ── Staff authorization (server-enforced) ───────────────────────────────
+    // A staff login is honoured only while its staff doc still belongs to the
+    // restaurant and login is enabled. Permissions mirror
+    // vendor_mobile_app/lib/utils/staff_permissions.dart and
+    // functions/src/vendorOrderRules.ts (STAFF_ROLE_PRESETS): an explicit
+    // `permissions` list wins, an empty list falls back to the role preset,
+    // and an unknown role gets nothing. Change all three together.
+    function staffDocOf() {
+      return get(/databases/$(database)/documents/staff/$(request.auth.token.staffDocId)).data;
+    }
+    function isActiveStaffOf(restaurantId) {
+      return request.auth != null &&
+        request.auth.token.get("staff", false) == true &&
+        request.auth.token.get("restaurantId", "") == restaurantId &&
+        request.auth.token.get("staffDocId", "") != "" &&
+        exists(/databases/$(database)/documents/staff/$(request.auth.token.staffDocId)) &&
+        staffDocOf().get("restaurantId", "") == restaurantId &&
+        staffDocOf().get("loginEnabled", true) != false;
+    }
+    function staffRoleGrants(role, perm) {
+      return (role == "admin" && perm in ["orders", "kitchen", "pos", "menu", "tables", "reservations", "stock", "recipes", "guests", "loyalty", "schedule", "reports", "marketing", "expenses"])
+        || (role == "manager" && perm in ["orders", "kitchen", "pos", "menu", "tables", "reservations", "stock", "recipes", "guests", "loyalty", "schedule"])
+        || (role == "chef" && perm in ["kitchen", "orders", "stock", "recipes", "menu"])
+        || (role == "cashier" && perm in ["orders", "pos", "tables", "reservations", "guests"])
+        || (role == "waiter" && perm in ["tables", "reservations", "orders", "pos"]);
+    }
+    function staffHasPermission(perm) {
+      return (staffDocOf().get("permissions", []).size() > 0 && perm in staffDocOf().get("permissions", []))
+        || (staffDocOf().get("permissions", []).size() == 0 && staffRoleGrants(staffDocOf().get("role", "").lower(), perm));
+    }
+    function staffCanManageOrder(restaurantId) {
+      return isActiveStaffOf(restaurantId) &&
+        (staffHasPermission("orders") || staffHasPermission("kitchen") || staffHasPermission("pos"));
+    }
+
+    // ── Vendor order transitions (defence in depth) ─────────────────────────
+    // The authoritative path is the vendorTransitionOrder callable. These
+    // rules stop app builds that still write orders.status directly from doing
+    // anything the callable would refuse. Mirrors functions/src/vendorOrderRules.ts.
+    // In-store: tagged POS/QR, or an untagged order with no customer account
+    // (staff-created, e.g. web POS tickets from before they were tagged).
+    // Customer-app orders always carry customerUid, and the customer id fields
+    // are server-owned below, so a marketplace order can never be reclassified.
+    // Mirrors isCounterOrder in functions/src/vendorOrderRules.ts.
+    function orderIsInStore(o) {
+      return o.get("orderSource", "") in ["pos", "qr_menu"]
+        || (o.get("orderSource", "") == "" &&
+            o.get("customerUid", "") == "" &&
+            o.get("userId", "") == "" &&
+            o.get("customerId", "") == "");
+    }
+    function orderIsDelivery(o) {
+      return o.get("type", "") == "delivery" || o.get("channel", "") == "delivery";
+    }
+    function orderIsTerminal(st) {
+      return st in ["delivered", "completed", "cancelled", "canceled", "rejected", "void"];
+    }
+    function vendorCanMoveOrder(prevStatus, nextStatus) {
+      return prevStatus == nextStatus
+        || (prevStatus in ["new", "pending", "placed", "scheduled"] && nextStatus in ["confirmed", "preparing", "rejected", "cancelled"])
+        || (prevStatus in ["confirmed", "accepted"] && nextStatus in ["preparing", "cancelled"])
+        || (prevStatus in ["preparing", "cooking"] && nextStatus in ["ready", "cancelled"])
+        || (prevStatus in ["ready", "prepared"] && nextStatus in ["ready_for_pickup", "completed", "cancelled"])
+        || (prevStatus == "ready_for_pickup" && nextStatus == "completed");
+    }
+    // Fields the platform owns on a marketplace order. Money, identity and
+    // dispatch state change only through server callables (admin SDK).
+    function orderServerOwnedFields() {
+      return [
+        "total", "subtotal", "tax", "taxAmount", "discount", "deliveryFee",
+        "packagingFee", "platformFee", "tip",
+        "paymentStatus", "paymentMethod", "paidAt", "razorpayPaymentId", "razorpayOrderId",
+        "customerUid", "userId", "customerId", "restaurantId", "parentId", "orderSource",
+        "riderId", "riderEarning", "offer", "deliveryStatus",
+        "commission", "commissionAmount", "commissionRate", "settlementId",
+        "refundStatus", "refundAmount", "refundMethod", "refundReason", "refundedAt", "refundedBy",
+        "releasedForPickupAt", "releasedBy",
+        // The engine's price snapshot and check are server-written only.
+        "pricing", "pricingQuoteId", "pricingCheck"
+      ];
+    }
+    function vendorOrderUpdateAllowed() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      let prevStatus = before.get("status", "new");
+      let nextStatus = after.get("status", "new");
+      return (orderIsInStore(before) ? (prevStatus == nextStatus || !orderIsTerminal(prevStatus)) : vendorCanMoveOrder(prevStatus, nextStatus)) &&
+        !(orderIsDelivery(before) && nextStatus in ["delivered", "completed"] && prevStatus != nextStatus) &&
+        (orderIsInStore(before) || !changed.hasAny(orderServerOwnedFields())) &&
+        (orderIsInStore(before) || !changed.hasAny(["items"]) ||
+          after.get("items", []).size() == before.get("items", []).size()) &&
+        !(nextStatus in ["cancelled", "rejected"] && prevStatus != nextStatus &&
+          before.get("paymentStatus", "") == "paid" && !orderIsInStore(before));
+    }
+
+    // Fields no partner may seed AT CREATION on any role's document.
+    // Guarding only the update path is not enough: a client that creates its
+    // own doc could otherwise write `onboarding.state: "active"` and
+    // `bank.verificationState: "verified"` in the very first write and skip
+    // the entire engine. These are set exclusively by the onboarding
+    // triggers/transition engine (admin SDK, which bypasses rules).
+    function engineOwnedFields() {
+      return [
+        "onboarding",
+        "bank",
+        "isActive",
+        "isVerified",
+        "kycStatus",
+        "riskFlags",
+        "serviceable",
+        "zoneId",
+        "marketId",
+        "zoneName",
+        "zoneAssignment",
+        "zoneResolvedAt",
+        // Automatic document verdicts and go-live decisions (onboarding v2).
+        "onboardingChecks"
+      ];
+    }
+
+    function seedsNoEngineOwnedFields() {
+      return !request.resource.data.keys().hasAny(engineOwnedFields());
+    }
+
+    function ownerCanCreateRestaurant(restaurantId) {
+      return isRestaurantOwner(restaurantId) &&
+        // One login is one partner type: a mess kitchen can't also open a
+        // restaurant under the same id (mess_kitchens refuses the reverse).
+        !exists(/databases/$(database)/documents/mess_kitchens/$(restaurantId)) &&
+        seedsNoEngineOwnedFields() &&
+        !request.resource.data.keys().hasAny([
+          "transactions",
+          // Dates decide how long the product stays unlocked, so a client must
+          // not be able to seed them at creation either.
+          "subscriptionStartDate",
+          "subscriptionEndDate",
+          "subscriptionExpiry",
+          "trialStartDate",
+          "trialEndDate",
+          "trialExpiry",
+          "lastRenewalDate",
+          "lastPaymentAt",
+          "lastReceiptValidatedAt",
+          "iapAppleLatestReceipt",
+          "iapAppleEnvironment",
+          "iapAppleOriginalTransactionId",
+          "iapAppleProductId",
+          "iapGooglePurchaseToken",
+          "iapGoogleProductId"
+        ]) &&
+        // No trial tier: a self-created restaurant starts "pending" and only
+        // the server (Razorpay webhook / admin) can move it to "active".
+        (!("subscriptionStatus" in request.resource.data) ||
+          request.resource.data.subscriptionStatus == "pending") &&
+        (!("subscriptionType" in request.resource.data) ||
+          request.resource.data.subscriptionType in ["monthly", "yearly", "starter", "growth"]) &&
+        (!("isBlocked" in request.resource.data) ||
+          request.resource.data.isBlocked == false);
+    }
+
+    function ownerCanUpdateRestaurant(restaurantId) {
+      return isRestaurantOwner(restaurantId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(protectedRestaurantBillingFields()) &&
+        (
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(["subscriptionStatus", "isBlocked"]) ||
+          (
+            request.resource.data.subscriptionStatus == "pending" &&
+            request.resource.data.isBlocked == false &&
+            !("subscriptionEndDate" in request.resource.data)
+          )
+        );
+    }
+
+    // ── Kada Mess kitchens ────────────────────────────────────────────────
+    // A separate partner type (onboarding role "mess") whose owners sign in
+    // through the Kada Dine app. Commercial terms are admin-set only.
+    function messProtectedFields() {
+      return [
+        "feePerCustomerPerDayPaise", "commissionRate", "billingModel",
+        "billingModelUpdatedAt", "billingModelUpdatedBy", "isBlocked",
+        "ratingAvg", "ratingCount"
+      ];
+    }
+
+    match /mess_kitchens/{kitchenId} {
+      // Public only once live — customer queries must filter
+      // onboarding.state == "active". An applicant's unfinished record stays
+      // between them and ops.
+      allow read: if isAdmin()
+        || (request.auth != null && request.auth.uid == kitchenId)
+        || resource.data.get("onboarding", {}).get("state", "") == "active";
+      allow create: if request.auth != null
+        && request.auth.uid == kitchenId
+        && !exists(/databases/$(database)/documents/restaurants/$(kitchenId))
+        && seedsNoEngineOwnedFields()
+        && !request.resource.data.keys().hasAny(messProtectedFields());
+      allow update: if isAdmin() || (
+        request.auth != null && request.auth.uid == kitchenId
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(engineOwnedFields().concat(messProtectedFields()))
+      );
+      allow delete: if isAdmin();
+
+      // Immutable onboarding timeline — engine-written.
+      match /onboarding_events/{eventId} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == kitchenId);
+        allow write: if false;
+      }
+
+      // The kitchen's meal plans. Customers read them to subscribe; only the
+      // kitchen (or an admin) writes them. Price and duration are validated
+      // here AND re-read server-side at purchase, so a tampered plan can
+      // neither be written nor charged.
+      match /plans/{planId} {
+        allow read: if isAdmin()
+          || (request.auth != null && request.auth.uid == kitchenId)
+          || get(/databases/$(database)/documents/mess_kitchens/$(kitchenId))
+               .data.get("onboarding", {}).get("state", "") == "active";
+        allow write: if isAdmin() || (
+          request.auth != null && request.auth.uid == kitchenId
+          && request.resource.data.get("pricePaise", 0) is int
+          && request.resource.data.get("pricePaise", 0) >= 10000
+          && request.resource.data.get("pricePaise", 0) <= 5000000
+          && request.resource.data.get("durationDays", 0) is int
+          && request.resource.data.get("durationDays", 0) >= 1
+          && request.resource.data.get("durationDays", 0) <= 31
+        );
+      }
+    }
+
+    // ─── Kada Mess subscriptions ─────────────────────────────────────────────
+    // Created and moved along ONLY by the mess callables (admin SDK): the
+    // price, the dates and the paid/active flip all come from the server. A
+    // customer may read their own; a kitchen may read the ones that are theirs
+    // so it knows who to cook for.
+    match /mess_subscriptions/{subscriptionId} {
+      allow read: if isAdmin()
+        || (request.auth != null && (
+              resource.data.get("customerUid", "") == request.auth.uid ||
+              resource.data.get("kitchenId", "") == request.auth.uid
+            ));
+      allow write: if isAdmin();
+    }
+
+    // Idempotency records for subscription checkout — server-only.
+    match /mess_placements/{placementId} {
+      allow read, write: if isAdmin();
+    }
+
+    // What Kada owes a mess kitchen for a period. Generated and paid out by
+    // the server; the kitchen may read its own so it can see the working.
+    match /mess_settlements/{settlementId} {
+      allow read: if isAdmin()
+        || (request.auth != null && resource.data.get("kitchenId", "") == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    match /stay_amenities/{document=**} {
+      allow read: if true;
+    }
+
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow create: if isAdmin() || ownerCanCreateRestaurant(restaurantId);
+      allow update: if isAdmin() || ownerCanUpdateRestaurant(restaurantId);
+      allow delete: if isAdmin();
+
+      // Immutable onboarding timeline — written only by the transition engine
+      // (admin SDK bypasses rules). Readable by the owner and admins so both
+      // see the same audit trail.
+      match /onboarding_events/{eventId} {
+        allow read: if isAdmin() || isRestaurantOwner(restaurantId);
+        allow write: if false;
+      }
+    }
+
+    // Collection group for bookings — READ ONLY (admins, guest owner, hotel
+    // owner), so "my stays" collectionGroup queries work. Writes are decided
+    // solely by hotels/{hotelId}/bookings below: this recursive match also
+    // covers that path and rules OR together, so a create/update here let
+    // guests skip hotelIsOperational and every stay*IsClean check.
+    match /{path=**}/bookings/{bookingId} {
+      allow read: if isAdmin() || (request.auth != null && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.hotelId == request.auth.uid
+      ));
+    }
+
+    // Stay money is server-owned: the price snapshot, gateway ids and the
+    // verified "paid" state come only from createStayBooking /
+    // verifyStayPayment / the Razorpay webhook. Older app builds still create
+    // bookings with "paid_via_…" — allowed so those guests aren't stranded,
+    // but flagUnverifiedStayBooking marks them for payment review.
+    function stayGatewayFields() {
+      return ['pricing', 'pricingQuoteId', 'razorpayOrderId', 'razorpayOrderIds', 'razorpayPaymentId', 'paidAt', 'paymentVerified', 'paymentReviewRequired', 'paymentReviewReason'];
+    }
+    function stayCreateIsClean() {
+      return !request.resource.data.keys().hasAny(stayGatewayFields())
+        && request.resource.data.get('paymentStatus', '') != 'paid';
+    }
+    function stayGuestUpdateIsClean() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(stayGatewayFields().concat(['totalAmount', 'paymentStatus', 'customerId', 'hotelId', 'roomId', 'checkIn', 'checkOut', 'guests']));
+    }
+    function stayHostUpdateIsClean() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(stayGatewayFields().concat(['customerId']))
+        && !(request.resource.data.get('paymentStatus', '') == 'paid' && resource.data.get('paymentStatus', '') != 'paid');
+    }
+
+    match /stay_bookings/{bookingId} {
+      allow read: if isAdmin() || (request.auth != null && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.hotelId == request.auth.uid
+      ));
+      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid && stayCreateIsClean();
+      allow update: if isAdmin()
+        || (request.auth != null && resource.data.hotelId == request.auth.uid && stayHostUpdateIsClean())
+        || (request.auth != null && resource.data.customerId == request.auth.uid && stayGuestUpdateIsClean());
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+    }
+    
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow create: if isAdmin() || (request.auth != null && request.resource.data.hotelId == request.auth.uid);
+      allow update, delete: if isAdmin() || (request.auth != null && resource.data.hotelId == request.auth.uid);
+    }
+
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create: if isAdmin() || (request.auth != null && request.resource.data.hotelId == request.auth.uid);
+      allow update, delete: if isAdmin() || (request.auth != null && resource.data.hotelId == request.auth.uid);
+    }
+
+    match /hotels/{hotelId} {
+      allow read: if true;
+      // Create carried no field restrictions at all, so a host could seed
+      // `onboarding.state: "active"` on their very first write and skip KYC,
+      // banking and review entirely.
+      allow create: if isAdmin() || (
+        request.auth != null && request.auth.uid == hotelId &&
+        seedsNoEngineOwnedFields()
+      );
+      allow delete: if isAdmin() || (request.auth != null && request.auth.uid == hotelId);
+      // A host may manage their own property, but NOT the commercial terms —
+      // billing model, commission rate and subscription state are admin-only.
+      // Without this a host could set billingModel:"subscription" and waive
+      // their own commission.
+      allow update: if isAdmin() || (
+        request.auth != null && request.auth.uid == hotelId &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          "billingModel", "billingModelUpdatedAt", "billingModelUpdatedBy",
+          "commissionRate", "platformCommission",
+          // The plan gates paid features — server-owned, like the dates.
+          "subscriptionPlan", "subscriptionType", "subscriptionStatus",
+          "subscriptionStartDate", "subscriptionEndDate",
+          "subscriptionExpiry", "trialEndDate", "isBlocked",
+          // Onboarding lifecycle + banking verification are engine-owned.
+          // Hosts previously had NO onboarding gate at all — the hotel doc was
+          // created live on signup with no KYC and no banking, so a property
+          // could take bookings it could never be paid for. These fields now
+          // move only through the onboarding callables.
+          "onboarding", "bank", "isActive", "isVerified", "kycStatus",
+          "riskFlags", "serviceable", "zoneId", "marketId", "onboardingChecks"
+        ])
+      );
+
+      // Immutable onboarding timeline — engine-written, host/admin readable.
+      match /onboarding_events/{eventId} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == hotelId);
+        allow write: if false;
+      }
+
+      // Reservations — a guest may create/read/cancel their OWN booking; the
+      // host manages every booking for their property.
+      match /bookings/{bookingId} {
+        allow read: if isAdmin()
+          || (request.auth != null && (request.auth.uid == hotelId || resource.data.customerId == request.auth.uid));
+        // A property may only take bookings once onboarding says it is live.
+        // Previously ANY signed-in customer could book against ANY hotel doc —
+        // including one that had done zero KYC and had no bank account on
+        // file, so the stay could never be settled to the host. The state is
+        // engine-owned (clients cannot write `onboarding`), so this cannot be
+        // self-granted. Legacy hotels with no record read as "" and are
+        // refused until the onboarding backfill has run.
+        allow create: if request.auth != null
+          && request.resource.data.customerId == request.auth.uid
+          && hotelIsOperational(hotelId)
+          && stayCreateIsClean();
+        // Front desk: the host records walk-in / phone / OTA bookings for their
+        // own property (no customerId). No onboarding gate — no Kada money
+        // moves — but gateway fields stay server-owned, so a host can't mint a
+        // verified payment either.
+        allow create: if request.auth != null
+          && request.auth.uid == hotelId
+          && stayCreateIsClean();
+        allow update: if isAdmin()
+          || (request.auth != null && request.auth.uid == hotelId && stayHostUpdateIsClean())
+          || (request.auth != null && resource.data.customerId == request.auth.uid && stayGuestUpdateIsClean());
+        allow delete: if isAdmin() || (request.auth != null && request.auth.uid == hotelId);
+      }
+
+      // Guest conversations — host can read/write all; each guest can read/write only their own thread
+      match /guest_conversations/{guestId} {
+        allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == hotelId) || (request.auth != null && request.auth.uid == guestId);
+        match /messages/{messageId} {
+          allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == hotelId) || (request.auth != null && request.auth.uid == guestId);
+        }
+        // Read receipts — per-role lastReadAt marker. Doc id is literally
+        // "host" or "guest"; both parties may read either, but only the
+        // corresponding party can write their own. Mirrors the rider_chat_reads
+        // pattern under orders/{orderId}.
+        match /reads/{role} {
+          allow read: if isAdmin() || (request.auth != null &&
+            (request.auth.uid == hotelId || request.auth.uid == guestId));
+          allow write: if isAdmin() || (request.auth != null && (
+            (role == "host" && request.auth.uid == hotelId) ||
+            (role == "guest" && request.auth.uid == guestId)
+          ));
+        }
+      }
+
+      // Kada Assist AI threads — host-only
+      match /assist_threads/{threadId} {
+        allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == hotelId);
+        match /messages/{messageId} {
+          allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == hotelId);
+        }
+      }
+
+      // Hotel reviews — public read, authenticated users write their own review
+      match /reviews/{reviewId} {
+        allow read: if true;
+        allow create, update: if isAdmin() || (request.auth != null && reviewId == request.auth.uid);
+        allow delete: if isAdmin() || (request.auth != null && request.auth.uid == hotelId);
+      }
+
+      // Catch-all for other subcollections (rooms, staff, settings, etc.).
+      // Not `/{subcollection=**}`: `**` also matches ZERO segments, which made
+      // this cover the hotel doc itself (host could write onboarding /
+      // commissionRate past the update rule above). Bookings are excluded
+      // because rules OR together — this would re-open public reads of guest
+      // PII and host writes of gateway fields that the bookings match refuses.
+      match /{subcollection}/{document=**} {
+        allow read: if subcollection != "bookings";
+        allow write: if subcollection != "bookings"
+          && (isAdmin() || (request.auth != null && request.auth.uid == hotelId));
+      }
+    }
+
+    match /restaurants/{restaurantId}/meta/{metaId} {
+      allow read: if true;
+      // Allow atomic increment of the orderCounter
+      allow create: if isAdmin() || isRestaurantOwner(restaurantId) || (request.auth != null && metaId == 'orderCounter' && request.resource.data.seq == 1);
+      allow update: if isAdmin() || isRestaurantOwner(restaurantId) || (request.auth != null && metaId == 'orderCounter' && request.resource.data.seq == resource.data.seq + 1);
+    }
+
+    match /billing_private/{restaurantId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ─── Partner private store (functions/src/onboarding/partnerPrivate.ts) ──
+    // restaurants/hotels are public-read for customer listings, so full bank
+    // details, payout routing, PAN and the owner's contact live here, keyed
+    // `${role}_${partnerId}`. Top-level on purpose: a subcollection under
+    // hotels/{id} would be matched by that doc's public-read catch-all, and
+    // rules OR together. Written only by the engine (Admin SDK).
+    match /partner_private/{key} {
+      allow read: if hasAdminRole(["super_admin", "platform_admin", "finance_manager"]) ||
+        (request.auth != null && request.auth.uid in resource.data.get("ownerUids", []));
+      allow write: if false;
+    }
+    match /partner_contact/{key} {
+      allow read: if isAdmin() ||
+        (request.auth != null && request.auth.uid in resource.data.get("ownerUids", []));
+      allow write: if false;
+    }
+    // HMAC key for bank-account duplicate fingerprints. Admin SDK only.
+    match /server_secrets/{docId} {
+      allow read, write: if false;
+    }
+
+    match /restaurants/{restaurantId}/customers/{customerId} {
+      // Only authenticated users (the customer themselves, store owner, or admin) can create/update customer profiles.
+      allow create, update: if
+        (isAdmin() || isRestaurantOwner(restaurantId) ||
+        (request.auth != null && (request.auth.uid == customerId || request.auth.uid == request.resource.data.customerUid || request.auth.uid == request.resource.data.userId))) &&
+        exists(/databases/$(database)/documents/restaurants/$(restaurantId)) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() >= 1 &&
+        request.resource.data.name.size() <= 120 &&
+        request.resource.data.phone is string &&
+        request.resource.data.phone.size() >= 6 &&
+        request.resource.data.phone.size() <= 40;
+
+      allow read, delete: if isAdmin() || isRestaurantOwner(restaurantId) ||
+        (request.auth != null && (request.auth.uid == customerId || request.auth.uid == resource.data.customerUid || request.auth.uid == resource.data.userId));
+    }
+
+    match /restaurants/{restaurantId}/public_analytics/{docId} {
+      allow read: if true;
+    }
+
+    // Customer reviews. Publicly readable (shown on the restaurant page); a
+    // signed-in customer may write only their own review (doc id == their uid)
+    // with a valid 1–5 rating. A re-rating overwrites the previous one.
+    match /restaurants/{restaurantId}/reviews/{reviewId} {
+      allow read: if true;
+      allow create: if
+        isAdmin() ||
+        (
+          request.auth != null &&
+          reviewId == request.auth.uid &&
+          request.resource.data.customerUid == request.auth.uid &&
+          request.resource.data.rating is number &&
+          request.resource.data.rating >= 1 &&
+          request.resource.data.rating <= 5
+        );
+      allow update: if
+        isAdmin() ||
+        (
+          request.auth != null &&
+          reviewId == request.auth.uid &&
+          request.resource.data.customerUid == request.auth.uid &&
+          request.resource.data.rating is number &&
+          request.resource.data.rating >= 1 &&
+          request.resource.data.rating <= 5
+        ) ||
+        // The restaurant owner may post/edit only a response — never the rating
+        // or the customer's text.
+        (
+          isRestaurantOwner(restaurantId) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['ownerResponse', 'ownerResponseAt'])
+        );
+      allow delete: if isAdmin() ||
+        (request.auth != null && reviewId == request.auth.uid) ||
+        isRestaurantOwner(restaurantId);
+    }
+
+    match /restaurants/{restaurantId}/notifications/{notificationId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(restaurantId));
+      allow create: if isAdmin() || (request.auth != null && request.auth.uid == restaurantId);
+    }
+
+    // Multi-outlet sub-accounts (web OutletsPage + mobile outlets_screen).
+    match /restaurants/{restaurantId}/outlets/{outletId} {
+      allow read, create, update, delete: if
+        isAdmin() ||
+        (isRestaurantOwner(restaurantId));
+    }
+
+    // Shift schedules per restaurant (mobile schedule_screen).
+    match /restaurants/{restaurantId}/schedules/{shiftId} {
+      allow read, create, update, delete: if
+        isAdmin() ||
+        (isRestaurantOwner(restaurantId));
+    }
+
+    // Per-restaurant settings docs (e.g. settings/integrations).
+    match /restaurants/{restaurantId}/settings/{settingsId} {
+      allow read, create, update, delete: if
+        isAdmin() ||
+        (isRestaurantOwner(restaurantId));
+    }
+    
+    match /config/{configId} {
+      // Public read: the apps read pricing baselines, module switches, the
+      // plan catalog and the changelog before sign-in. Reconciliation holds
+      // settled-revenue totals, so it is admin-only (and server-written).
+      allow read: if configId != "reconciliation" || isAdmin();
+      // Fees, commission, rider pay and module switches change money and
+      // what every customer can do — not for support roles.
+      allow write: if configId != "reconciliation" && isAdmin() && (
+        !(configId in ["platform", "feature_flags", "platform_features"]) ||
+        hasAdminRole(['super_admin', 'platform_admin', 'finance_manager', 'ops_manager'])
+      );
+    }
+
+    // Admin-managed promo codes / coupons surfaced in the customer app. Codes
+    // are marketing (not secret), so public read; only a platform admin may
+    // create, edit, or expire them.
+    // Central pricing engine. Rules and their audit trail are written ONLY by
+    // the pricingAdmin callable (versioned, role-checked, audited); quotes and
+    // promo usage only by the server. Admins read everything; a customer may
+    // read their own quotes.
+    match /pricing_rules/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /pricing_audit/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /pricing_quotes/{quoteId} {
+      allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow write: if false;
+    }
+    match /promo_usage/{ruleId} {
+      allow read: if isAdmin();
+      allow write: if false;
+      match /customers/{uid} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+        allow write: if false;
+      }
+    }
+    match /promos/{code} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Platform ads — sponsored banners + boosted restaurant placements shown in
+    // the customer app (Swiggy/Zomato style). Admin-managed marketing content,
+    // so public read. Signed-in apps may bump ONLY the impression/click
+    // counters (fire-and-forget tracking); everything else is admin-only.
+    match /platform_ads/{adId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin();
+    }
+
+    // Food Studio Presets — verified studio food photography library (270+ presets).
+    // Readable by customer app, vendor app, and admin; managed by admins.
+    match /food_studio_presets/{presetId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Self-serve ad-boost billing ledger. Written only by the createAdBoost
+    // Cloud Function (admin SDK); a vendor may read their own charges.
+    match /ad_charges/{chargeId} {
+      allow read: if isAdmin() ||
+        (request.auth != null && resource.data.vendorUid == request.auth.uid);
+      allow write: if false;
+    }
+
+    // Kada Cares donation ledger — written only by the onOrderDonation trigger
+    // (admin SDK). A customer may read their own donations for receipts.
+    match /donations/{donationId} {
+      allow read: if isAdmin() ||
+        (request.auth != null && resource.data.uid == request.auth.uid);
+      allow write: if false;
+    }
+
+    // Disbursement records — admin-visible, server-written only.
+    match /donation_disbursements/{disbId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Support chat threads — one per user conversation (customer / vendor /
+    // rider). An AI bot (Cloud Function, admin privileges) answers first and
+    // escalates to a human when needed. The owner may read/update their own
+    // thread and post 'user' messages; the bot & admins post everything else.
+    match /support_threads/{threadId} {
+      // Threads are keyed by the participant's uid. Ownership comes from the
+      // STORED thread (or its id), never from the incoming write: the old check
+      // also accepted request.resource.participantUid, so anyone could rewrite
+      // another user's thread to name themselves and then read the whole
+      // conversation. (The earlier shared 'guest_user' thread was also removed:
+      // guests sign in anonymously and get their own uid.)
+      function ownsThread() {
+        return request.auth != null && (
+          threadId == request.auth.uid ||
+          (resource != null && resource.data.get("participantUid", "") == request.auth.uid)
+        );
+      }
+      // Clients only do bookkeeping. Status, AI analysis, SLA, CSAT and agent
+      // fields are written by the server and the admin panel.
+      function clientThreadUpdateOk() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        let prevStatus = resource.data.get("status", "bot");
+        let nextStatus = request.resource.data.get("status", "bot");
+        return changed.hasOnly([
+            "lastMessage", "lastSender", "lastMessageAt", "updatedAt",
+            "unreadForUser", "unreadForAdmin", "status", "orderId"
+          ]) &&
+          (!changed.hasAny(["unreadForAdmin"]) ||
+            request.resource.data.unreadForAdmin == resource.data.get("unreadForAdmin", 0) + 1) &&
+          // An order can be linked once; the bot only uses it if it's theirs.
+          (!changed.hasAny(["orderId"]) || resource.data.get("orderId", null) == null) &&
+          // A user can escalate, and reopen a closed chat to the bot, but a new
+          // message no longer yanks a human-handled chat back to the bot.
+          // "disconnected" is no longer writable: installed app builds set it
+          // after five idle minutes (even on a chat waiting for a human) and
+          // then hid the composer with no way back. Their write now fails
+          // quietly and the chat stays usable.
+          (prevStatus == nextStatus ||
+            nextStatus == "escalated" ||
+            (nextStatus == "bot" && prevStatus in ["resolved", "disconnected"]));
+      }
+      allow read: if isAdmin() || ownsThread();
+      // One thread per person for general help, plus one per order so an
+      // order's history stays with that order: "{uid}_{orderId}". The id must
+      // still be derived from the caller's own uid, so nobody can seed a
+      // thread that reads as someone else's.
+      allow create: if isAdmin() || (
+        request.auth != null &&
+        request.resource.data.get("participantUid", "") == request.auth.uid &&
+        (
+          threadId == request.auth.uid ||
+          threadId == request.auth.uid + "_" + request.resource.data.get("orderId", "")
+        ) &&
+        request.resource.data.get("status", "bot") == "bot"
+      );
+      allow update: if isAdmin() || (ownsThread() && clientThreadUpdateOk());
+      allow delete: if isAdmin();
+      match /messages/{msgId} {
+        // Checks the PARENT thread. Inside this block `resource` is the
+        // message, so the old check read participantUid off the message being
+        // written: anyone could post into any thread by setting that field.
+        function ownsParentThread() {
+          return request.auth != null && (
+            threadId == request.auth.uid ||
+            get(/databases/$(database)/documents/support_threads/$(threadId)).data.get("participantUid", "") == request.auth.uid
+          );
+        }
+        allow read: if isAdmin() || ownsParentThread();
+        // Owners may only post as the 'user'; bot and agent replies are
+        // written server-side (admin SDK / callables bypass these rules).
+        allow create: if isAdmin() || (ownsParentThread() && request.resource.data.sender == 'user');
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // ─── Platform / Delivery Settings ────────────────────────────────────────
+    match /settings/{settingsId} {
+      allow read: if true;
+      // settings/delivery = surge + rider quest bonuses (money).
+      allow write: if isAdmin() && (
+        settingsId != "delivery" ||
+        hasAdminRole(['super_admin', 'platform_admin', 'finance_manager', 'ops_manager'])
+      );
+    }
+
+    // ─── Vendor Payout & Commission Settlements ─────────────────────────────
+    match /vendor_settlements/{settlementId} {
+      allow read: if canReadFinance() || (request.auth != null && (
+        resource.data.restaurantId == request.auth.uid ||
+        resource.data.ownerId == request.auth.uid ||
+        // Any staff login used to read payouts. Now only staff explicitly
+        // holding finance (expenses) access — never a kitchen role.
+        (isActiveStaffOf(resource.data.restaurantId) && staffHasPermission("expenses"))
+      ));
+      allow write: if canWriteFinance();
+    }
+
+    // ─── FCM Device Tokens (Host & Mobile Apps) ──────────────────────────────
+    match /fcm_tokens/{userId} {
+      allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+    }
+
+    // Per-order delivery OTP (handoff verification). ONLY the order's customer
+    // may read it (to read out at the door) — the rider must never see it, which
+    // is the whole point. Written only by the backend (admin), verified server-
+    // side in completeDelivery.
+    match /order_secrets/{orderId} {
+      allow read: if isAdmin() ||
+        (request.auth != null && resource.data.customerUid == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    // Admin action audit trail. Append-only: any admin (and the admin SDK) may
+    // read and append, but NOBODY may edit or delete — so no admin can rewrite
+    // or erase the record of who did what. Matches the audit_events policy below.
+    match /admin_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Immutable audit trail (spec §37) — admins may read and append, but never
+    // edit or delete: the record of who did what stays tamper-proof.
+    match /audit_events/{eventId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Admin role assignments — readable by admins, written only by the
+    // setAdminRole Cloud Function (admin SDK), never the client.
+    match /admin_roles/{uid} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /admin_notifications/{notificationId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /knowledge_base_articles/{articleId} {
+      // Role-specific SOPs stay with staff. Everyone else may read only
+      // articles published for all roles. Admin SDK retrieval is unaffected.
+      allow read: if isAdmin() || (
+        resource.data.status == 'published' &&
+        resource.data.get('role', 'all') == 'all'
+      );
+      allow write: if isAdmin();
+    }
+
+    // Support agent teams (created via the createTeam callable; admin-only).
+    match /support_teams/{teamId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Agent canned replies ("macros") — admin-managed; read/write admins only.
+    match /support_macros/{macroId} {
+      allow read, write: if isAdmin();
+    }
+
+    // COD cash deposits — a rider may READ their own deposit records; only
+    // Cloud Functions (admin SDK) create/settle them, so a client can never
+    // forge a deposit or write down their own cashInHand liability.
+    match /cod_deposits/{depositId} {
+      allow read: if isAdmin()
+        || (request.auth != null && resource.data.riderUid == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /support_tickets/{ticketId} {
+      allow read: if isAdmin()
+        || (resource.data.restaurantId != null && isRestaurantOwner(resource.data.restaurantId))
+        || (request.auth != null && resource.data.customerUid == request.auth.uid);
+      allow create: if
+        // Vendor ticket
+        (request.auth != null && request.resource.data.restaurantId != null && isRestaurantOwner(request.resource.data.restaurantId)) ||
+        // Customer ticket
+        (request.auth != null && request.resource.data.customerUid == request.auth.uid);
+      allow update, delete: if isAdmin() || (resource.data.restaurantId != null && isRestaurantOwner(resource.data.restaurantId));
+    }
+
+    match /demo_requests/{requestId} {
+      // Public lead-capture: allow create with strict validation to prevent abuse.
+      // Email is optional (some lead forms only capture phone) but phone is required.
+      allow create: if
+        request.resource.data.status == "new" &&
+        request.resource.data.restaurantName is string &&
+        request.resource.data.restaurantName.size() >= 2 &&
+        request.resource.data.restaurantName.size() <= 120 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() <= 254 &&
+        request.resource.data.phone is string &&
+        request.resource.data.phone.size() >= 6 &&
+        request.resource.data.phone.size() <= 40 &&
+        request.resource.data.createdAtIso is string &&
+        request.resource.data.createdAtIso.size() >= 10 &&
+        request.resource.data.createdAtIso.size() <= 40 &&
+        request.resource.data.source is string &&
+        request.resource.data.source.size() >= 3 &&
+        request.resource.data.source.size() <= 40 &&
+        (!("city" in request.resource.data) || (request.resource.data.city is string && request.resource.data.city.size() <= 80)) &&
+        (!("monthlyRevenue" in request.resource.data) || (request.resource.data.monthlyRevenue is string && request.resource.data.monthlyRevenue.size() <= 64)) &&
+        (!("painPoint" in request.resource.data) || (request.resource.data.painPoint is string && request.resource.data.painPoint.size() <= 800));
+
+      // Admin-only access for reading/managing leads.
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /contact_requests/{requestId} {
+      // Public contact form: allow create with strict validation to prevent abuse.
+      allow create: if
+        request.resource.data.status == "new" &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() >= 2 &&
+        request.resource.data.name.size() <= 120 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() >= 5 &&
+        request.resource.data.email.size() <= 254 &&
+        request.resource.data.phone is string &&
+        request.resource.data.phone.size() >= 6 &&
+        request.resource.data.phone.size() <= 40 &&
+        request.resource.data.topic is string &&
+        request.resource.data.topic.size() >= 2 &&
+        request.resource.data.topic.size() <= 40 &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() >= 5 &&
+        request.resource.data.message.size() <= 2000 &&
+        request.resource.data.createdAtIso is string &&
+        request.resource.data.createdAtIso.size() >= 10 &&
+        request.resource.data.createdAtIso.size() <= 40 &&
+        request.resource.data.source is string &&
+        request.resource.data.source.size() >= 3 &&
+        request.resource.data.source.size() <= 40;
+
+      // Admin-only access for reading/managing requests.
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow create: if
+        request.resource.data.restaurantId != null &&
+        exists(/databases/$(database)/documents/restaurants/$(request.resource.data.restaurantId)) &&
+        // The vendor must have cleared onboarding. Previously this only
+        // checked the restaurant document EXISTED, so an order could be
+        // placed against a vendor with no KYC, no verified bank account and
+        // no zone — revenue the platform could not lawfully settle.
+        //
+        // In-store POS/QR billing is exempt: that is the merchant's own
+        // counter sale, the platform never holds the money, and the
+        // settlement engine already excludes it (isCounterOrder in
+        // functions/src/vendorOrderRules.ts). Gating it here stopped a shop
+        // mid-onboarding — or suspended by the expiry sweep — from ringing up
+        // a walk-in customer, which is its own revenue, not the platform's.
+        // The exemption is owner/staff-only and cannot be used to smuggle in a
+        // marketplace order: orderIsInStore requires no customer identity, and
+        // those id fields are server-owned.
+        (
+          restaurantIsOperational(request.resource.data.restaurantId) ||
+          (
+            orderIsInStore(request.resource.data) &&
+            (isRestaurantOwner(request.resource.data.restaurantId) ||
+             staffCanManageOrder(request.resource.data.restaurantId))
+          )
+        ) &&
+        // Clients may never create an already-"paid" order — only a verified
+        // server payment (verifyRazorpayPayment / payOrderWithWallet, admin SDK)
+        // may mark an order paid. Owners/admin still create via admin paths.
+        (isAdmin() || isRestaurantOwner(request.resource.data.restaurantId)
+          || staffCanManageOrder(request.resource.data.restaurantId)
+          || request.resource.data.get("paymentStatus", "pending") != "paid") &&
+        (
+          // Public menu: allow create for dine-in, delivery, and takeaway QR orders
+          (
+            // "scheduled": customers can order for a later slot. The app offered
+            // it, but the rule only allowed "new", so every scheduled order was
+            // refused at checkout. Dispatch waits for the slot (delivery.ts).
+            request.resource.data.status in ["new", "scheduled"] &&
+            request.resource.data.type in ["dine-in", "dineIn", "dinein", "delivery", "takeaway"] &&
+            request.resource.data.items is list &&
+            request.resource.data.items.size() > 0
+          )
+          ||
+          // Authenticated staff/owner
+          (isRestaurantOwner(request.resource.data.restaurantId) ||
+           staffCanManageOrder(request.resource.data.restaurantId))
+        );
+      // Customers (delivery app) may read their own orders for live tracking,
+      // identified by the customerUid stamped on the order at creation.
+      // Riders may read an order they are offered or assigned to.
+      allow read: if isAdmin()
+        || (isRestaurantOwner(resource.data.get("restaurantId", "")))
+        || staffCanManageOrder(resource.data.get("restaurantId", ""))
+        || (request.auth != null && resource.data.get("customerUid", "") == request.auth.uid)
+        || (request.auth != null && resource.data.get("riderId", "") == request.auth.uid)
+        || (request.auth != null && resource.data.get("offer", {}).get("riderId", "") == request.auth.uid);
+      allow update: if isAdmin()
+        || (
+          // Restaurant owner may manage the order EXCEPT marking a DELIVERY
+          // order delivered/completed — that is the rider's/admin's job (via the
+          // completeDelivery callable). Dine-in / takeaway / pickup can still be
+          // completed by the owner. NOTE: this is keyed on the actual fulfillment
+          // type (type/channel == "delivery"), NOT on orderSource — customer-app
+          // PICKUP orders also carry orderSource == "delivery_app" but must remain
+          // owner-completable (they have no rider).
+          // Owner or permitted staff, and ONLY moves vendorTransitionOrder
+          // would also allow: no backwards/skipped/re-opened states, no
+          // rewriting money or identity on marketplace orders, and a PAID
+          // marketplace order is cancelled/rejected only via the callable,
+          // which refunds the customer. Delivery orders are still completed
+          // by the rider/completeDelivery, never the restaurant.
+          (isRestaurantOwner(resource.data.restaurantId) ||
+           staffCanManageOrder(resource.data.restaurantId)) &&
+          vendorOrderUpdateAllowed()
+        )
+        || (
+          request.auth != null &&
+          resource.data.customerUid == request.auth.uid &&
+          resource.data.status in ["new", "pending"] &&
+          // A paid order is cancelled only through customerCancelOrder, which
+          // refunds. A direct write here would cancel it and refund nobody.
+          resource.data.get("paymentStatus", "") != "paid" &&
+          request.resource.data.status == "cancelled" &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status"])
+        )
+        || (
+          // Customer may submit/update only the rating fields on their order.
+          request.auth != null &&
+          resource.data.customerUid == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["foodRating", "deliveryRating", "ratedAt"])
+        )
+        || (
+          // Assigned rider may advance the delivery leg and publish live GPS.
+          // They may leave `status` unchanged (intermediate steps only touch
+          // deliveryStatus) or advance it to "out_for_delivery". Marking the
+          // order delivered/completed + all money/assignment fields go only
+          // through the backend callables (which run as admin), never the client.
+          request.auth != null &&
+          resource.data.get("riderId", "") == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "riderLocation", "deliveryStatus", "status",
+            "pickedUpAt", "arrivedAt", "outForDeliveryAt", "updatedAt",
+            // Rider-flagged GPS pin correction at the doorstep — crowdsourced
+            // signal for improving future delivery accuracy at this address.
+            "correctedDropLat", "correctedDropLng", "pinCorrectedAt"
+          ]) &&
+          (request.resource.data.status == resource.data.status ||
+           request.resource.data.status == "out_for_delivery") &&
+          request.resource.data.deliveryStatus in
+            ["at_restaurant", "picked_up", "on_the_way", "arrived"] &&
+          // The order must still be live — no advancing a cancelled delivery.
+          !(resource.data.get("status", "") in ["cancelled", "rejected"]) &&
+          // PICKUP REQUIRES READY (hard business rule; mirrors pickupProblem in
+          // deliveryLifecycle.ts). A rider may not take food the kitchen has
+          // not marked ready.
+          (request.resource.data.deliveryStatus != "picked_up" ||
+           resource.data.get("deliveryStatus", "") == "picked_up" ||
+           resource.data.get("status", "") in ["ready", "prepared", "ready_for_pickup"] ||
+           resource.data.get("releasedForPickupAt", null) != null) &&
+          // TRANSITION ORDERING (authoritative lifecycle, see
+          // functions/src/deliveryLifecycle.ts). A rider may only step forward
+          // one stage at a time: assigned → at_restaurant → picked_up →
+          // on_the_way → arrived. Re-writing the current stage is allowed so a
+          // retried request is idempotent. This closes the hole where a client
+          // could jump straight to "picked_up"/"arrived" or move backwards.
+          (
+            resource.data.get("deliveryStatus", "") == request.resource.data.deliveryStatus ||
+            (resource.data.get("deliveryStatus", "") == "assigned" &&
+             request.resource.data.deliveryStatus == "at_restaurant") ||
+            (resource.data.get("deliveryStatus", "") == "at_restaurant" &&
+             request.resource.data.deliveryStatus == "picked_up") ||
+            (resource.data.get("deliveryStatus", "") == "picked_up" &&
+             request.resource.data.deliveryStatus == "on_the_way") ||
+            (resource.data.get("deliveryStatus", "") == "on_the_way" &&
+             request.resource.data.deliveryStatus == "arrived")
+          )
+        );
+
+      // The order's money split — commission, rider pay, Kada's revenue and
+      // tax liability — plus the restaurant's payout statement. It used to sit
+      // on the order document, which the CUSTOMER can read. Written only by
+      // placeFoodOrder (functions/src/pricing/orderFinance.ts); the restaurant
+      // and admins may read it, the customer and rider may not.
+      match /finance/{docId} {
+        allow read: if isAdmin()
+          || isRestaurantOwner(get(/databases/$(database)/documents/orders/$(orderId)).data.get("restaurantId", ""))
+          || staffCanManageOrder(get(/databases/$(database)/documents/orders/$(orderId)).data.get("restaurantId", ""));
+        allow write: if false;
+      }
+
+      // Immutable order/delivery event timeline. Written ONLY by Cloud
+      // Functions (admin SDK); participants may read their own order's history.
+      match /events/{eventId} {
+        function parentOrderDoc() {
+          return get(/databases/$(database)/documents/orders/$(orderId)).data;
+        }
+        allow read: if isAdmin()
+          || (request.auth != null && (
+                parentOrderDoc().get("customerUid", "") == request.auth.uid ||
+                parentOrderDoc().get("riderId", "") == request.auth.uid ||
+                isRestaurantOwner(parentOrderDoc().get("restaurantId", ""))
+              ));
+        allow write: if false;
+      }
+      // Marketplace orders are dispute evidence and the settlement basis, so
+      // only an admin may delete one. A restaurant may still void its own
+      // in-store POS/QR records.
+      allow delete: if isAdmin() ||
+        (isRestaurantOwner(resource.data.restaurantId) && orderIsInStore(resource.data));
+
+      // Rider ↔ customer direct chat for a delivery order. Both the order's
+      // customer and the assigned rider may read the thread and post messages;
+      // a sender may only stamp their own uid + role. (Admin SDK bypasses this.)
+      match /rider_chat/{messageId} {
+        function parentOrder() {
+          return get(/databases/$(database)/documents/orders/$(orderId)).data;
+        }
+        allow read: if isAdmin() || (request.auth != null && (
+          parentOrder().get("customerUid", "") == request.auth.uid ||
+          parentOrder().get("riderId", "") == request.auth.uid
+        ));
+        allow create: if isAdmin() || (request.auth != null &&
+          request.resource.data.senderUid == request.auth.uid && (
+            (request.resource.data.senderRole == "customer" &&
+             parentOrder().get("customerUid", "") == request.auth.uid) ||
+            (request.resource.data.senderRole == "rider" &&
+             parentOrder().get("riderId", "") == request.auth.uid)
+          ));
+        allow update, delete: if isAdmin();
+      }
+
+      // Read receipts for the rider↔customer chat — per-role marker so each
+      // side can query the other's lastReadAt without needing the other's uid.
+      // Document ID is literally "customer" or "rider"; only the corresponding
+      // party may write their own marker. Both parties may read both markers.
+      match /rider_chat_reads/{role} {
+        function parentOrder2() {
+          return get(/databases/$(database)/documents/orders/$(orderId)).data;
+        }
+        allow read: if isAdmin() || (request.auth != null && (
+          parentOrder2().get("customerUid", "") == request.auth.uid ||
+          parentOrder2().get("riderId", "") == request.auth.uid
+        ));
+        allow write: if isAdmin() || (request.auth != null && (
+          (role == "customer" &&
+           parentOrder2().get("customerUid", "") == request.auth.uid) ||
+          (role == "rider" &&
+           parentOrder2().get("riderId", "") == request.auth.uid)
+        ));
+      }
+    }
+
+    match /group_orders/{groupId} {
+      // Group members can read the group order session.
+      allow read: if request.auth != null && (resource.data.hostId == request.auth.uid || request.auth.uid in resource.data.members);
+      allow create: if request.auth != null && request.resource.data.hostId == request.auth.uid;
+      allow update: if request.auth != null && 
+        (resource.data.hostId == request.auth.uid || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']));
+      allow delete: if isAdmin() || (request.auth != null && resource.data.hostId == request.auth.uid);
+      
+      match /group_cart_items/{itemId} {
+        // Members only: items were world-readable (read: if true). Creates keep
+        // the quantity/author validation.
+        allow read: if request.auth != null && (get(/databases/$(database)/documents/group_orders/$(groupId)).data.hostId == request.auth.uid || request.auth.uid in get(/databases/$(database)/documents/group_orders/$(groupId)).data.members);
+        allow create: if request.auth != null
+          && (get(/databases/$(database)/documents/group_orders/$(groupId)).data.hostId == request.auth.uid || request.auth.uid in get(/databases/$(database)/documents/group_orders/$(groupId)).data.members)
+          && request.resource.data.addedBy == request.auth.uid
+          && request.resource.data.qty is int
+          && request.resource.data.qty > 0
+          && request.resource.data.qty <= 99;
+        allow update, delete: if request.auth != null && (resource.data.addedBy == request.auth.uid || get(/databases/$(database)/documents/group_orders/$(groupId)).data.hostId == request.auth.uid);
+      }
+    }
+
+    // Customer delivery-app accounts: profile, saved addresses, fcm tokens.
+    // A customer accesses only their own document (keyed by auth uid); the
+    // platform admin may read/manage all of them (the /admin Consumers page).
+    function customerProtectedFields() {
+      return [
+        "walletBalance", "isGold", "goldUntil", "goldSince",
+        "loyaltyPoints", "paidOut", "lifetimeOrderValue",
+        "referredBy", "referredAt", "referralCode", "referralRewarded",
+        "referralEarnings", "referralCount",
+        // Stamped by onCustomerProfileLocationChanged from the live zone
+        // polygons — a client must not be able to claim a zone.
+        "primaryZoneId", "primaryZoneName", "nearestZoneName", "nearestZoneKm", "primaryZoneResolvedAt"
+      ];
+    }
+    match /customer_users/{uid} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      // A customer creates their own profile but can never seed money or
+      // entitlements into it. Create and delete used to be unrestricted, so a
+      // customer could delete their profile and recreate it with any wallet
+      // balance or Gold expiry, then spend that wallet on real orders. The app
+      // never deletes this doc (account deletion marks it isDeleted).
+      allow create: if isAdmin() || (
+        request.auth != null && request.auth.uid == uid &&
+        !request.resource.data.keys().hasAny(customerProtectedFields())
+      );
+      allow delete: if isAdmin();
+      // Users may edit their own profile, but NOT money/entitlement fields.
+      // walletBalance, Kada Gold status and loyalty points are mutated ONLY
+      // server-side (wallet/payment callables + admin SDK, which bypass these
+      // rules). This closes a wallet self-credit hole — a client could otherwise
+      // write `walletBalance` directly (e.g. the old client-side support bot did).
+      allow update: if isAdmin() || (
+        request.auth != null && request.auth.uid == uid &&
+        // Referral fields are set only by the referral callables + reward
+        // trigger (admin SDK). A client must never self-assign a referrer or
+        // mark its own referral rewarded — that would mint wallet credit.
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(customerProtectedFields())
+      );
+      match /{coll}/{rest=**} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+        // The wallet ledger is written only by the server alongside the balance.
+        allow write: if isAdmin() || (
+          request.auth != null && request.auth.uid == uid && coll != "wallet_transactions"
+        );
+      }
+    }
+
+    // Referrals — a referee/referrer may read their own referral records, but
+    // creation and reward payout happen ONLY via callables + the reward trigger
+    // (admin SDK bypasses these rules). Clients never write referral state.
+    match /referrals/{referralId} {
+      allow read: if isAdmin() || (request.auth != null &&
+        (resource.data.referrerUid == request.auth.uid ||
+         resource.data.refereeUid == request.auth.uid));
+      allow write: if isAdmin();
+    }
+
+    // Code → owner lookup for referral codes. Resolved server-side only; the
+    // client never needs to read it and must never forge one.
+    match /referral_codes/{code} {
+      allow read, write: if isAdmin();
+    }
+
+    // Referral programs — admin-configured reward structures and rules.
+    // Read by admin panel and Cloud Functions (via admin SDK bypass).
+    match /referral_programs/{programId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Referral events — immutable audit log of every referral lifecycle event.
+    // Append-only via Cloud Functions; admin reads for audit trails.
+    match /referral_events/{eventId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Referral fraud signals — flagged suspicious referral activity.
+    // Written by Cloud Functions; admin reads for review queue.
+    match /referral_fraud_signals/{signalId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Referral campaigns — time-bound promotional campaigns with budgets.
+    match /referral_campaigns/{campaignId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Gift cards — created and redeemed exclusively via callables (the doc
+    // holds the PIN). Purchasers see their own purchase history; admins manage.
+    match /gift_cards/{cardId} {
+      allow read: if isAdmin() ||
+        (request.auth != null && resource.data.purchaserUid == request.auth.uid);
+      allow update: if isAdmin(); // void / reactivate from the admin panel
+      allow create, delete: if isAdmin();
+    }
+
+    // Rider (delivery-partner app) accounts. Each rider owns their document
+    // (keyed by auth uid). Riders self-register as 'pending_approval'; only a
+    // platform admin (or the backend callables running as admin) may flip the
+    // approval status or write the earnings/cash ledger. Everything else on the
+    // profile (online flag, live location, vehicle, fcm tokens) is rider-owned.
+    match /delivery_users/{uid} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow create: if request.auth != null && request.auth.uid == uid &&
+        request.resource.data.get("status", "pending_approval") == "pending_approval" &&
+        // `status` alone was guarded; a rider could still seed
+        // `onboarding.state: "active"` / `bank.verificationState: "verified"`
+        // at creation and be dispatchable + withdrawable immediately.
+        seedsNoEngineOwnedFields();
+      allow update: if isAdmin() ||
+        (
+          request.auth != null && request.auth.uid == uid &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            "status", "earnings", "cashInHand", "lifetimeDeliveries", "rejectionReason",
+            // Zone drives which orders a rider is offered and which surge
+            // applies, so it is server-resolved from their base location.
+            "zoneId", "marketId", "zoneName", "zoneAssignment", "zoneResolvedAt",
+            // Onboarding lifecycle + banking verification are engine-owned.
+            // A rider self-writing `onboarding.state = "active"` or
+            // `bank.verificationState = "verified"` would bypass every KYC,
+            // document-expiry and payout gate at once.
+            "onboarding", "bank", "isActive", "isVerified", "kycStatus",
+            "riskFlags", "serviceable", "onboardingChecks"
+          ])
+        );
+      allow delete: if isAdmin();
+      // The immutable onboarding timeline is written only by the transition
+      // engine (admin SDK bypasses rules); riders and admins may read it.
+      match /onboarding_events/{eventId} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+        allow write: if false;
+      }
+      match /{sub=**} {
+        allow read, write: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      }
+    }
+
+    // Rider earnings ledger: one entry per completed delivery. Read-only to the
+    // rider; written exclusively by the backend (completeDelivery callable).
+    match /rider_earnings/{uid} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+      allow write: if isAdmin();
+      match /entries/{entryId} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+        allow write: if isAdmin();
+      }
+    }
+
+    // Rider online-earnings payout requests. Created by riders through the
+    // `requestRiderPayout` callable (admin SDK) and settled by admins via
+    // `settleRiderPayout` — clients never write directly. A rider reads only
+    // their own requests; admins read/manage all.
+    match /payout_requests/{requestId} {
+      allow read: if canReadPayoutRequests() ||
+        (request.auth != null && (resource.data.riderUid == request.auth.uid || resource.data.riderId == request.auth.uid));
+      allow create: if request.auth != null &&
+        (request.resource.data.riderUid == request.auth.uid || request.resource.data.riderId == request.auth.uid);
+      allow update, delete: if canWriteFinance() || hasAdminRole(['delivery_manager', 'ops_manager']);
+    }
+
+    match /vendor_payout_requests/{requestId} {
+      // Created only by the requestVendorPayout callable, which runs with the
+      // Admin SDK and therefore bypasses these rules. Clients must never be
+      // able to queue money out by writing this collection directly.
+      allow read: if isAdmin() || isRestaurantOwner(resource.data.restaurantId);
+      allow create: if false;
+      allow update, delete: if isAdmin();
+    }
+
+    match /inventory/{itemId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    match /inventory_logs/{logId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    match /suppliers/{supplierId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    match /wastage/{wasteId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    match /attendance/{attendanceId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    match /payroll/{payrollId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    match /menu/{itemId} {
+      allow read: if true;
+      // Owner or staff with menu access. An update must keep the doc's
+      // restaurant: the old rule checked only the CURRENT owner, so an owner
+      // could re-point a doc into another restaurant (e.g. another menu).
+      allow update: if isAdmin() || (
+        (isRestaurantOwner(resource.data.restaurantId) ||
+         (isActiveStaffOf(resource.data.restaurantId) && staffHasPermission("menu"))) &&
+        request.resource.data.get("restaurantId", "") == resource.data.get("restaurantId", "")
+      );
+      allow delete: if isAdmin() || isRestaurantOwner(resource.data.restaurantId) ||
+        (isActiveStaffOf(resource.data.restaurantId) && staffHasPermission("menu"));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId) ||
+        (isActiveStaffOf(request.resource.data.restaurantId) && staffHasPermission("menu"));
+    }
+
+    match /tables/{tableId} {
+      allow read: if true;
+      // Owner or staff with tables access. An update must keep the doc's
+      // restaurant: the old rule checked only the CURRENT owner, so an owner
+      // could re-point a doc into another restaurant (e.g. another menu).
+      allow update: if isAdmin() || (
+        (isRestaurantOwner(resource.data.restaurantId) ||
+         (isActiveStaffOf(resource.data.restaurantId) && staffHasPermission("tables"))) &&
+        request.resource.data.get("restaurantId", "") == resource.data.get("restaurantId", "")
+      );
+      allow delete: if isAdmin() || isRestaurantOwner(resource.data.restaurantId) ||
+        (isActiveStaffOf(resource.data.restaurantId) && staffHasPermission("tables"));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId) ||
+        (isActiveStaffOf(request.resource.data.restaurantId) && staffHasPermission("tables"));
+    }
+
+    match /staff/{staffId} {
+      // A staff login reads its own doc to learn its role and permissions;
+      // it can never write it, so it cannot grant itself access.
+      allow read: if isAdmin() || isRestaurantOwner(resource.data.restaurantId) ||
+        (request.auth != null && request.auth.token.get("staffDocId", "") == staffId);
+      allow update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    match /campaigns/{campaignId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    match /menu_ads/{adId} {
+      // Public menu should only be able to read ads that are enabled and within the configured time window.
+      allow read: if
+        isAdmin() ||
+        (isRestaurantOwner(resource.data.restaurantId)) ||
+        (
+          resource.data.enabled == true &&
+          resource.data.restaurantId is string &&
+          (!("startAt" in resource.data) || resource.data.startAt <= request.time) &&
+          (!("endAt" in resource.data) || resource.data.endAt >= request.time)
+        );
+
+      allow create: if
+        request.auth != null &&
+        request.resource.data.restaurantId == request.auth.uid;
+
+      allow update, delete: if
+        isAdmin() ||
+        (isRestaurantOwner(resource.data.restaurantId));
+    }
+
+    match /user_sessions/{sessionId} {
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId) && request.auth.uid == request.resource.data.restaurantId;
+      allow read, update, delete: if isAdmin() || (request.auth != null && resource.data.restaurantId == request.auth.uid);
+    }
+
+    // ─── Recipe management (menu item → ingredient mappings) ────────────────
+    match /recipes/{recipeId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    // ─── Table reservations ──────────────────────────────────────────────────
+    match /reservations/{reservationId} {
+      // Guests can create reservations (public booking form), owners manage them
+      allow create: if request.auth != null &&
+        request.resource.data.restaurantId is string &&
+        request.resource.data.restaurantId.size() > 0 &&
+        exists(/databases/$(database)/documents/restaurants/$(request.resource.data.restaurantId)) &&
+        request.resource.data.guestName is string &&
+        request.resource.data.guestPhone is string &&
+        request.resource.data.guestCount is number &&
+        request.resource.data.reservationDate is string;
+      // Restrict read access to protect guest PII (names, phone numbers) from public scraping
+      allow read: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId)) ||
+        (request.auth != null && (request.auth.uid == resource.data.customerId || request.auth.uid == resource.data.userId || request.auth.uid == reservationId));
+      allow update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+    }
+
+    // ─── Loyalty wallets ─────────────────────────────────────────────────────
+    match /loyalty_wallets/{walletId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+      // Wallet transaction sub-collection
+      match /transactions/{txId} {
+        allow read, create: if isAdmin() ||
+          (request.auth != null &&
+            isRestaurantOwner(get(/databases/$(database)/documents/loyalty_wallets/$(walletId)).data.restaurantId));
+      }
+    }
+
+    // ─── Purchase Orders ─────────────────────────────────────────────────────
+    match /purchase_orders/{poId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    // ─── KOT tickets (kitchen order history) ────────────────────────────────
+    match /kot_tickets/{kotId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    // ─── Shift schedules ─────────────────────────────────────────────────────
+    match /shifts/{shiftId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    // ─── Leave requests ──────────────────────────────────────────────────────
+    match /leaves/{leaveId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    // ─── Day-end closing records ─────────────────────────────────────────────
+    match /day_closings/{closingId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    // ─── Brands (cloud kitchen) ───────────────────────────────────────────────
+    match /brands/{brandId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    // ─── Newsletter subscriptions (public blog form) ─────────────────────────
+    match /newsletter_subscriptions/{subscriptionId} {
+      // Public marketing form: allow anonymous create with validation.
+      allow create: if
+        request.resource.data.email is string &&
+        request.resource.data.email.size() >= 5 &&
+        request.resource.data.email.size() <= 254 &&
+        request.resource.data.email.matches('.+@.+\\..+') &&
+        request.resource.data.source is string &&
+        request.resource.data.source.size() >= 2 &&
+        request.resource.data.source.size() <= 40;
+      // Admin-only access for managing the list.
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ─── Expenses (P&L bookkeeping) ──────────────────────────────────────────
+    match /expenses/{expenseId} {
+      allow read, update, delete: if isAdmin() || (isRestaurantOwner(resource.data.restaurantId));
+      allow create: if isRestaurantOwner(request.resource.data.restaurantId);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ─── Notification Platform Collections ────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // Notification templates — admin-managed reusable notification content.
+    match /notification_templates/{templateId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+      // Template version history subcollection.
+      match /versions/{versionId} {
+        allow read: if isAdmin();
+        allow create: if isAdmin();
+      }
+    }
+
+    // Notification campaigns — scheduled/sent campaigns with audience targeting.
+    match /notification_campaigns/{campaignId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Notification jobs — queue items for campaign execution. Server-only write.
+    match /notification_jobs/{jobId} {
+      allow read: if isAdmin();
+      // Only Cloud Functions may write queue jobs.
+      allow create, update, delete: if false;
+    }
+
+    // Notification deliveries — delivery log for every notification sent.
+    match /notification_deliveries/{deliveryId} {
+      // Admins can read all deliveries. Users can read their own.
+      allow read: if isAdmin() ||
+        (request.auth != null && resource.data.userId == request.auth.uid);
+      // Only Cloud Functions may write delivery logs.
+      allow create, update, delete: if false;
+    }
+
+    // Notification devices — centralized device token registry.
+    match /notification_devices/{deviceId} {
+      // Users can read and manage their own devices. Admins can read all.
+      allow read: if isAdmin() ||
+        (request.auth != null && resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin() ||
+        (request.auth != null && resource.data.userId == request.auth.uid);
+    }
+
+    // Notification preferences — per-user category/channel notification settings.
+    match /notification_preferences/{userId} {
+      allow read: if isAdmin() ||
+        (request.auth != null && request.auth.uid == userId);
+      allow create, update: if request.auth != null &&
+        request.auth.uid == userId;
+      // Admins can also override preferences.
+      allow write: if isAdmin();
+    }
+
+    // Notification segments — saved audience segment definitions.
+    match /notification_segments/{segmentId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Notification automations — WHEN/IF/THEN automation rules.
+    match /notification_automations/{automationId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Notification automation runs — execution history. Server-only write.
+    match /notification_automation_runs/{runId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // AI generation audit logs — every AI notification generation is logged.
+    match /notification_ai_logs/{logId} {
+      allow read: if isAdmin();
+      // Only Cloud Functions may write AI audit logs.
+      allow create, update, delete: if false;
+    }
+
+    // ── Kada Communications platform ─────────────────────────────────────
+    // A user may read (never write) their own communication profile; admins
+    // read all. All profile writes happen server-side (Cloud Functions).
+    match /communicationProfiles/{userId} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+      allow write: if false;
+      match /{sub=**} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+        allow write: if false;
+      }
+    }
+
+    // Admin-authored content — editable from the Admin Panel by admins only.
+    match /emailTemplates/{id}  { allow read, write: if isAdmin(); }
+    match /emailCampaigns/{id}  { allow read, write: if isAdmin(); }
+    match /emailSegments/{id}   { allow read, write: if isAdmin(); }
+    match /emailAutomations/{id} { allow read, write: if isAdmin(); }
+    match /emailExperiments/{id} { allow read, write: if isAdmin(); }
+    match /communicationSettings/{id} { allow read, write: if isAdmin(); }
+
+    // Server-only records — admins read; writes are Cloud Functions / Admin SDK.
+    match /emailLogs/{id}             { allow read: if isAdmin(); allow write: if false; }
+    match /emailEvents/{id}           { allow read: if isAdmin(); allow write: if false; }
+    match /emailSuppressions/{id}     { allow read: if isAdmin(); allow write: if false; }
+    match /communicationAuditLogs/{id} { allow read: if isAdmin(); allow write: if false; }
+    match /emailWebhookEvents/{id}    { allow read: if isAdmin(); allow write: if false; }
+
+    // ── Marketplace ops (admin console + public catalog reads) ────────────
+    match /markets/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    // Surge/demand pricing zones — NOT service areas. See /zones for those.
+    match /demand_zones/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Partner health scores + platform anomalies. Computed server-side by the
+    // `recomputeOpsHealth` job; admin-read only. A partner must never see (or
+    // write) their own score — it drives ops decisions about them.
+    match /vendor_health/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /rider_health/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /ops_health/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // Heartbeats written by withCronHeartbeat (functions/src/cronHealth.ts).
+    // Server-only, like its siblings: a client that could forge a heartbeat
+    // could hide a dead cron, which is the exact failure this is meant to
+    // surface.
+    match /cron_health/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Changelog / release notes. Clients read PUBLISHED, EXTERNAL entries only;
+    // `internal` marks ops-only notes that must never reach an app or the site.
+    // Every write goes through the changelogAdmin / changelogEngage callables,
+    // which validate content and keep counters exact. List queries must filter
+    // status == "published" AND visibility == "external" so the rule is
+    // provable for them.
+    // Automatic release notes: what each deploy shipped, and which commits
+    // already have a note. Commit messages mention internal details, so only
+    // admins read these; only the deploy hook and Cloud Functions write.
+    match /changelog_releases/{releaseId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /changelog_sync/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /changelog_entries/{entryId} {
+      allow read: if isAdmin() ||
+        (resource.data.status == "published" && resource.data.visibility == "external");
+      allow write: if false;
+      match /revisions/{revisionId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+      match /events/{eventId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+      // A person's own reaction / acknowledgement, so an app can show it.
+      match /engagement/{uid} {
+        allow read: if isAdmin() || (request.auth != null && request.auth.uid == uid);
+        allow write: if false;
+      }
+    }
+
+    // Service zones — the geographic source of truth. Readable by anyone (the
+    // customer app needs boundaries to answer "do you deliver here?"), but
+    // written ONLY through `upsertServiceZone`, which validates the ring and
+    // audits the change. A zone carries the delivery fees for its area, so a
+    // client that could write one could set its own delivery price.
+    match /zones/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /home_collections/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /cancellation_reasons/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /platform_refunds/{id} {
+      allow read: if isAdmin();
+      // Money: refunds are created and executed ONLY by Cloud Functions
+      // (adminPlatformAction, vendor/customer cancellation, the payment
+      // sweep). A browser write could mark a refund "completed" that never
+      // reached the gateway.
+      allow write: if false;
+    }
+    match /host_settlements/{id} {
+      allow read: if isAdmin() || (request.auth != null && (
+        resource.data.hotelId == request.auth.uid ||
+        resource.data.ownerId == request.auth.uid
+      ));
+      // Money: only finance/platform/super may write host settlements.
+      allow write: if hasAdminRole(['super_admin', 'platform_admin', 'finance_manager']);
+    }
+    match /ops_incidents/{id} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    match /admin_team/{id} {
+      allow read: if isAdmin();
+      // Managing the admin team is privilege escalation — super/platform only.
+      allow write: if hasAdminRole(['super_admin', 'platform_admin']);
+    }
+    match /stay_destinations/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    // Signature-verified gateway events: written only by razorpayWebhook.
+    // Admin "Retry" goes through adminPlatformAction(replayWebhookEvent).
+    match /razorpay_webhook_events/{id} {
+      allow read: if canReadFinance();
+      allow write: if false;
+    }
+    match /wallet_topups/{id} {
+      allow read: if canReadFinance() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow write: if false;
+    }
+    // Web subscription purchases (subscriptionBilling.ts). Server-only; the
+    // merchant can read their own purchase history.
+    match /subscription_orders/{id} {
+      allow read: if canReadFinance() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow write: if false;
+    }
+    match /transactions/{txId} {
+      allow read: if canReadFinance();
+      allow write: if false;
+    }
+    // RazorpayX payout ledger — written ONLY by Cloud Functions (admin SDK).
+    // Admins may read it; no client (not even the admin console) may mutate it,
+    // so a real money transfer can never be forged or edited from the browser.
+    match /payouts/{referenceId} {
+      allow read: if canReadFinance();
+      allow write: if false;
+    }
+    // Gateway settlement + reconciliation ledgers — synced from Razorpay by
+    // Cloud Functions only. Read-only to admins; never client-writable so the
+    // reconciled books cannot be tampered with from the browser.
+    match /gateway_settlements/{id} {
+      allow read: if canReadFinance();
+      allow write: if false;
+    }
+    match /settlement_recon/{id} {
+      allow read: if canReadFinance();
+      allow write: if false;
+    }
+    match /stay_amenities/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /stay_reviews/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /contact_requests/{id} {
+      // Anyone can submit a contact form, but only admins can read or manage them.
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /crm_campaigns/{id} { allow read, write: if isAdmin(); }
+    match /crm_segments/{id} { allow read, write: if isAdmin(); }
+    match /risk_investigations/{id} { allow read, write: if isAdmin(); }
+    match /blocked_entities/{id} { allow read, write: if isAdmin(); }
+  }
+}

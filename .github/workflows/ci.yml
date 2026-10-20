@@ -1,0 +1,82 @@
+name: CI
+
+# Everything here guards a failure this project actually shipped. The point is
+# that each one was SILENT locally: the build stayed green, and the breakage
+# only appeared in production or on a tester's phone.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  doctor:
+    name: doctor + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Offline checks only: CI has no Firebase credentials, so the
+      # deployed-vs-source comparison is left to `npm run doctor:online`.
+      - name: Kada doctor
+        run: node scripts/doctor.mjs
+
+      - name: Install admin deps
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck admin
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: Install functions deps
+        run: npm --prefix functions ci --no-audit --no-fund
+      - name: Build functions
+        run: npm --prefix functions run build
+
+  flutter:
+    name: flutter analyze (clean clone)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.8
+          channel: stable
+
+      # This job exists because two apps once failed to build from a clean
+      # checkout while building fine locally: the vendor app imported a
+      # gitignored lib/config/ai_config.dart, and the rider app imported a
+      # lib/utils/polyline_decoder.dart that had never been committed. Both
+      # only surface on a machine that does not already have the file.
+      - name: analyze
+        run: |
+          set -e
+          for app in customer_mobile_app vendor_mobile_app delivery_mobile_app host_app; do
+            echo "::group::$app"
+            (cd "$app" && flutter pub get && flutter analyze)
+            echo "::endgroup::"
+          done
+
+  flutter-test:
+    name: flutter test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.8
+          channel: stable
+      - name: test
+        run: |
+          set -e
+          for app in customer_mobile_app vendor_mobile_app delivery_mobile_app host_app; do
+            if ls "$app"/test/*.dart >/dev/null 2>&1; then
+              echo "::group::$app"
+              (cd "$app" && flutter pub get && flutter test)
+              echo "::endgroup::"
+            fi
+          done

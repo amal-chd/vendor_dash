@@ -1,0 +1,121 @@
+                                          ? RiderColors.success.withValues(alpha: 0.5)
+                                          : RiderColors.primary.withValues(alpha: 0.4),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            verificationDone
+                                                ? Icons.verified_user_rounded
+                                                : Icons.security_rounded,
+                                            color: verificationDone
+                                                ? RiderColors.success
+                                                : RiderColors.primary,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              verificationDone
+                                                  ? 'DOORSTEP VERIFIED SUCCESSFULLY'
+                                                  : 'DOORSTEP SECURITY VERIFICATION',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 12,
+                                                color: verificationDone
+                                                    ? RiderColors.success
+                                                    : RiderColors.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        verificationDone
+                                            ? (_photoCaptured && !_otpVerified
+                                                ? 'Drop-off photo captured. You can now complete the delivery.'
+                                                : 'OTP captured. You can now complete the delivery.')
+                                            : (otpNeeded
+                                                ? 'Ask the customer for their 4-digit delivery OTP to confirm the handover. A photo is optional.'
+                                                : 'Capture a drop-off photo, or enter the customer OTP, to complete this delivery.'),
+                                        style: const TextStyle(
+                                            fontSize: 13, color: RiderColors.muted),
+                                      ),
+                                      if (!verificationDone) ...[
+                                        const SizedBox(height: 14),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ElevatedButton.icon(
+                                                onPressed: () => _showOtpModal(order),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: RiderColors.primary,
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size(0, 44),
+                                                ),
+                                                icon: const Icon(Icons.pin_rounded,
+                                                    size: 18),
+                                                label: const Text('Enter OTP',
+                                                    style: TextStyle(fontSize: 13)),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: OutlinedButton.icon(
+                                                onPressed: _takePhotoProof,
+                                                style: OutlinedButton.styleFrom(
+                                                  minimumSize: const Size(0, 44),
+                                                ),
+                                                icon: const Icon(
+                                                    Icons.camera_alt_outlined,
+                                                    size: 18),
+                                                label: Text(
+                                                    otpNeeded
+                                                        ? 'Add Photo'
+                                                        : 'Photo Proof',
+                                                    style: const TextStyle(fontSize: 13)),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ] else if (_otpVerified && !_photoCaptured) ...[
+                                        // OTP done — still let the rider add a
+                                        // contactless photo if they want one.
+                                        const SizedBox(height: 12),
+                                        OutlinedButton.icon(
+                                          onPressed: _takePhotoProof,
+                                          style: OutlinedButton.styleFrom(
+                                            minimumSize: const Size(0, 40),
+                                          ),
+                                          icon: const Icon(
+                                              Icons.camera_alt_outlined, size: 16),
+                                          label: const Text('Add drop-off photo (optional)',
+                                              style: TextStyle(fontSize: 12.5)),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+          
+                              const SizedBox(height: 16),
+                              _OrderItemsChecklist(
+                                  order: order,
+                                  cardColor: cardColor,
+                                  borderColor: borderColor),
+                              const SizedBox(height: 16),
+                              _PaymentCard(order: order, cardColor: cardColor),
+                              if (isArrivedStage && order.isCod) ...[
+                                const SizedBox(height: 12),
+                                _CodChangeCalculator(
+                                  amount: order.total,
+                                  cardColor: cardColor,
+                                ),
+                                const SizedBox(height: 12),
+                                _CodConfirm(
+                                  amount: order.total,
+                                  value: _codCollected,
+                                  onChanged: (v) => setState(() => _codCollected = v),

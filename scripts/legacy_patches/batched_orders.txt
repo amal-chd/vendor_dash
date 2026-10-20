@@ -1,0 +1,53 @@
+                              StreamBuilder<List<DeliveryOrder>>(
+                                stream: RiderService.instance.activeDeliveriesStream(),
+                                builder: (ctx, batchSnap) {
+                                  final list = batchSnap.data ?? [];
+                                  if (list.length <= 1) return const SizedBox.shrink();
+                                  final others = list.where((o) => o.id != order.id).toList();
+                                  if (others.isEmpty) return const SizedBox.shrink();
+                                  return Container(
+                                    margin: const EdgeInsets.only(top: 12),
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: RiderColors.primary.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: RiderColors.primary.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.layers_rounded, size: 20, color: RiderColors.primary),
+                                            const SizedBox(width: 10),
+                                            Text(
+                                              '${others.length} Batched Order${others.length > 1 ? 's' : ''} Queued',
+                                              style: const TextStyle(
+                                                color: RiderColors.primary,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        ...others.map((o) => Padding(
+                                          padding: const EdgeInsets.only(bottom: 4, left: 30),
+                                          child: Text(
+                                            '• #${o.orderNumber} (${o.customerName})',
+                                            style: const TextStyle(
+                                              fontSize: 13, 
+                                              fontWeight: FontWeight.w700,
+                                              color: RiderColors.muted
+                                            ),
+                                          ),
+                                        )),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                              _StageStepper(stage: order.stage),
+                              const SizedBox(height: 18),
+          

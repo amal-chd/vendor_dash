@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.thekada.app",
+      "sha256_cert_fingerprints": [
+        "32:7F:34:0C:BC:DF:1A:EB:03:A7:4D:52:0C:21:92:A2:E8:17:8D:47:B9:44:41:52:1A:0C:53:8F:43:84:A6:FE"
+      ]
+    }
+  }
+]

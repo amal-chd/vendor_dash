@@ -1,0 +1,185 @@
+workflows:
+  customer-app-release:
+    name: Build & Publish Customer App
+    instance_type: mac_mini_m2
+    working_directory: customer_mobile_app
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - app_store_credentials
+        - play_store_credentials
+    scripts:
+      - name: Set up code signing settings on macOS
+        script: |
+          keychain initialize
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "com.thekada.app" --type IOS_APP_STORE --create
+      - name: Set up signing certificate
+        script: |
+          keychain add-certificates
+      - name: Set up code signing profiles
+        script: |
+          xcode-project use-profiles
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Build iOS Release
+        script: |
+          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+      - name: Build Android Release
+        script: |
+          flutter build appbundle --release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/app/outputs/bundle/release/*.aab
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients:
+          - amalchand@example.com
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
+
+  vendor-app-release:
+    name: Build & Publish Vendor App
+    instance_type: mac_mini_m2
+    working_directory: vendor_mobile_app
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - app_store_credentials
+        - play_store_credentials
+    scripts:
+      - name: Set up code signing settings on macOS
+        script: |
+          keychain initialize
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "com.kadadine.app" --type IOS_APP_STORE --create
+      - name: Set up signing certificate
+        script: |
+          keychain add-certificates
+      - name: Set up code signing profiles
+        script: |
+          xcode-project use-profiles
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Build iOS Release
+        script: |
+          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+      - name: Build Android Release
+        script: |
+          flutter build appbundle --release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/app/outputs/bundle/release/*.aab
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
+
+  delivery-app-release:
+    name: Build & Publish Delivery App
+    instance_type: mac_mini_m2
+    working_directory: delivery_mobile_app
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - app_store_credentials
+        - play_store_credentials
+    scripts:
+      - name: Set up code signing settings on macOS
+        script: |
+          keychain initialize
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "com.thekada.kadaRider" --type IOS_APP_STORE --create
+      - name: Set up signing certificate
+        script: |
+          keychain add-certificates
+      - name: Set up code signing profiles
+        script: |
+          xcode-project use-profiles
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Build iOS Release
+        script: |
+          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+      - name: Build Android Release
+        script: |
+          flutter build appbundle --release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/app/outputs/bundle/release/*.aab
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
+
+  host-app-release:
+    name: Build & Publish Host App
+    instance_type: mac_mini_m2
+    working_directory: host_app
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - app_store_credentials
+        - play_store_credentials
+    scripts:
+      - name: Set up code signing settings on macOS
+        script: |
+          keychain initialize
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "com.kadastay.app" --type IOS_APP_STORE --create
+      - name: Set up signing certificate
+        script: |
+          keychain add-certificates
+      - name: Set up code signing profiles
+        script: |
+          xcode-project use-profiles
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Build iOS Release
+        script: |
+          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+      - name: Build Android Release
+        script: |
+          flutter build appbundle --release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/app/outputs/bundle/release/*.aab
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true

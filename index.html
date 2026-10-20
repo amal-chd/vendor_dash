@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en-IN">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Standard viewport — no user-scalable=no: Google Search flags that as
+         "not mobile-friendly". Pinch-zoom must remain accessible on all pages.
+         The gesturestart listener below still prevents unintended iOS pinch
+         inside the POS/dashboard (tap-manipulation is set in CSS instead). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kada Dine | Restaurant POS, QR Menu & GST Billing</title>
+    <meta
+      name="description"
+      content="Kada Dine is a cloud restaurant POS and management system with QR digital menus, table ordering, kitchen display system (KDS), KOT, billing, GST-ready reports, inventory and analytics."
+    />
+    <meta name="author" content="Kada Dine" />
+    <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1" />
+    <meta name="googlebot" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1" />
+    <meta name="theme-color" content="#0B1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="application-name" content="Kada Dine" />
+    <meta name="apple-mobile-web-app-title" content="Kada Dine" />
+    <link rel="canonical" href="https://kadadine.thekada.in" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Fonts: preconnect + non-render-blocking load (display=swap).
+         The CSS @import in index.css was causing 2 "render-blocking stylesheets"
+         reported by PageSpeed / Okara. Moving here with <link> + display=swap
+         lets the browser paint immediately with the fallback font while the
+         webfont downloads in parallel (fixes FCP & LCP). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" />
+    </noscript>
+    <link rel="preconnect" href="https://checkout.razorpay.com" />
+
+    <meta property="og:title" content="Kada Dine | Restaurant POS, QR Menu & GST Billing" />
+    <meta
+      property="og:description"
+      content="Run your restaurant with Kada Dine: cloud POS billing, QR digital menu + table ordering, kitchen display system (KDS), KOT, staff, inventory, and analytics."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://kadadine.thekada.in" />
+    <meta property="og:site_name" content="Kada Dine" />
+    <meta property="og:image" content="https://kadadine.thekada.in/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Kada Dine — Restaurant POS, QR Menu, Kitchen Display, GST Billing platform" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:locale:alternate" content="hi_IN" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Kada Dine | Restaurant POS, QR Menu, KDS & Billing" />
+    <meta
+      name="twitter:description"
+      content="Cloud restaurant POS billing + QR digital menu, table ordering, KDS, KOT, GST reports, inventory and analytics."
+    />
+    <meta name="twitter:image" content="https://kadadine.thekada.in/og.png" />
+    <meta name="twitter:image:alt" content="Kada Dine restaurant management platform" />
+    <!-- Add when X / Twitter account is created:
+    <meta name="twitter:site" content="@kadadine" />
+    <meta name="twitter:creator" content="@kadadine" />
+    -->
+
+    <!-- Hreflang for Indian English + Hindi (Google uses this for region targeting) -->
+    <link rel="alternate" hreflang="en-IN" href="https://kadadine.thekada.in" />
+    <link rel="alternate" hreflang="x-default" href="https://kadadine.thekada.in" />
+
+    <!-- Organization Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Kada Dine",
+      "url": "https://kadadine.thekada.in",
+      "logo": "https://kadadine.thekada.in/logo.png",
+      "image": "https://kadadine.thekada.in/og.png",
+      "description": "Kada Dine is a cloud restaurant POS and management platform for Indian restaurants, cafes, QSRs, retail and grocery stores. Features include GST billing, QR digital menus, kitchen display system (KDS), table management, inventory, CRM, loyalty, and analytics.",
+      "email": "support@thekada.in",
+      "foundingDate": "2024",
+      "areaServed": {
+        "@type": "Country",
+        "name": "India"
+      },
+      "sameAs": [
+        "https://kadadine.thekada.in"
+      ],
+      "_note_sameAs": "Add social profile URLs to sameAs when accounts exist (LinkedIn, X/Twitter, Instagram, YouTube, Facebook). Google uses these to confirm the Organization's identity for the Knowledge Panel.",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "email": "support@thekada.in",
+        "availableLanguage": ["English", "Hindi"]
+      }
+    }
+    </script>
+
+    <!-- SoftwareApplication Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Kada Dine",
+      "url": "https://kadadine.thekada.in",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Point of Sale Software",
+      "operatingSystem": "Web, iOS, Android",
+      "image": "https://kadadine.thekada.in/og.png",
+      "description": "Cloud restaurant POS and management software with QR digital menus, table ordering, kitchen display system (KDS), KOT, GST-ready billing, inventory, CRM, loyalty, and analytics. Built for Indian restaurants, cafes, QSRs, and retail stores.",
+      "featureList": [
+        "Cloud POS and GST billing",
+        "QR digital menu and contactless table ordering",
+        "Kitchen Display System (KDS) and KOT",
+        "Table and floor plan management",
+        "Inventory management with recipe-level depletion",
+        "CRM, loyalty points, and WhatsApp marketing",
+        "Real-time sales analytics and reports",
+        "Staff management and attendance",
+        "Multi-location and multi-outlet support",
+        "Offline mode with automatic cloud sync"
+      ],
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR",
+        "description": "7-day free trial, no credit card required",
+        "url": "https://kadadine.thekada.in/pricing"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Kada Dine",
+        "url": "https://kadadine.thekada.in"
+      }
+    }
+    </script>
+
+    <!-- WebSite + SearchAction Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Kada Dine",
+      "url": "https://kadadine.thekada.in",
+      "description": "Restaurant POS, QR menu, KDS, GST billing, inventory and management software for Indian restaurants and retail.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://kadadine.thekada.in/help?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- FAQPage Schema (global common questions) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is Kada Dine?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Kada Dine is a cloud-based restaurant POS and management platform built for Indian restaurants, cafes, QSRs, retail, and grocery stores. It combines billing, QR digital menus, kitchen display systems (KDS), table management, inventory, CRM, and analytics in one system."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Kada Dine support GST billing?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Kada Dine generates GST-compliant invoices with CGST/SGST/IGST breakdowns. It supports multiple tax rates per menu item and produces GST-ready reports for filing."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Kada Dine work offline?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. The Kada Dine POS operates in offline mode during internet outages and automatically syncs all transactions to the cloud when connectivity is restored."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What is a QR menu system?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A QR menu system lets restaurant guests scan a QR code at their table using their smartphone, browse the digital menu with photos and descriptions, and place orders directly — without needing a physical menu or waiting for a waiter."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does a Kitchen Display System (KDS) work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A Kitchen Display System replaces paper KOT (Kitchen Order Ticket) slips. Orders appear instantly on a screen in the kitchen the moment they are placed at the POS or via QR menu, reducing errors and improving preparation speed."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can Kada Dine manage multiple restaurant branches?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Kada Dine supports multi-location management with a single dashboard, consolidated revenue reports across branches, inter-branch stock transfers, and location-specific staff and menu configuration."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How much does Kada Dine cost?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Kada Dine offers monthly and annual subscription plans priced in INR. A 7-day free trial is available with no credit card required. See full pricing at https://kadadine.thekada.in/pricing"
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there a free trial for Kada Dine?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Kada Dine offers a 7-day free trial with no credit card required. Sign up at https://kadadine.thekada.in/signup"
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- BreadcrumbList Schema for key pages -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://kadadine.thekada.in/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Features",
+          "item": "https://kadadine.thekada.in/features"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "Pricing",
+          "item": "https://kadadine.thekada.in/pricing"
+        }
+      ]
+    }
+    </script>
+  </head>
+
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

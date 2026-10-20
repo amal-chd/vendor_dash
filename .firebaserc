@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "kada-restaurant-os-v1"
+  },
+  "targets": {
+    "kada-restaurant-os-v1": {
+      "hosting": {
+        "vendor-dash": [
+          "kada-restaurant-os-v1"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

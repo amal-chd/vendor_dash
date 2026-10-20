@@ -1,0 +1,462 @@
+/* Google Fonts are now loaded via <link media="print" onload="this.media='all'"> in
+   index.html to eliminate the render-blocking stylesheet PageSpeed penalty.
+   DO NOT add an @import back here — it forces the browser to block rendering
+   until the font file is fetched before it can paint anything. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 20% 98%;
+    --foreground: 262 70% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 262 70% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 262 70% 10%;
+
+    --primary: 212 99% 50%; /* Logo Blue */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 82 100% 68%; /* Lime Green */
+    --secondary-foreground: 217 70% 10%;
+
+    --muted: 217 20% 94%;
+    --muted-foreground: 217 20% 45%;
+
+    --accent: 212 99% 50%; /* Consolidate with vibrant primary */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 20% 90%;
+    --input: 217 20% 90%;
+    --ring: 212 99% 50%;
+
+    --radius: 1.5rem;
+
+    --surface: 217 20% 97%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 35% 15%;
+    --sidebar-primary: 212 99% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 50% 97%;
+    --sidebar-accent-foreground: 212 99% 50%;
+    --sidebar-border: 222 15% 90%;
+    --sidebar-ring: 212 99% 50%;
+
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 24px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.05), 0 18px 42px rgba(147, 51, 234, 0.1);
+    --shadow-lg: 0 1px 2px rgba(15, 23, 42, 0.06), 0 26px 64px rgba(15, 23, 42, 0.12);
+    --shadow-xl: 0 2px 4px rgba(15, 23, 42, 0.08), 0 40px 90px rgba(147, 51, 234, 0.2);
+    --shadow-premium: 0 10px 40px -10px rgba(0, 0, 0, 0.1), 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+    --shadow-glow: 0 0 20px rgba(147, 51, 234, 0.3);
+  }
+
+  .dark {
+    --background: 220 15% 8%;
+    --foreground: 210 20% 95%;
+    --card: 220 15% 10%;
+    --card-foreground: 210 20% 95%;
+    --popover: 220 15% 10%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 212 99% 60%; /* More vibrant and lighter for better visibility on dark bg */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 82 100% 68%;
+    --secondary-foreground: 220 15% 8%;
+    --muted: 220 15% 14%;
+    --muted-foreground: 210 10% 55%;
+    --accent: 212 99% 60%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 20% 95%;
+    --border: 220 15% 18%;
+    --input: 220 15% 18%;
+    --ring: 212 99% 60%;
+    --surface: 220 15% 9%;
+    --sidebar-background: 220 15% 8%;
+    --sidebar-foreground: 210 20% 95%;
+    --sidebar-primary: 212 99% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 50% 20%;
+    --sidebar-accent-foreground: 212 99% 60%;
+    --sidebar-border: 220 15% 18%;
+    --sidebar-ring: 212 99% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(59, 130, 246, 0.05), transparent 30%),
+      radial-gradient(circle at top right, rgba(14, 165, 233, 0.04), transparent 24%),
+      hsl(var(--background));
+    @apply text-foreground font-sans antialiased min-h-[100dvh] transition-colors duration-300 overflow-x-hidden;
+    touch-action: manipulation;
+  }
+  
+  html {
+    /* Standard 16px root — Tailwind rem scale is calibrated to this. Anything larger makes the entire UI feel zoomed in. */
+    font-size: 16px;
+    scroll-behavior: smooth;
+    /* PWA pull-to-refresh overscroll handler */
+    overscroll-behavior-y: none;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+
+  /* Improved Touch Targets for Mobile & Prevent iOS Zooming */
+  @media (max-width: 768px) {
+    button, a, [role="button"] {
+      @apply cursor-pointer active:opacity-70 transition-opacity;
+      touch-action: manipulation; /* Removes 300ms click delay globally */
+    }
+    input, select, textarea {
+      font-size: 16px !important; /* Prevents auto-zoom on iOS Safari */
+      touch-action: manipulation;
+    }
+  }
+
+  .page-shell {
+    @apply min-h-[100svh] w-full;
+  }
+}
+
+@layer utilities {
+  /* Dynamic viewport height — accounts for mobile browser chrome appearing/disappearing.
+     h-[100dvh] is used in DashboardLayout + AdminLayout instead of h-screen so the
+     app shell never gets clipped by the address bar on iOS/Android Chrome. */
+  .h-\[100dvh\] {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-sm);
+  }
+  .shadow-card-hover {
+    box-shadow: var(--shadow-md);
+  }
+  .shadow-elevated {
+    box-shadow: var(--shadow-lg);
+  }
+  .shadow-hero {
+    box-shadow: var(--shadow-xl);
+  }
+  .text-display {
+    font-family: theme("fontFamily.display");
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .text-data {
+    font-variant-numeric: tabular-nums;
+  }
+  .text-label {
+    @apply text-sm font-medium uppercase tracking-wider;
+  }
+  .glass {
+    @apply bg-background/70 backdrop-blur-2xl;
+  }
+  .hover-lift {
+    @apply transition-all duration-300;
+  }
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+  }
+  .premium-grid {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.09) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.09) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .page-shell {
+    @apply relative overflow-hidden;
+  }
+  .page-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 10% 10%, rgba(37, 99, 235, 0.08), transparent 24%),
+      radial-gradient(circle at 90% 0%, rgba(14, 165, 233, 0.08), transparent 22%);
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-br from-foreground via-foreground/90 to-foreground/70;
+  }
+  .mesh-gradient {
+    background: 
+      radial-gradient(at 0% 0%, hsla(217,100%,95%,1) 0, transparent 50%), 
+      radial-gradient(at 50% 0%, hsla(217,100%,92%,1) 0, transparent 50%), 
+      radial-gradient(at 100% 0%, hsla(200,100%,95%,1) 0, transparent 50%);
+  }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+/* Smooth scrolling */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Accessibility: Disable heavy animations for users with vestibular logic activated */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.18);
+  color: hsl(var(--foreground));
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Active tap feedback for touch devices */
+@media (hover: none) {
+  .active-scale:active {
+    transform: scale(0.96);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Polish layer — drop-in utilities that lift any page to a "world-grade"
+ * feel without changing copy or layout. Apply by adding the class.
+ * ────────────────────────────────────────────────────────────────────── */
+
+/* Refined focus ring — replaces the default browser outline with a
+   soft, branded glow that's still WCAG-AA visible. */
+:where(a, button, [role="button"], input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 4px hsl(var(--primary) / 0.55);
+  border-radius: inherit;
+  transition: box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Anchored sections look better with a small offset under any
+   sticky / fixed header. */
+:where([id]) {
+  scroll-margin-top: 72px;
+}
+
+/* Animated underline link — for inline marketing prose links. Underline
+   sweeps in from left on hover. Add via className="polish-link". */
+.polish-link {
+  position: relative;
+  display: inline-block;
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+.polish-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.polish-link:hover::after,
+.polish-link:focus-visible::after {
+  transform: scaleX(1);
+}
+
+/* Card with a soft hover lift + glow. Cheap on the GPU; works with
+   the existing rounded-2xl styling. */
+.polish-card {
+  transition:
+    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.28s ease;
+  will-change: transform;
+}
+@media (hover: hover) {
+  .polish-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+    border-color: hsl(var(--primary) / 0.25);
+  }
+}
+
+/* Button glow on hover — pair with the existing button colour. Add via
+   className="polish-btn". */
+.polish-btn {
+  transition:
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.22s ease,
+    filter 0.18s ease;
+}
+@media (hover: hover) {
+  .polish-btn:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 8px 22px -8px hsl(var(--primary) / 0.45),
+      0 4px 10px -2px hsl(var(--primary) / 0.25);
+  }
+  .polish-btn:active {
+    transform: translateY(0);
+    filter: brightness(0.96);
+  }
+}
+
+/* Soft gradient divider between marketing sections. */
+.polish-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--border)) 20%,
+    hsl(var(--border)) 80%,
+    transparent
+  );
+}
+
+/* Animated background mesh for hero sections — subtle, GPU-friendly. */
+@keyframes polish-hero-pan {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+.polish-hero-bg {
+  background:
+    radial-gradient(60% 80% at 10% 10%, hsl(var(--primary) / 0.08), transparent 60%),
+    radial-gradient(60% 80% at 90% 30%, hsl(220 90% 60% / 0.06), transparent 65%),
+    radial-gradient(80% 60% at 50% 100%, hsl(82 100% 68% / 0.05), transparent 70%);
+  background-size: 200% 200%;
+  animation: polish-hero-pan 24s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .polish-hero-bg { animation: none; }
+}
+
+/* Premium image presentation — wrap an <img> for a refined rounded
+   corner with inner border that doesn't clip the image. */
+.polish-image-frame {
+  position: relative;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  isolation: isolate;
+}
+.polish-image-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px hsl(var(--foreground) / 0.06);
+  pointer-events: none;
+}
+
+/* Shimmer skeleton — for content loading states. Add to any
+   <div className="polish-shimmer h-6 w-32 rounded-md" />. */
+@keyframes polish-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.polish-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted) / 0.6) 0%,
+    hsl(var(--muted) / 1) 50%,
+    hsl(var(--muted) / 0.6) 100%
+  );
+  background-size: 200% 100%;
+  animation: polish-shimmer 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .polish-shimmer { animation: none; }
+}
+
+/* Mobile tap-target enforcement.
+ *
+ * Apple HIG + Google Material both call for a minimum 44px (Apple) / 48dp
+ * (Google) touch target. Tailwind classes like `h-7` (28px) or `h-8` (32px)
+ * look great on desktop but make a button miserable to tap on a phone.
+ *
+ * This rule only kicks in on devices that DON'T have a fine pointer
+ * (i.e. real touch devices, not desktops with a mouse). It enforces a
+ * minimum 40px hit area while preserving the visual height — extra space
+ * comes from the touch zone, not the rendered button. Opt out by adding
+ * `data-no-touch-min="true"` on any element where the small size is
+ * intentional (e.g. table-row inline edit buttons).
+ */
+@media (hover: none) and (pointer: coarse) {
+  :where(button, a, [role="button"], select, summary):not([data-no-touch-min="true"]) {
+    min-height: 40px;
+  }
+  /* Inputs need similar treatment so they're not impossible to focus. */
+  :where(input:not([type="hidden"]), textarea):not([data-no-touch-min="true"]) {
+    min-height: 40px;
+  }
+}
+
+/* Razorpay Mobile Fix: Ensure the popup is touchable even when called from a modal/dialog */
+.razorpay-container,
+.razorpay-backdrop,
+iframe.razorpay-checkout-frame {
+  z-index: 2147483647 !important;
+  pointer-events: auto !important;
+}
+
+body[style*="pointer-events: none"] .razorpay-container {
+  pointer-events: auto !important;
+}
+
+/* Hide PhoneInput country flag dropdown everywhere */
+.PhoneInputCountry {
+  display: none !important;
+}
+
+/* Leaflet isolation: ensure map layers and controls stay bounded to z-0 and never bleed over dropdowns/modals */
+.leaflet-container {
+  isolation: isolate;
+  z-index: 0 !important;
+}

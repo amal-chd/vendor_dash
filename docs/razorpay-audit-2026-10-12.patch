@@ -1,0 +1,3232 @@
+diff -ruN -x o Websites/vendor_web/functions/src/admin_platform.ts adminpanels/vendor_dash/functions/src/admin_platform.ts
+--- Websites/vendor_web/functions/src/admin_platform.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/admin_platform.ts	2026-10-12 22:36:09
+@@ -30,6 +30,8 @@
+   | "approveRefund"
+   | "rejectRefund"
+   | "retryRefund"
++  | "refundSubscription"
++  | "replayWebhookEvent"
+   | "setCommission"
+   | "setBillingModel"
+   | "upsertMarket"
+@@ -97,6 +99,8 @@
+   approveRefund: ["super_admin", "platform_admin", "finance_manager"],
+   rejectRefund: ["super_admin", "platform_admin", "finance_manager"],
+   retryRefund: ["super_admin", "platform_admin", "finance_manager"],
++  refundSubscription: ["super_admin", "platform_admin", "finance_manager"],
++  replayWebhookEvent: ["super_admin", "platform_admin", "finance_manager"],
+   setCommission: ["super_admin", "platform_admin", "finance_manager"],
+   setBillingModel: ["super_admin", "platform_admin", "finance_manager"],
+   upsertMarket: ["super_admin", "platform_admin", "ops_manager"],
+@@ -520,6 +524,38 @@
+         razorpayRefundId: execution.razorpayRefundId ?? null,
+       });
+       return { ok: true, refundStatus: execution.status, gatewayError: execution.error ?? null };
++    }
++
++    // Refund a merchant's subscription purchase and take back the time it
++    // bought (subscriptionBilling.refundSubscriptionOrder). Idempotent on the
++    // purchase: a second click re-runs the same refund record.
++    case "refundSubscription": {
++      const razorpayOrderId = str(data.razorpayOrderId, 128);
++      const reason = str(data.reason, 300);
++      if (!razorpayOrderId || !reason) throw new HttpsError("invalid-argument", "razorpayOrderId and reason are required.");
++      const { refundSubscriptionOrder } = await import("./subscriptionBilling");
++      const out = await refundSubscriptionOrder({ razorpayOrderId, reason, requestedBy: email });
++      await audit(db, email, action, { razorpayOrderId, reason, refundId: out.refundId, gatewayStatus: out.status });
++      return { ok: true, refundStatus: out.status, gatewayError: out.error ?? null };
++    }
++
++    // Re-run a stored Razorpay webhook event. The queue trigger fires only on
++    // create, so this is the only way to retry one that failed. Handlers are
++    // idempotent: replaying an event already applied changes nothing.
++    case "replayWebhookEvent": {
++      const eventId = str(data.eventId, 200);
++      if (!eventId) throw new HttpsError("invalid-argument", "eventId required.");
++      const ref = db.collection("razorpay_webhook_events").doc(eventId);
++      if (!(await ref.get()).exists) throw new HttpsError("not-found", "Webhook event not found.");
++      const { processWebhookEvent } = await import("./razorpayWebhook");
++      let error: string | null = null;
++      try {
++        await processWebhookEvent(ref, { force: true });
++      } catch (e) {
++        error = e instanceof Error ? e.message : String(e);
++      }
++      await audit(db, email, action, { eventId, error });
++      return { ok: !error, error };
+     }
+ 
+     case "setBillingModel": {
+diff -ruN -x o Websites/vendor_web/functions/src/customerProfile.ts adminpanels/vendor_dash/functions/src/customerProfile.ts
+--- Websites/vendor_web/functions/src/customerProfile.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/customerProfile.ts	2026-10-13 04:27:20
+@@ -26,8 +26,11 @@
+ 
+     const moved =
+       Number(before.primaryLat) !== lat || Number(before.primaryLng) !== lng;
+-    // Nothing to do when the point is unchanged and already stamped.
+-    if (!moved && now.primaryZoneResolvedAt) return;
++    // Nothing to do when the point is unchanged and already stamped. Docs
++    // stamped before nearestZoneKm existed are re-resolved once, so the admin
++    // stops reading "near Kakkanad" for a customer 2,000 km away.
++    const needsDistance = !now.primaryZoneId && now.nearestZoneName && now.nearestZoneKm === undefined;
++    if (!moved && now.primaryZoneResolvedAt && !needsDistance) return;
+ 
+     try {
+       const { zone, nearest } = await resolveZoneForPoint({ lat, lng });
+@@ -37,6 +40,7 @@
+         // Outside every zone: keep the closest one so ops can see demand
+         // building where Kada does not deliver yet.
+         nearestZoneName: zone ? null : (nearest?.[0]?.name ?? null),
++        nearestZoneKm: zone || !nearest?.[0] ? null : Math.round(nearest[0].distanceKm),
+         primaryZoneResolvedAt: admin.firestore.FieldValue.serverTimestamp(),
+       };
+       await after.ref.set(patch, { merge: true });
+diff -ruN -x o Websites/vendor_web/functions/src/delivery.ts adminpanels/vendor_dash/functions/src/delivery.ts
+--- Websites/vendor_web/functions/src/delivery.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/delivery.ts	2026-10-13 04:42:43
+@@ -1,4 +1,5 @@
+ import * as admin from "firebase-admin";
++import { awardedTodayFrom, parseQuestTiers, tiersToAward } from "./questTiers";
+ import { deliveriesSoFarToday, earningsFields } from "./riderEarnings";
+ import { onCall, HttpsError } from "firebase-functions/v2/https";
+ import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+@@ -1120,17 +1121,16 @@
+   const now = new Date();
+ 
+   // ── Daily Quest bonus ──────────────────────────────────────────────────────
+-  // Award a one-time bonus the moment the rider reaches the day's quest target.
+-  // Config lives in settings/delivery (questTarget, questBonus); defaults 8 / ₹150.
+-  // Guarded by questAwardedDate (IST) so it is credited at most once per day.
++  // A ladder of milestones (settings/delivery.questTiers, managed in Platform
++  // Settings); each rung is paid once per day the moment it is reached —
++  // exactly what the rider app shows. Only the top rung used to be paid.
+   const [riderSnapQ, questSnap] = await Promise.all([
+     db().collection("delivery_users").doc(uid).get(),
+     db().collection("settings").doc("delivery").get(),
+   ]);
+   const riderDataQ = riderSnapQ.data() ?? {};
+   const questCfg = questSnap.data() ?? {};
+-  const questTarget = Number(questCfg.questTarget ?? 8) || 8;
+-  const questBonus = Number(questCfg.questBonus ?? 150) || 150;
++  const questLadder = parseQuestTiers(questCfg);
+   // Date-aware: a counter left over from an earlier day must not count toward
+   // today's quest (it never reset, so riders were paid a "daily" bonus for
+   // trips spread across days).
+@@ -1138,11 +1138,10 @@
+   const istTodayStr = new Date(now.getTime() + 5.5 * 60 * 60 * 1000)
+     .toISOString()
+     .slice(0, 10);
+-  const awardQuest =
+-    questBonus > 0 &&
+-    newDeliveriesToday >= questTarget &&
+-    (riderDataQ.questAwardedDate ?? "") !== istTodayStr;
+-  const bonus = awardQuest ? questBonus : 0;
++  const alreadyPaidTiers = awardedTodayFrom(riderDataQ, istTodayStr, questLadder);
++  const newTiers = tiersToAward(questLadder, newDeliveriesToday, alreadyPaidTiers);
++  const awardQuest = newTiers.length > 0;
++  const bonus = newTiers.reduce((sum, t) => sum + t.bonus, 0);
+   // Batching resolution: Check if rider has queued orders
+   let nextOrderId: any = FieldValue.delete();
+   let nextQueuedUpdate: any = null;
+@@ -1203,24 +1202,34 @@
+       // set() created stray top-level fields the app never read.
+       ...earningsFields(riderDataQ, riderEarning + bonus, now, { tip }),
+       cashInHand: FieldValue.increment(codAmount),
+-      ...(awardQuest ? { questAwardedDate: istTodayStr } : {}),
++      ...(awardQuest
++        ? {
++            questTiersAwardedDate: istTodayStr,
++            questTiersAwarded: [...alreadyPaidTiers, ...newTiers.map((t) => t.trips)],
++            // Kept for older app builds that read it as "quest done today".
++            ...(newTiers.some((t) => t.trips === questLadder[questLadder.length - 1].trips)
++              ? { questAwardedDate: istTodayStr }
++              : {}),
++          }
++        : {}),
+       updatedAt: FieldValue.serverTimestamp(),
+     },
+     { merge: true }
+   );
+ 
+-  // Ledger entry for the quest bonus (deterministic id = once per day).
+-  if (awardQuest) {
++  // Ledger entry per rung (deterministic id = once per rung per day).
++  for (const t of newTiers) {
++    const entryId = `quest_${istTodayStr}_${t.trips}`;
+     batch.set(
+-      db().collection("rider_earnings").doc(uid).collection("entries").doc(`quest_${istTodayStr}`),
++      db().collection("rider_earnings").doc(uid).collection("entries").doc(entryId),
+       {
+-        orderId: `quest_${istTodayStr}`,
+-        restaurantName: `Daily Quest Bonus (${questTarget} trips)`,
+-        base: questBonus,
++        orderId: entryId,
++        restaurantName: `Daily Quest Bonus (${t.trips} trips)`,
++        base: t.bonus,
+         distancePay: 0,
+         distanceKm: 0,
+         tip: 0,
+-        total: questBonus,
++        total: t.bonus,
+         codCollected: 0,
+         type: "quest_bonus",
+         createdAt: FieldValue.serverTimestamp(),
+@@ -1251,10 +1260,12 @@
+   ).catch(() => {});
+ 
+   if (awardQuest) {
++    const top = questLadder[questLadder.length - 1];
++    const allDone = newDeliveriesToday >= top.trips;
+     await notifyRider(
+       uid,
+-      "🎉 Daily Quest complete!",
+-      `You hit ${questTarget} trips today — ₹${questBonus} bonus added to your earnings.`,
++      allDone ? "🎉 Daily Quest complete!" : "🎯 Quest milestone reached!",
++      `You hit ${newTiers[newTiers.length - 1].trips} trips today — ₹${bonus} bonus added to your earnings.`,
+       { type: "earning" }
+     ).catch(() => {});
+   }
+diff -ruN -x o Websites/vendor_web/functions/src/featureFlags.ts adminpanels/vendor_dash/functions/src/featureFlags.ts
+--- Websites/vendor_web/functions/src/featureFlags.ts	1970-01-01 05:30:00
++++ adminpanels/vendor_dash/functions/src/featureFlags.ts	2026-10-13 04:43:38
+@@ -0,0 +1,62 @@
++import * as admin from "firebase-admin";
++import { HttpsError } from "firebase-functions/v2/https";
++
++/**
++ * Customer-app module switches, with ONE precedence rule shared with the app
++ * (customer_mobile_app PlatformConfigService._rebuild):
++ *
++ *   config/feature_flags.<flag>  →  config/platform.<legacy field>  →  on
++ *
++ * Both admin pages that show these switches (Platform Settings and Feature
++ * Flags) write config/feature_flags. Before this, the server read only
++ * config/platform, so COD could be "off" in the app and still accepted by the
++ * server (or the reverse), and switching off the wallet, Gold, gift cards or
++ * Stay only hid a button — the callables kept taking money.
++ */
++export type ModuleFlag = "cashOnDelivery" | "wallet" | "kadaGold" | "giftCards" | "kadaStay" | "tableBooking";
++
++const LEGACY_FIELD: Record<ModuleFlag, string> = {
++  cashOnDelivery: "codEnabled",
++  wallet: "walletEnabled",
++  kadaGold: "goldEnabled",
++  giftCards: "giftCardsEnabled",
++  kadaStay: "stayEnabled",
++  tableBooking: "tableBookingEnabled",
++};
++
++/** Pure resolution, for tests and for callers that already hold both docs. */
++export function resolveModule(
++  flag: ModuleFlag,
++  flags: Record<string, unknown> | undefined,
++  platform: Record<string, unknown> | undefined,
++): boolean {
++  const f = flags?.[flag];
++  if (typeof f === "boolean") return f;
++  const p = platform?.[LEGACY_FIELD[flag]];
++  if (typeof p === "boolean") return p;
++  return true;
++}
++
++let cache: { at: number; flags: Record<string, unknown>; platform: Record<string, unknown> } | null = null;
++
++/** Live value, cached 30 s per instance (a switch takes effect within that). */
++export async function moduleEnabled(flag: ModuleFlag): Promise<boolean> {
++  if (!cache || Date.now() - cache.at > 30_000) {
++    try {
++      const db = admin.firestore();
++      const [f, p] = await Promise.all([
++        db.collection("config").doc("feature_flags").get(),
++        db.collection("config").doc("platform").get(),
++      ]);
++      cache = { at: Date.now(), flags: f.data() ?? {}, platform: p.data() ?? {} };
++    } catch {
++      // A config read failure must not take a module down.
++      return true;
++    }
++  }
++  return resolveModule(flag, cache.flags, cache.platform);
++}
++
++export async function assertModuleEnabled(flag: ModuleFlag, message: string): Promise<void> {
++  if (!(await moduleEnabled(flag))) throw new HttpsError("failed-precondition", message, { reason: "module_disabled" });
++}
+diff -ruN -x o Websites/vendor_web/functions/src/gateway.ts adminpanels/vendor_dash/functions/src/gateway.ts
+--- Websites/vendor_web/functions/src/gateway.ts	1970-01-01 05:30:00
++++ adminpanels/vendor_dash/functions/src/gateway.ts	2026-10-12 22:29:55
+@@ -0,0 +1,82 @@
++import { logger } from "firebase-functions";
++import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "./refunds";
++
++/**
++ * ─────────────────────────────────────────────────────────────────────────
++ * Small Razorpay REST helpers shared by the webhook, the payment sweep and
++ * the refund engine. Callers must bind RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET
++ * on their function.
++ * ─────────────────────────────────────────────────────────────────────────
++ */
++
++const API = "https://api.razorpay.com/v1";
++
++export function razorpayBasicAuth(): string | null {
++  let keyId = "";
++  let keySecret = "";
++  try {
++    keyId = RAZORPAY_KEY_ID.value() || process.env.RAZORPAY_KEY_ID || "";
++    keySecret = RAZORPAY_KEY_SECRET.value() || process.env.RAZORPAY_KEY_SECRET || "";
++  } catch {
++    keyId = process.env.RAZORPAY_KEY_ID || "";
++    keySecret = process.env.RAZORPAY_KEY_SECRET || "";
++  }
++  return keyId && keySecret ? Buffer.from(`${keyId}:${keySecret}`).toString("base64") : null;
++}
++
++/** GET a Razorpay resource; null when it couldn't be read (caller retries later). */
++export async function razorpayGet<T>(path: string): Promise<T | null> {
++  const basic = razorpayBasicAuth();
++  if (!basic) return null;
++  try {
++    const res = await fetch(`${API}${path}`, { headers: { Authorization: `Basic ${basic}` } });
++    if (!res.ok) {
++      logger.warn("razorpayGet failed", { path, status: res.status });
++      return null;
++    }
++    return (await res.json()) as T;
++  } catch (e) {
++    logger.warn("razorpayGet error", { path, e: String(e) });
++    return null;
++  }
++}
++
++/**
++ * Capture an authorized payment. Razorpay voids (and returns to the customer)
++ * any payment left `authorized` for a few days, so a payment we intend to keep
++ * must be captured — normally the account's auto-capture setting does this,
++ * this is the backstop when it is off or delayed.
++ *
++ * Returns true when the payment is captured (now or already).
++ */
++export async function capturePayment(paymentId: string, amountPaise: number, currency = "INR"): Promise<boolean> {
++  const basic = razorpayBasicAuth();
++  if (!basic || !paymentId || !(amountPaise > 0)) return false;
++  try {
++    const res = await fetch(`${API}/payments/${encodeURIComponent(paymentId)}/capture`, {
++      method: "POST",
++      headers: { Authorization: `Basic ${basic}`, "Content-Type": "application/json" },
++      body: JSON.stringify({ amount: amountPaise, currency }),
++    });
++    if (res.ok) return true;
++    const text = await res.text();
++    // Already captured (webhook vs sweep race) is success, not an error.
++    if (/already been captured/i.test(text)) return true;
++    logger.warn("capturePayment failed", { paymentId, status: res.status, body: text.slice(0, 300) });
++    return false;
++  } catch (e) {
++    logger.warn("capturePayment error", { paymentId, e: String(e) });
++    return false;
++  }
++}
++
++/**
++ * A gateway receipt that is unique per attempt. Razorpay treats `receipt` as
++ * an idempotency key and rejects a second order with the same value
++ * ("Duplicate request"), so a receipt derived only from our own id makes every
++ * retry after the first gateway order fail.
++ */
++export function uniqueReceipt(prefix: string): string {
++  const suffix = `_${Date.now().toString(36)}`;
++  return `${prefix.slice(0, 40 - suffix.length)}${suffix}`;
++}
+diff -ruN -x o Websites/vendor_web/functions/src/giftcards.ts adminpanels/vendor_dash/functions/src/giftcards.ts
+--- Websites/vendor_web/functions/src/giftcards.ts	2026-08-03 12:48:53
++++ adminpanels/vendor_dash/functions/src/giftcards.ts	2026-10-13 04:43:51
+@@ -1,4 +1,5 @@
+ import * as admin from "firebase-admin";
++import { assertModuleEnabled } from "./featureFlags";
+ import { onCall, HttpsError } from "firebase-functions/v2/https";
+ import * as crypto from "crypto";
+ 
+@@ -36,6 +37,7 @@
+ export const purchaseGiftCard = onCall(async (request) => {
+   const uid = request.auth?.uid;
+   if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
++  await assertModuleEnabled("giftCards", "Gift cards are unavailable right now.");
+ 
+   const amount = Number(request.data?.amount);
+   const theme = String(request.data?.theme || "kada").toLowerCase();
+diff -ruN -x o Websites/vendor_web/functions/src/gold.ts adminpanels/vendor_dash/functions/src/gold.ts
+--- Websites/vendor_web/functions/src/gold.ts	2026-08-30 00:49:58
++++ adminpanels/vendor_dash/functions/src/gold.ts	2026-10-13 04:43:51
+@@ -1,4 +1,5 @@
+ import * as admin from "firebase-admin";
++import { assertModuleEnabled } from "./featureFlags";
+ import { onCall, HttpsError } from "firebase-functions/v2/https";
+ 
+ /**
+@@ -41,6 +42,7 @@
+   if (!uid) {
+     throw new HttpsError("unauthenticated", "Sign in to join Kada Gold.");
+   }
++  await assertModuleEnabled("kadaGold", "Kada Gold isn't open for new memberships right now.");
+ 
+   const planId = (request.data?.planId as string) || "1_month";
+   const plans = await loadGoldPlans();
+diff -ruN -x o Websites/vendor_web/functions/src/hotel.ts adminpanels/vendor_dash/functions/src/hotel.ts
+--- Websites/vendor_web/functions/src/hotel.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/hotel.ts	2026-10-12 22:33:07
+@@ -5,19 +5,23 @@
+ const GRACE_PERIOD_DAYS = 3;
+ 
+ /**
+- * Daily cron: age KadaStay hotel subscriptions.
++ * Daily cron: age merchant subscriptions — Kada Host (`hotels`) AND Kada Dine
++ * (`restaurants`). Dine used to have no expiry job at all, so a lapsed
++ * restaurant read "active" in admin and every status screen forever.
+  *
+- * `hotels/{id}` is the entitlement store — written by the signature-verified
++ * The merchant doc is the entitlement store — written by the signature-verified
+  * Razorpay webhook (`subscriptionBilling.ts`) and by admins. This job is the
+  * only other writer, and it only ever moves a subscription *down*:
+  *
+- *   active, past its end date  →  grace_period (GRACE_PERIOD_DAYS)
+- *   grace_period, past grace   →  expired
++ *   active, past its end date            →  grace_period (GRACE_PERIOD_DAYS)
++ *   active + cancelAtPeriodEnd, past end →  cancelled (no grace: they asked to stop)
++ *   grace_period, past grace             →  expired
+  *
+  * The grace step exists so a renewal payment still settling never locks a
+- * hotel out over a timing gap. There is no trial state: the product has no
+- * trial tier, so nothing here can grant access — only take it away once the
+- * paid term is genuinely over.
++ * merchant out over a timing gap. There is no trial state: nothing here can
++ * grant access — only take it away once the paid term is genuinely over.
++ * Commission billing resumes on its own once the subscription isn't active
++ * (billingModel.effectiveCommissionRate).
+  */
+ export const hotelSubscriptionExpiryCron = onSchedule(
+   {
+@@ -27,55 +31,55 @@
+   async () => {
+     const db = admin.firestore();
+     const now = admin.firestore.Timestamp.now();
+-    const nowDate = now.toDate();
++    const graceEnd = admin.firestore.Timestamp.fromMillis(now.toMillis() + GRACE_PERIOD_DAYS * 86_400_000);
+ 
+-    logger.info("Running hotel subscription expiry check", {
+-      timestamp: nowDate.toISOString(),
+-    });
++    for (const collection of ["hotels", "restaurants"]) {
++      const results = { activeToGrace: 0, cancelled: 0, graceExpired: 0 };
+ 
+-    const results = { activeToGrace: 0, graceExpired: 0 };
+-
+-    // 1. Active subscriptions past their end date → grace period.
+-    const expiredActive = await db
+-      .collection("hotels")
+-      .where("subscriptionStatus", "==", "active")
+-      .where("subscriptionEndDate", "<=", now)
+-      .get();
+-
+-    if (!expiredActive.empty) {
+-      const batch = db.batch();
+-      expiredActive.docs.forEach((doc) => {
+-        const graceEnd = new Date(nowDate);
+-        graceEnd.setDate(graceEnd.getDate() + GRACE_PERIOD_DAYS);
+-        batch.update(doc.ref, {
+-          subscriptionStatus: "grace_period",
+-          subscriptionGraceEndDate: admin.firestore.Timestamp.fromDate(graceEnd),
+-          subscriptionUpdatedAt: now,
++      // 1. Active subscriptions past their end date.
++      const expiredActive = await db
++        .collection(collection)
++        .where("subscriptionStatus", "==", "active")
++        .where("subscriptionEndDate", "<=", now)
++        .limit(450)
++        .get();
++      if (!expiredActive.empty) {
++        const batch = db.batch();
++        expiredActive.docs.forEach((doc) => {
++          if (doc.get("subscriptionCancelAtPeriodEnd") === true) {
++            batch.update(doc.ref, { subscriptionStatus: "cancelled", subscriptionUpdatedAt: now });
++            results.cancelled++;
++          } else {
++            batch.update(doc.ref, {
++              subscriptionStatus: "grace_period",
++              subscriptionGraceEndDate: graceEnd,
++              subscriptionUpdatedAt: now,
++            });
++            results.activeToGrace++;
++          }
+         });
+-        results.activeToGrace++;
+-      });
+-      await batch.commit();
+-      logger.info(`Moved ${results.activeToGrace} hotel subscriptions to grace period`);
+-    }
++        await batch.commit();
++      }
+ 
+-    // 2. Grace periods that have themselves run out → expired.
+-    const expiredGrace = await db
+-      .collection("hotels")
+-      .where("subscriptionStatus", "==", "grace_period")
+-      .where("subscriptionGraceEndDate", "<=", now)
+-      .get();
+-
+-    if (!expiredGrace.empty) {
+-      const batch = db.batch();
+-      expiredGrace.docs.forEach((doc) => {
+-        batch.update(doc.ref, {
+-          subscriptionStatus: "expired",
+-          subscriptionUpdatedAt: now,
++      // 2. Grace periods that have themselves run out → expired.
++      const expiredGrace = await db
++        .collection(collection)
++        .where("subscriptionStatus", "==", "grace_period")
++        .where("subscriptionGraceEndDate", "<=", now)
++        .limit(450)
++        .get();
++      if (!expiredGrace.empty) {
++        const batch = db.batch();
++        expiredGrace.docs.forEach((doc) => {
++          batch.update(doc.ref, { subscriptionStatus: "expired", subscriptionUpdatedAt: now });
++          results.graceExpired++;
+         });
+-        results.graceExpired++;
+-      });
+-      await batch.commit();
+-      logger.info(`Expired ${results.graceExpired} hotel subscriptions past grace period`);
++        await batch.commit();
++      }
++
++      if (results.activeToGrace || results.cancelled || results.graceExpired) {
++        logger.info(`Subscription expiry: ${collection}`, results);
++      }
+     }
+   }
+ );
+diff -ruN -x o Websites/vendor_web/functions/src/iapVerify.ts adminpanels/vendor_dash/functions/src/iapVerify.ts
+--- Websites/vendor_web/functions/src/iapVerify.ts	2026-09-21 07:43:11
++++ adminpanels/vendor_dash/functions/src/iapVerify.ts	1970-01-01 05:30:00
+@@ -1,1435 +0,0 @@
+-/**
+- * Apple App Store + Google Play receipt validation Cloud Function.
+- *
+- * Why this exists:
+- *   The Flutter `IAPService` writes subscription state to Firestore directly
+- *   from the client. That trusts the device — anyone can fake a successful
+- *   purchase from a jailbroken phone. Apple and Google both require server-side
+- *   receipt validation for any auto-renewing subscription that grants access
+- *   to paid features.
+- *
+- * What this does:
+- *   - `verifyAppStoreReceipt`: callable from Flutter with the iOS receipt blob.
+- *     Posts to Apple's `/verifyReceipt`, parses the latest renewal info, and
+- *     writes `subscriptionStatus`, `subscriptionEndDate`, etc. to the
+- *     `restaurants/{uid}` document. Falls back from production → sandbox to
+- *     accommodate App Store reviewers and TestFlight users.
+- *   - `verifyPlayPurchase`: validates an Android purchase token with the
+- *     Google Play Developer API, acknowledges active purchases, and writes the
+- *     authoritative subscription state.
+- *   - `appStoreServerNotification`: HTTPS endpoint that Apple's App Store
+- *     Server Notifications V2 hits on renewal / refund / expiration. Decodes
+- *     the signed JWS, finds the matching `restaurants/{uid}` document by
+- *     `originalTransactionId`, and updates its subscription window so the DB
+- *     stays in sync with what Apple actually billed.
+- *   - `googlePlayDeveloperNotification`: HTTPS endpoint for Google Play
+- *     Real-time Developer Notifications delivered by Pub/Sub push.
+- *
+- * Required Firebase Function secrets:
+- *   - APPLE_SHARED_SECRET    : the App Store Connect shared secret used by
+- *                              `verifyReceipt` (auto-renewable subs only).
+- *   - PLAY_SERVICE_ACCOUNT_JSON : Google Play Android Publisher service
+- *                              account JSON with subscription purchase access.
+- *   - GOOGLE_RTDN_TOKEN      : shared endpoint token configured on the Pub/Sub
+- *                              push URL for Google RTDN.
+- *
+- * Setup:
+- *   firebase functions:secrets:set APPLE_SHARED_SECRET
+- *   firebase functions:secrets:set PLAY_SERVICE_ACCOUNT_JSON
+- *   firebase functions:secrets:set GOOGLE_RTDN_TOKEN
+- *   firebase deploy --only functions:verifyAppStoreReceipt,functions:appStoreServerNotification,functions:verifyPlayPurchase,functions:googlePlayDeveloperNotification
+- *
+- * On the App Store Connect side, configure the Server-to-Server Notifications
+- * URL to point at the deployed `appStoreServerNotification` HTTPS endpoint.
+- */
+-
+-import * as admin from "firebase-admin";
+-import {
+-  createPublicKey,
+-  createSign,
+-  createVerify,
+-  X509Certificate,
+-} from "crypto";
+-import { defineSecret } from "firebase-functions/params";
+-import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
+-import { logger } from "firebase-functions";
+-
+-// ────────────────────────────────────────────────────────────────────────────
+-// Apple Root CA G3 — the root used to sign all App Store Server Notifications
+-// V2 leaf certificates. Public certificate, safe to embed.
+-// Source: https://www.apple.com/certificateauthority/AppleRootCA-G3.cer
+-// (Converted from DER → PEM with `openssl x509 -inform DER -out apple.pem`.)
+-//
+-// Validity: 2014-04-30 → 2039-04-30. Hardcoded so the webhook keeps
+-// validating even if the network can't reach Apple at startup.
+-// ────────────────────────────────────────────────────────────────────────────
+-const APPLE_ROOT_CA_G3_PEM = `-----BEGIN CERTIFICATE-----
+-MIICQzCCAcmgAwIBAgIILcX8iNLFS5UwCgYIKoZIzj0EAwMwZzEbMBkGA1UEAwwS
+-QXBwbGUgUm9vdCBDQSAtIEczMSYwJAYDVQQLDB1BcHBsZSBDZXJ0aWZpY2F0aW9u
+-IEF1dGhvcml0eTETMBEGA1UECgwKQXBwbGUgSW5jLjELMAkGA1UEBhMCVVMwHhcN
+-MTQwNDMwMTgxOTA2WhcNMzkwNDMwMTgxOTA2WjBnMRswGQYDVQQDDBJBcHBsZSBS
+-b290IENBIC0gRzMxJjAkBgNVBAsMHUFwcGxlIENlcnRpZmljYXRpb24gQXV0aG9y
+-aXR5MRMwEQYDVQQKDApBcHBsZSBJbmMuMQswCQYDVQQGEwJVUzB2MBAGByqGSM49
+-AgEGBSuBBAAiA2IABJjpLz1AcqTtkyJygRMc3RCV8cWjTnHcFBbZDuWmBSp3ZHtf
+-TjjTuxxEtX/1H7YyYl3J6YRbTzBPEVoA/VhYDKX1DyxNB0cTddqXl5dvMVztK517
+-IDvYuVTZXpmkOlEKMaNCMEAwHQYDVR0OBBYEFLuw3qFYM4iapIqZ3r6966/ayySr
+-MA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMDA2gA
+-MGUCMQCD6cHEFl4aXTQY2e3v9GwOAEZLuN+yRhHFD/3meoyhpmvOwgPUnPWTxnS4
+-at+qIxUCMG1mihDK1A3UT82NQz60imOlM27jbdoXt2QfyFMm+YhidDkLF1vLUagM
+-6BgD56KyKA==
+------END CERTIFICATE-----`;
+-
+-const APPLE_SHARED_SECRET = defineSecret("APPLE_SHARED_SECRET");
+-const PLAY_SERVICE_ACCOUNT_JSON = defineSecret("PLAY_SERVICE_ACCOUNT_JSON");
+-const GOOGLE_RTDN_TOKEN = defineSecret("GOOGLE_RTDN_TOKEN");
+-// Optional — when set, the Android RTDN webhook requires a valid OIDC token
+-// in the Authorization header signed by this service account. Equivalent to
+-// Apple's JWS check on the iOS side. Falls back to GOOGLE_RTDN_TOKEN-only
+-// auth when not configured, so existing deployments keep working.
+-//
+-// To enable strict verification:
+-//   1. In Google Cloud Console → Pub/Sub → your push subscription →
+-//      Authentication → Enable. Service account: pick (or create) one.
+-//      Audience: leave blank (defaults to the push endpoint URL).
+-//   2. firebase functions:secrets:set GOOGLE_RTDN_SA_EMAIL
+-//      (paste the service account email from step 1)
+-//   3. Redeploy googlePlayDeveloperNotification.
+-const GOOGLE_RTDN_SA_EMAIL = defineSecret("GOOGLE_RTDN_SA_EMAIL");
+-const APPLE_VERIFY_PRODUCTION = "https://buy.itunes.apple.com/verifyReceipt";
+-const APPLE_VERIFY_SANDBOX = "https://sandbox.itunes.apple.com/verifyReceipt";
+-const GOOGLE_OAUTH_SCOPE = "https://www.googleapis.com/auth/androidpublisher";
+-const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
+-const GOOGLE_PLAY_PACKAGE_NAME = "com.kada.restaurant_os.vendor";
+-
+-/**
+- * Plan product → tier + billing period mapping.
+- *
+- * Product ID conventions:
+- *   Android (Play Store):
+- *     kada_starter_monthly  — Starter plan, billed monthly
+- *     kada_starter_yearly   — Starter plan, billed annually
+- *     kada_growth_monthly   — Growth plan, billed monthly
+- *     kada_growth_yearly    — Growth plan, billed annually
+- *
+- *   iOS (App Store):
+- *     kada_starter_monthlyios — Starter plan, billed monthly
+- *     kada_starter_yearlyios  — Starter plan, billed annually
+- *     kada_growth_monthlyios  — Growth plan, billed monthly
+- *     kada_growth_yearlyios   — Growth plan, billed annually
+- *
+- * The `tier` field is written to `restaurants/{uid}.planTier`.
+- * The `billing` field is written to `restaurants/{uid}.subscriptionType`.
+- * Keep this in sync with the Flutter `kProductIds` constants.
+- */
+-interface PlanInfo {
+-  tier: "starter" | "growth" | "basic" | "pro" | "enterprise";
+-  billing: "monthly" | "yearly";
+-}
+-
+-const PRODUCT_PLAN_MAP: Record<string, PlanInfo> = {
+-  // ── Kada Dine / Restaurant Android ──────────────────────────────────────────
+-  kada_starter_monthly:    { tier: "starter", billing: "monthly" },
+-  kada_starter_yearly:     { tier: "starter", billing: "yearly" },
+-  kada_growth_monthly:     { tier: "growth",  billing: "monthly" },
+-  kada_growth_yearly:      { tier: "growth",  billing: "yearly" },
+-  // ── Kada Dine / Restaurant iOS ──────────────────────────────────────────────
+-  kada_starter_monthlyios: { tier: "starter", billing: "monthly" },
+-  kada_starter_yearlyios:  { tier: "starter", billing: "yearly" },
+-  kada_growth_monthlyios:  { tier: "growth",  billing: "monthly" },
+-  kada_growth_yearlyios:   { tier: "growth",  billing: "yearly" },
+-
+-  // ── KadaStay / Hotel Android ───────────────────────────────────────────────
+-  kadastay_basic_monthly:      { tier: "basic",      billing: "monthly" },
+-  kadastay_basic_yearly:       { tier: "basic",      billing: "yearly" },
+-  kadastay_pro_monthly:        { tier: "pro",        billing: "monthly" },
+-  kadastay_pro_yearly:         { tier: "pro",        billing: "yearly" },
+-  kadastay_enterprise_monthly: { tier: "enterprise", billing: "monthly" },
+-  kadastay_enterprise_yearly:  { tier: "enterprise", billing: "yearly" },
+-  // ── KadaStay / Hotel iOS ───────────────────────────────────────────────────
+-  "com.kadastay.app.basic.monthly":      { tier: "basic",      billing: "monthly" },
+-  "com.kadastay.app.basic.yearly":       { tier: "basic",      billing: "yearly" },
+-  "com.kadastay.app.pro.monthly":        { tier: "pro",        billing: "monthly" },
+-  "com.kadastay.app.pro.yearly":         { tier: "pro",        billing: "yearly" },
+-  "com.kadastay.app.enterprise.monthly": { tier: "enterprise", billing: "monthly" },
+-  "com.kadastay.app.enterprise.yearly":  { tier: "enterprise", billing: "yearly" },
+-};
+-
+-interface AppleLatestReceiptInfo {
+-  product_id: string;
+-  expires_date_ms?: string;
+-  purchase_date_ms?: string;
+-  original_transaction_id?: string;
+-  transaction_id?: string;
+-  is_trial_period?: string;
+-  cancellation_date_ms?: string;
+-}
+-
+-export interface ApplePendingRenewalEntry {
+-  product_id: string;
+-  auto_renew_status?: string;          // "0" off, "1" on
+-  expiration_intent?: string;          // "1" user cancel, "2" billing error, "3" price increase decline, "4" product unavailable, "5" unknown
+-  is_in_billing_retry_period?: string; // "0" / "1"
+-  grace_period_expires_date_ms?: string;
+-  auto_renew_product_id?: string;
+-  price_consent_status?: string;       // "0" needs consent, "1" agreed
+-}
+-
+-interface AppleVerifyResponse {
+-  status: number;
+-  environment?: "Production" | "Sandbox";
+-  latest_receipt?: string;
+-  latest_receipt_info?: AppleLatestReceiptInfo[];
+-  pending_renewal_info?: ApplePendingRenewalEntry[];
+-}
+-
+-/**
+- * Renewal metadata distilled into a flat shape we write to Firestore.
+- * Stays the same whether the source is verifyReceipt or App Store Server
+- * Notifications, so the client can treat them uniformly.
+- */
+-export interface RenewalState {
+-  autoRenewEnabled: boolean | null;
+-  expirationIntent: number | null;     // 1..5 (Apple) or mapped equivalent (Play)
+-  inBillingRetry: boolean;
+-  inGracePeriod: boolean;
+-  gracePeriodEndsAt: string | null;    // ISO-8601 or null
+-  accountHold: boolean;
+-}
+-
+-export function emptyRenewalState(): RenewalState {
+-  return {
+-    autoRenewEnabled: null,
+-    expirationIntent: null,
+-    inBillingRetry: false,
+-    inGracePeriod: false,
+-    gracePeriodEndsAt: null,
+-    accountHold: false,
+-  };
+-}
+-
+-export function pickApplePendingEntry(
+-  entries: ApplePendingRenewalEntry[] | undefined,
+-  productId: string,
+-): ApplePendingRenewalEntry | null {
+-  if (!entries || entries.length === 0) return null;
+-  // Prefer the exact product, otherwise fall back to the first entry.
+-  return entries.find((e) => e.product_id === productId) ?? entries[0];
+-}
+-
+-export function parseAppleRenewalState(
+-  pending: ApplePendingRenewalEntry | null,
+-): RenewalState {
+-  if (!pending) return emptyRenewalState();
+-  const graceMs = Number(pending.grace_period_expires_date_ms ?? 0);
+-  return {
+-    autoRenewEnabled:
+-      pending.auto_renew_status === undefined
+-        ? null
+-        : pending.auto_renew_status === "1",
+-    expirationIntent: pending.expiration_intent
+-      ? Number(pending.expiration_intent)
+-      : null,
+-    inBillingRetry: pending.is_in_billing_retry_period === "1",
+-    inGracePeriod: graceMs > 0 && graceMs > Date.now(),
+-    gracePeriodEndsAt: graceMs > 0 ? new Date(graceMs).toISOString() : null,
+-    accountHold: false, // Apple has no equivalent; only Play uses this flag.
+-  };
+-}
+-
+-interface PlayServiceAccount {
+-  client_email: string;
+-  private_key: string;
+-  token_uri?: string;
+-}
+-
+-interface PlaySubscriptionLineItem {
+-  productId?: string;
+-  expiryTime?: string;
+-  latestSuccessfulOrderId?: string;
+-  autoRenewingPlan?: {
+-    autoRenewEnabled?: boolean;
+-  };
+-  prepaidPlan?: Record<string, unknown>;
+-  offerDetails?: Record<string, unknown>;
+-}
+-
+-interface PlaySubscriptionV2 {
+-  regionCode?: string;
+-  lineItems?: PlaySubscriptionLineItem[];
+-  startTime?: string;
+-  subscriptionState?: string;
+-  latestOrderId?: string;
+-  linkedPurchaseToken?: string;
+-  acknowledgementState?: string;
+-}
+-
+-interface GooglePlayDeveloperNotification {
+-  packageName?: string;
+-  subscriptionNotification?: {
+-    notificationType?: number;
+-    purchaseToken?: string;
+-    subscriptionId?: string;
+-  };
+-}
+-
+-let cachedGoogleAccessToken: {
+-  token: string;
+-  expiresAt: number;
+-} | null = null;
+-
+-/**
+- * Pick the latest_receipt_info entry with the largest expires_date_ms — this
+- * represents the user's most recent state (renewal, upgrade, etc.).
+- */
+-function pickLatestEntry(
+-  entries: AppleLatestReceiptInfo[] | undefined,
+-): AppleLatestReceiptInfo | null {
+-  if (!entries || entries.length === 0) return null;
+-  return entries.reduce<AppleLatestReceiptInfo | null>((latest, current) => {
+-    const a = Number(latest?.expires_date_ms ?? 0);
+-    const b = Number(current?.expires_date_ms ?? 0);
+-    return b > a ? current : latest;
+-  }, null);
+-}
+-
+-async function postAppleVerify(
+-  url: string,
+-  body: Record<string, unknown>,
+-): Promise<AppleVerifyResponse> {
+-  const res = await fetch(url, {
+-    method: "POST",
+-    headers: { "Content-Type": "application/json" },
+-    body: JSON.stringify(body),
+-  });
+-  if (!res.ok) throw new Error(`Apple verifyReceipt HTTP ${res.status}`);
+-  return (await res.json()) as AppleVerifyResponse;
+-}
+-
+-function billingPrivateRef(uid: string) {
+-  return admin.firestore().collection("billing_private").doc(uid);
+-}
+-
+-/**
+- * Apply a verified Apple receipt to Firestore.
+- * Idempotent on `originalTransactionId`.
+- */
+-async function applyAppleSubscriptionState(opts: {
+-  uid: string;
+-  entry: AppleLatestReceiptInfo;
+-  latestReceipt: string | undefined;
+-  environment: "Production" | "Sandbox";
+-  renewal?: RenewalState;
+-}): Promise<{
+-  status: string;
+-  expiresAt: string | null;
+-  planTier: string;
+-  renewal: RenewalState;
+-}> {
+-  const { uid, entry, latestReceipt, environment } = opts;
+-  const renewal = opts.renewal ?? emptyRenewalState();
+-  const planInfo = PRODUCT_PLAN_MAP[entry.product_id];
+-  if (!planInfo) {
+-    throw new HttpsError(
+-      "failed-precondition",
+-      `Unknown subscription product: ${entry.product_id}`,
+-    );
+-  }
+-
+-  const expiresMs = Number(entry.expires_date_ms ?? 0);
+-  const cancelledMs = Number(entry.cancellation_date_ms ?? 0);
+-  const now = Date.now();
+-
+-  let status: "active" | "expired" | "refunded" | "trial" = "active";
+-  if (cancelledMs > 0) status = "refunded";
+-  else if (expiresMs > 0 && expiresMs < now) {
+-    // Grace period means Apple is retrying billing — keep the user active
+-    // until the grace window closes.
+-    status = renewal.inGracePeriod ? "active" : "expired";
+-  } else if (entry.is_trial_period === "true") {
+-    status = "trial";
+-  }
+-
+-  const expiresAt = expiresMs > 0 ? new Date(expiresMs).toISOString() : null;
+-  const nowIso = new Date().toISOString();
+-  const isHotelPlan = ["basic", "pro", "enterprise"].includes(planInfo.tier);
+-
+-  const subPayload = {
+-    subscriptionType: planInfo.billing,
+-    planTier: planInfo.tier,
+-    plan: planInfo.tier,
+-    subscriptionStatus: status,
+-    status: status,
+-    subscriptionEndDate: expiresAt,
+-    expiryDate: expiresAt,
+-    isTrial: entry.is_trial_period === "true",
+-    lastRenewalDate: nowIso,
+-    lastReceiptValidatedAt: nowIso,
+-    isBlocked: status !== "active" && status !== "trial",
+-    autoRenewEnabled: renewal.autoRenewEnabled,
+-    expirationIntent: renewal.expirationIntent,
+-    inBillingRetry: renewal.inBillingRetry,
+-    inGracePeriod: renewal.inGracePeriod,
+-    gracePeriodEndsAt: renewal.gracePeriodEndsAt,
+-    accountHold: renewal.accountHold,
+-  };
+-
+-  if (isHotelPlan) {
+-    await admin.firestore().collection("hotels").doc(uid).set(subPayload, { merge: true });
+-    await admin.firestore().collection("subscriptions").doc(uid).set(subPayload, { merge: true });
+-  } else {
+-    await admin.firestore().collection("restaurants").doc(uid).set(subPayload, { merge: true });
+-  }
+-
+-  await billingPrivateRef(uid).set(
+-    {
+-      appleLatestReceipt: latestReceipt ?? null,
+-      appleEnvironment: environment,
+-      appleOriginalTransactionId: entry.original_transaction_id ?? null,
+-      appleProductId: entry.product_id,
+-      applePlanTier: planInfo.tier,
+-      appleBillingPeriod: planInfo.billing,
+-      appleLatestTransactionId: entry.transaction_id ?? null,
+-      appleLastReceiptValidatedAt: nowIso,
+-      updatedAt: nowIso,
+-    },
+-    { merge: true },
+-  );
+-
+-  return { status, expiresAt, planTier: planInfo.tier, renewal };
+-}
+-
+-/**
+- * Callable from Flutter:
+- *
+- *   final callable = FirebaseFunctions.instance.httpsCallable('verifyAppStoreReceipt');
+- *   await callable.call({ 'receipt': purchase.verificationData.serverVerificationData });
+- *
+- * The function infers the calling user from the auth context.
+- */
+-export const verifyAppStoreReceipt = onCall(
+-  { secrets: [APPLE_SHARED_SECRET] },
+-  async (request) => {
+-    const uid = request.auth?.uid;
+-    if (!uid) {
+-      throw new HttpsError(
+-        "unauthenticated",
+-        "Sign in before verifying a receipt.",
+-      );
+-    }
+-    const receipt = request.data?.receipt as string | undefined;
+-    if (!receipt || receipt.length < 16) {
+-      throw new HttpsError(
+-        "invalid-argument",
+-        "Missing iOS receipt blob in `receipt` field.",
+-      );
+-    }
+-
+-    const body = {
+-      "receipt-data": receipt,
+-      password: APPLE_SHARED_SECRET.value(),
+-      "exclude-old-transactions": true,
+-    };
+-
+-    // Try production first; if Apple says status=21007 it's a sandbox
+-    // receipt — retry against sandbox. This is the documented flow.
+-    let response = await postAppleVerify(APPLE_VERIFY_PRODUCTION, body);
+-    let environment: "Production" | "Sandbox" = "Production";
+-    if (response.status === 21007) {
+-      response = await postAppleVerify(APPLE_VERIFY_SANDBOX, body);
+-      environment = "Sandbox";
+-    }
+-    if (response.status !== 0) {
+-      logger.warn("Apple verifyReceipt non-zero status", {
+-        status: response.status,
+-        uid,
+-      });
+-      throw new HttpsError(
+-        "permission-denied",
+-        `Apple receipt invalid (status ${response.status}).`,
+-      );
+-    }
+-
+-    const entry = pickLatestEntry(response.latest_receipt_info);
+-    if (!entry) {
+-      throw new HttpsError(
+-        "failed-precondition",
+-        "Receipt has no subscription transactions.",
+-      );
+-    }
+-
+-    const pending = pickApplePendingEntry(
+-      response.pending_renewal_info,
+-      entry.product_id,
+-    );
+-    const renewal = parseAppleRenewalState(pending);
+-
+-    const result = await applyAppleSubscriptionState({
+-      uid,
+-      entry,
+-      latestReceipt: response.latest_receipt,
+-      environment,
+-      renewal,
+-    });
+-
+-    return { ok: true, ...result, environment };
+-  },
+-);
+-
+-/**
+- * Apple App Store Server Notifications V2 webhook.
+- *
+- * Configure this endpoint's HTTPS URL in App Store Connect → App Information →
+- * App Store Server Notifications. Apple sends every renewal, refund, billing
+- * retry and expiration event here.
+- *
+- * Notification payloads are signed JWS — for production you should verify the
+- * x5c chain against Apple's public certificates. We decode the body without
+- * verifying for now and re-validate the receipt against `verifyReceipt` to
+- * pick up the latest expiration date authoritatively. That double check
+- * means an attacker who forges a webhook can't grant access — `verifyReceipt`
+- * still has to succeed.
+- */
+-export const appStoreServerNotification = onRequest(
+-  { secrets: [APPLE_SHARED_SECRET] },
+-  async (req, res) => {
+-    if (req.method !== "POST") {
+-      res.status(405).send("Method not allowed");
+-      return;
+-    }
+-    const signedPayload = (req.body?.signedPayload as string | undefined) ?? "";
+-    if (!signedPayload) {
+-      res.status(400).send("Missing signedPayload");
+-      return;
+-    }
+-
+-    // Verify the JWS signature against Apple Root CA G3 BEFORE trusting
+-    // anything in the body. If verification fails, log and reject — we used
+-    // to fall back to decoding without verifying + re-validating via
+-    // verifyReceipt, but that masked malicious payloads. Now we refuse
+-    // unsigned payloads outright.
+-    const decoded = verifyAppleJws(signedPayload);
+-    if (!decoded) {
+-      logger.warn("ASSN: JWS verification failed — rejecting payload");
+-      res.status(401).send("Invalid JWS signature");
+-      return;
+-    }
+-
+-    const data = (decoded.data ?? {}) as Record<string, unknown>;
+-    const signedTransactionInfo = data.signedTransactionInfo as
+-      | string
+-      | undefined;
+-    if (!signedTransactionInfo) {
+-      logger.info("ASSN: no signedTransactionInfo on payload", {
+-        notificationType: decoded.notificationType,
+-      });
+-      res.status(200).send("ok");
+-      return;
+-    }
+-    // The inner JWS is signed by the same Apple chain — verify it too for
+-    // strict compliance. If it fails, fall back to plain decode (the outer
+-    // already validated so Apple is the source).
+-    const tx =
+-      verifyAppleJws(signedTransactionInfo) ??
+-      decodeJwsPayload(signedTransactionInfo);
+-    if (!tx) {
+-      res.status(200).send("ok");
+-      return;
+-    }
+-    const originalTransactionId = tx.originalTransactionId as string | undefined;
+-    if (!originalTransactionId) {
+-      res.status(200).send("ok");
+-      return;
+-    }
+-    // Find which restaurant owns this transaction.
+-    const privateSnap = await admin
+-      .firestore()
+-      .collection("billing_private")
+-      .where("appleOriginalTransactionId", "==", originalTransactionId)
+-      .limit(1)
+-      .get();
+-    let uid: string | null = privateSnap.empty ? null : privateSnap.docs[0].id;
+-
+-    // Backward compatibility for receipts stored before billing_private
+-    // existed. New writes do not put receipt blobs on the public restaurant doc.
+-    if (!uid) {
+-      const legacySnap = await admin
+-        .firestore()
+-        .collection("restaurants")
+-        .where("iapAppleOriginalTransactionId", "==", originalTransactionId)
+-        .limit(1)
+-        .get();
+-      uid = legacySnap.empty ? null : legacySnap.docs[0].id;
+-    }
+-
+-    if (!uid) {
+-      logger.warn("ASSN: no restaurant matches transaction", {
+-        originalTransactionId,
+-      });
+-      res.status(200).send("ok");
+-      return;
+-    }
+-    const privateDoc = await billingPrivateRef(uid).get();
+-    const privateData = privateDoc.data() ?? {};
+-    const receipt =
+-      (privateData.appleLatestReceipt as string | undefined) ??
+-      ((await admin.firestore().collection("restaurants").doc(uid).get()).data()
+-        ?.iapAppleLatestReceipt as string | undefined);
+-    if (!receipt) {
+-      logger.info("ASSN: no stored receipt to re-verify");
+-      res.status(200).send("ok");
+-      return;
+-    }
+-    const body = {
+-      "receipt-data": receipt,
+-      password: APPLE_SHARED_SECRET.value(),
+-      "exclude-old-transactions": true,
+-    };
+-    let response = await postAppleVerify(APPLE_VERIFY_PRODUCTION, body);
+-    let environment: "Production" | "Sandbox" = "Production";
+-    if (response.status === 21007) {
+-      response = await postAppleVerify(APPLE_VERIFY_SANDBOX, body);
+-      environment = "Sandbox";
+-    }
+-    const entry = pickLatestEntry(response.latest_receipt_info);
+-    if (!entry) {
+-      res.status(200).send("ok");
+-      return;
+-    }
+-    const pending = pickApplePendingEntry(
+-      response.pending_renewal_info,
+-      entry.product_id,
+-    );
+-    await applyAppleSubscriptionState({
+-      uid,
+-      entry,
+-      latestReceipt: response.latest_receipt,
+-      environment,
+-      renewal: parseAppleRenewalState(pending),
+-    });
+-    res.status(200).send("ok");
+-  },
+-);
+-
+-// ────────────────────────────────────────────────────────────────────────────
+-// JWS verification — Apple App Store Server Notifications V2 signs every
+-// payload with an ES256 signature whose certificate chain leads to
+-// Apple Root CA G3. Without verifying the signature, the webhook trusts
+-// anything posted to its URL.
+-//
+-// `verifyAppleJws` returns the decoded payload only if:
+-//   1. The header parses and contains an x5c chain of >= 2 certs.
+-//   2. The leaf cert is currently valid (notBefore <= now <= notAfter).
+-//   3. Each cert in the chain was issued by the next (subject == issuer +
+-//      signature OK).
+-//   4. The root of the chain matches Apple Root CA G3 (same DER bytes).
+-//   5. The ES256 signature over `header.payload` verifies against the
+-//      leaf's public key.
+-//
+-// Returns null on any failure; the caller falls back to a
+-// less-trusting re-verification path.
+-// ────────────────────────────────────────────────────────────────────────────
+-const appleRootCert = new X509Certificate(APPLE_ROOT_CA_G3_PEM);
+-const APPLE_ROOT_DER_B64 = appleRootCert.raw.toString("base64");
+-
+-/**
+- * Convert ECDSA P-256 JWS signature (r||s, 64 bytes) to DER format that
+- * Node's `crypto.verify` expects.
+- */
+-function ecdsaJwsToDer(jws: Buffer): Buffer {
+-  if (jws.length !== 64) return jws; // already DER, hopefully
+-  const r = jws.subarray(0, 32);
+-  const s = jws.subarray(32, 64);
+-  // Strip leading zero bytes; add one back if high bit is set (DER positivity)
+-  const trim = (b: Buffer) => {
+-    let i = 0;
+-    while (i < b.length - 1 && b[i] === 0) i++;
+-    const out = b.subarray(i);
+-    return out[0] & 0x80 ? Buffer.concat([Buffer.from([0]), out]) : out;
+-  };
+-  const rT = trim(r);
+-  const sT = trim(s);
+-  return Buffer.concat([
+-    Buffer.from([0x30, 2 + rT.length + 2 + sT.length]),
+-    Buffer.from([0x02, rT.length]),
+-    rT,
+-    Buffer.from([0x02, sT.length]),
+-    sT,
+-  ]);
+-}
+-
+-function certFromB64Der(b64: string): X509Certificate | null {
+-  try {
+-    const der = Buffer.from(b64, "base64");
+-    return new X509Certificate(der);
+-  } catch {
+-    return null;
+-  }
+-}
+-
+-/**
+- * Verify the JWS signature + x5c chain against Apple's Root CA G3.
+- * Returns the parsed payload if everything checks out, else null.
+- */
+-function verifyAppleJws(jws: string): Record<string, unknown> | null {
+-  const parts = jws.split(".");
+-  if (parts.length !== 3) return null;
+-  const [headerB64, payloadB64, sigB64] = parts;
+-
+-  // 1. Parse header + extract x5c chain.
+-  let header: { alg?: string; x5c?: string[] };
+-  try {
+-    header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf8"));
+-  } catch {
+-    return null;
+-  }
+-  if (header.alg !== "ES256") return null;
+-  const x5c = header.x5c;
+-  if (!Array.isArray(x5c) || x5c.length < 2) return null;
+-
+-  // 2. Parse certs.
+-  const certs = x5c.map(certFromB64Der);
+-  if (certs.some((c) => c === null)) return null;
+-  const chain = certs as X509Certificate[];
+-  const leaf = chain[0];
+-  const root = chain[chain.length - 1];
+-
+-  // 3. Leaf time validity.
+-  const now = Date.now();
+-  if (Date.parse(leaf.validFrom) > now) return null;
+-  if (Date.parse(leaf.validTo) < now) return null;
+-
+-  // 4. Chain validation — each cert verified by the next, then root must
+-  //    equal Apple Root CA G3.
+-  for (let i = 0; i < chain.length - 1; i++) {
+-    if (!chain[i].verify(chain[i + 1].publicKey)) {
+-      logger.warn("ASSN: chain cert " + i + " failed verify");
+-      return null;
+-    }
+-  }
+-  if (root.raw.toString("base64") !== APPLE_ROOT_DER_B64) {
+-    // The chain's terminal cert isn't Apple Root CA G3 — could be the
+-    // intermediate, in which case validate it against the bundled root.
+-    if (!root.verify(appleRootCert.publicKey)) {
+-      logger.warn("ASSN: chain does not lead to Apple Root CA G3");
+-      return null;
+-    }
+-  }
+-
+-  // 5. Verify the JWS signature over `header.payload` with the leaf key.
+-  const signature = ecdsaJwsToDer(Buffer.from(sigB64, "base64url"));
+-  const data = Buffer.from(`${headerB64}.${payloadB64}`, "utf8");
+-  const verifier = createVerify("SHA256");
+-  verifier.update(data);
+-  verifier.end();
+-  const ok = verifier.verify(
+-    createPublicKey(leaf.publicKey),
+-    signature,
+-  );
+-  if (!ok) {
+-    logger.warn("ASSN: JWS signature did not verify against leaf");
+-    return null;
+-  }
+-
+-  // 6. Signature OK — parse payload and return.
+-  try {
+-    return JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
+-  } catch {
+-    return null;
+-  }
+-}
+-
+-/**
+- * Decode the payload of a JWS without verifying. Kept as a fallback for
+- * inner payloads where the chain has already been validated by the wrapping
+- * JWS (Apple nests signedTransactionInfo / signedRenewalInfo under the
+- * outer signedPayload).
+- */
+-export function decodeJwsPayload(jws: string): Record<string, unknown> | null {
+-  const parts = jws.split(".");
+-  if (parts.length !== 3) return null;
+-  try {
+-    const json = Buffer.from(parts[1], "base64url").toString("utf8");
+-    return JSON.parse(json);
+-  } catch {
+-    return null;
+-  }
+-}
+-
+-function encodeBase64Url(input: Record<string, unknown>) {
+-  return Buffer.from(JSON.stringify(input)).toString("base64url");
+-}
+-
+-function getPlayServiceAccount(): PlayServiceAccount {
+-  let raw: string;
+-  try {
+-    raw = PLAY_SERVICE_ACCOUNT_JSON.value();
+-  } catch (accessErr) {
+-    logger.error(
+-      "PLAY_SERVICE_ACCOUNT_JSON secret could not be accessed at all. " +
+-        "Has it been set? Run: firebase functions:secrets:set PLAY_SERVICE_ACCOUNT_JSON < /path/to/service-account.json",
+-      { err: accessErr },
+-    );
+-    throw new HttpsError(
+-      "failed-precondition",
+-      "Google Play service account secret is not accessible. " +
+-        "The admin must configure it via: " +
+-        "firebase functions:secrets:set PLAY_SERVICE_ACCOUNT_JSON < /path/to/service-account.json",
+-    );
+-  }
+-
+-  if (!raw || raw.trim().length < 20) {
+-    logger.error(
+-      "PLAY_SERVICE_ACCOUNT_JSON secret is empty or truncated " +
+-        `(length=${raw?.length ?? 0}, preview=${JSON.stringify(raw?.substring(0, 30))}). ` +
+-        "This usually happens when multi-line JSON is pasted interactively. " +
+-        "Re-set using file redirection: " +
+-        "firebase functions:secrets:set PLAY_SERVICE_ACCOUNT_JSON < /path/to/service-account.json",
+-    );
+-    throw new HttpsError(
+-      "failed-precondition",
+-      "Google Play service account secret is corrupted (truncated). " +
+-        "The admin must re-upload it using: " +
+-        "firebase functions:secrets:set PLAY_SERVICE_ACCOUNT_JSON < /path/to/service-account.json",
+-    );
+-  }
+-
+-  try {
+-    const parsed = JSON.parse(raw) as Partial<PlayServiceAccount>;
+-    if (!parsed.client_email || !parsed.private_key) {
+-      logger.error(
+-        "PLAY_SERVICE_ACCOUNT_JSON parsed successfully but is missing " +
+-          "required fields (client_email and/or private_key). " +
+-          "Ensure you are uploading the correct Google Play Console " +
+-          "service account key file.",
+-        {
+-          hasClientEmail: !!parsed.client_email,
+-          hasPrivateKey: !!parsed.private_key,
+-        },
+-      );
+-      throw new Error("missing client_email/private_key");
+-    }
+-    return {
+-      client_email: parsed.client_email,
+-      private_key: parsed.private_key,
+-      token_uri: parsed.token_uri,
+-    };
+-  } catch (err) {
+-    if (err instanceof HttpsError) throw err;
+-    logger.error(
+-      "PLAY_SERVICE_ACCOUNT_JSON could not be parsed as valid JSON " +
+-        `(length=${raw.length}, preview=${JSON.stringify(raw.substring(0, 40))}). ` +
+-        "Re-set using: firebase functions:secrets:set PLAY_SERVICE_ACCOUNT_JSON < /path/to/service-account.json",
+-      { err },
+-    );
+-    throw new HttpsError(
+-      "failed-precondition",
+-      "Google Play service account secret is not valid JSON. " +
+-        "The admin must re-upload the service account key file using: " +
+-        "firebase functions:secrets:set PLAY_SERVICE_ACCOUNT_JSON < /path/to/service-account.json",
+-    );
+-  }
+-}
+-
+-async function getGoogleAccessToken(): Promise<string> {
+-  const now = Math.floor(Date.now() / 1000);
+-  if (cachedGoogleAccessToken && cachedGoogleAccessToken.expiresAt > now + 60) {
+-    return cachedGoogleAccessToken.token;
+-  }
+-
+-  const serviceAccount = getPlayServiceAccount();
+-  const header = encodeBase64Url({ alg: "RS256", typ: "JWT" });
+-  const claims = encodeBase64Url({
+-    iss: serviceAccount.client_email,
+-    scope: GOOGLE_OAUTH_SCOPE,
+-    aud: serviceAccount.token_uri ?? GOOGLE_OAUTH_TOKEN_URL,
+-    iat: now,
+-    exp: now + 3600,
+-  });
+-  const unsignedJwt = `${header}.${claims}`;
+-  const signature = createSign("RSA-SHA256")
+-    .update(unsignedJwt)
+-    .sign(serviceAccount.private_key, "base64url");
+-  const assertion = `${unsignedJwt}.${signature}`;
+-
+-  const res = await fetch(serviceAccount.token_uri ?? GOOGLE_OAUTH_TOKEN_URL, {
+-    method: "POST",
+-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+-    body: new URLSearchParams({
+-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+-      assertion,
+-    }).toString(),
+-  });
+-
+-  if (!res.ok) {
+-    logger.error("Google OAuth token request failed", { status: res.status });
+-    throw new HttpsError(
+-      "unavailable",
+-      "Could not authenticate with Google Play.",
+-    );
+-  }
+-
+-  const json = (await res.json()) as {
+-    access_token?: string;
+-    expires_in?: number;
+-  };
+-  if (!json.access_token) {
+-    throw new HttpsError(
+-      "unavailable",
+-      "Google OAuth response did not include an access token.",
+-    );
+-  }
+-
+-  cachedGoogleAccessToken = {
+-    token: json.access_token,
+-    expiresAt: now + (json.expires_in ?? 3600),
+-  };
+-  return json.access_token;
+-}
+-
+-async function getPlaySubscription(
+-  purchaseToken: string,
+-): Promise<PlaySubscriptionV2> {
+-  const accessToken = await getGoogleAccessToken();
+-  const url =
+-    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
+-    `${encodeURIComponent(GOOGLE_PLAY_PACKAGE_NAME)}/purchases/subscriptionsv2/` +
+-    `tokens/${encodeURIComponent(purchaseToken)}`;
+-  const res = await fetch(url, {
+-    headers: { Authorization: `Bearer ${accessToken}` },
+-  });
+-
+-  if (!res.ok) {
+-    const errorText = await res.text().catch(() => "No body");
+-    logger.warn("Google Play subscription lookup failed", {
+-      status: res.status,
+-      error: errorText,
+-    });
+-    throw new HttpsError(
+-      "permission-denied",
+-      `Google Play purchase token could not be verified. (Status: ${res.status}, Error: ${errorText})`,
+-    );
+-  }
+-
+-  return (await res.json()) as PlaySubscriptionV2;
+-}
+-
+-async function acknowledgePlaySubscription(
+-  productId: string,
+-  purchaseToken: string,
+-  uid: string,
+-) {
+-  const accessToken = await getGoogleAccessToken();
+-  const url =
+-    `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/` +
+-    `${encodeURIComponent(GOOGLE_PLAY_PACKAGE_NAME)}/purchases/subscriptions/` +
+-    `${encodeURIComponent(productId)}/tokens/` +
+-    `${encodeURIComponent(purchaseToken)}:acknowledge`;
+-  const res = await fetch(url, {
+-    method: "POST",
+-    headers: {
+-      Authorization: `Bearer ${accessToken}`,
+-      "Content-Type": "application/json",
+-    },
+-    body: JSON.stringify({ developerPayload: uid }),
+-  });
+-
+-  if (!res.ok) {
+-    const errorText = await res.text().catch(() => "No body");
+-    logger.error("Google Play subscription acknowledge failed", {
+-      status: res.status,
+-      productId,
+-      error: errorText,
+-    });
+-    throw new HttpsError(
+-      "unavailable",
+-      `Google Play purchase could not be acknowledged. (Status: ${res.status}, Error: ${errorText})`,
+-    );
+-  }
+-}
+-
+-function pickPlayLineItem(
+-  lineItems: PlaySubscriptionLineItem[] | undefined,
+-  requestedProductId: string | undefined,
+-): PlaySubscriptionLineItem | null {
+-  const items = lineItems ?? [];
+-  if (requestedProductId) {
+-    const exact = items.find((item) => item.productId === requestedProductId);
+-    if (exact) return exact;
+-  }
+-  if (items.length === 0) return null;
+-  return items.reduce<PlaySubscriptionLineItem | null>((latest, current) => {
+-    const a = Date.parse(latest?.expiryTime ?? "");
+-    const b = Date.parse(current.expiryTime ?? "");
+-    return Number.isFinite(b) && (!Number.isFinite(a) || b > a)
+-      ? current
+-      : latest;
+-  }, null);
+-}
+-
+-function mapPlaySubscriptionStatus(
+-  subscriptionState: string | undefined,
+-  expiryTime: string | undefined,
+-  isTrial: boolean,
+-): "active" | "expired" | "paused" | "pending" | "trial" {
+-  const expiresMs = Date.parse(expiryTime ?? "");
+-  if (Number.isFinite(expiresMs) && expiresMs <= Date.now()) {
+-    return "expired";
+-  }
+-
+-  if (isTrial) {
+-    return "trial";
+-  }
+-
+-  switch (subscriptionState) {
+-    case "SUBSCRIPTION_STATE_ACTIVE":
+-    case "SUBSCRIPTION_STATE_IN_GRACE_PERIOD":
+-    case "SUBSCRIPTION_STATE_CANCELED":
+-      return "active";
+-    case "SUBSCRIPTION_STATE_PAUSED":
+-    case "SUBSCRIPTION_STATE_ON_HOLD":
+-      return "paused";
+-    case "SUBSCRIPTION_STATE_PENDING":
+-    case "SUBSCRIPTION_STATE_PENDING_PURCHASE_CANCELED":
+-      return "pending";
+-    default:
+-      return "expired";
+-  }
+-}
+-
+-async function applyPlaySubscriptionState(opts: {
+-  uid: string;
+-  purchaseToken: string;
+-  productId: string;
+-  purchase: PlaySubscriptionV2;
+-  lineItem: PlaySubscriptionLineItem;
+-  status: "active" | "expired" | "paused" | "pending" | "trial";
+-}): Promise<{ status: string; expiresAt: string | null; planTier: string }> {
+-  const { uid, purchaseToken, productId, purchase, lineItem, status } = opts;
+-  const planInfo = PRODUCT_PLAN_MAP[productId];
+-  if (!planInfo) {
+-    throw new HttpsError(
+-      "failed-precondition",
+-      `Unknown Google Play subscription product: ${productId}`,
+-    );
+-  }
+-
+-  // Map Play's richer state vocab onto the cross-platform RenewalState
+-  // shape so the mobile client can treat Apple + Play uniformly.
+-  const subState = purchase.subscriptionState;
+-  const renewal: RenewalState = {
+-    autoRenewEnabled: lineItem.autoRenewingPlan?.autoRenewEnabled ?? null,
+-    expirationIntent: subState === "SUBSCRIPTION_STATE_CANCELED" ? 1 : null,
+-    inBillingRetry: subState === "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+-    inGracePeriod: subState === "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+-    gracePeriodEndsAt:
+-      subState === "SUBSCRIPTION_STATE_IN_GRACE_PERIOD" && lineItem.expiryTime
+-        ? lineItem.expiryTime
+-        : null,
+-    accountHold: subState === "SUBSCRIPTION_STATE_ON_HOLD",
+-  };
+-
+-  const expiresAt = lineItem.expiryTime ?? null;
+-  const nowIso = new Date().toISOString();
+-  const isHotelPlan = ["basic", "pro", "enterprise"].includes(planInfo.tier);
+-
+-  const gpSubPayload = {
+-    subscriptionType: planInfo.billing,
+-    planTier: planInfo.tier,
+-    plan: planInfo.tier,
+-    subscriptionStatus: status,
+-    status: status,
+-    subscriptionEndDate: expiresAt,
+-    expiryDate: expiresAt,
+-    isTrial: status === "trial",
+-    lastRenewalDate: nowIso,
+-    lastReceiptValidatedAt: nowIso,
+-    isBlocked: status !== "active" && status !== "trial",
+-    autoRenewEnabled: renewal.autoRenewEnabled,
+-    expirationIntent: renewal.expirationIntent,
+-    inBillingRetry: renewal.inBillingRetry,
+-    inGracePeriod: renewal.inGracePeriod,
+-    gracePeriodEndsAt: renewal.gracePeriodEndsAt,
+-    accountHold: renewal.accountHold,
+-  };
+-
+-  if (isHotelPlan) {
+-    await admin.firestore().collection("hotels").doc(uid).set(gpSubPayload, { merge: true });
+-    await admin.firestore().collection("subscriptions").doc(uid).set(gpSubPayload, { merge: true });
+-  } else {
+-    await admin.firestore().collection("restaurants").doc(uid).set(gpSubPayload, { merge: true });
+-  }
+-
+-  await billingPrivateRef(uid).set(
+-    {
+-      googlePurchaseToken: purchaseToken,
+-      googleProductId: productId,
+-      googlePlanTier: planInfo.tier,
+-      googleBillingPeriod: planInfo.billing,
+-      googleLatestOrderId:
+-        lineItem.latestSuccessfulOrderId ?? purchase.latestOrderId ?? null,
+-      googleLinkedPurchaseToken: purchase.linkedPurchaseToken ?? null,
+-      googleRegionCode: purchase.regionCode ?? null,
+-      googleSubscriptionState: purchase.subscriptionState ?? null,
+-      googleAcknowledgementState: purchase.acknowledgementState ?? null,
+-      googleLineItem: lineItem,
+-      googleLastReceiptValidatedAt: nowIso,
+-      updatedAt: nowIso,
+-    },
+-    { merge: true },
+-  );
+-
+-  return { status, expiresAt, planTier: planInfo.tier };
+-}
+-
+-async function verifyAndApplyPlayPurchase(opts: {
+-  uid: string;
+-  purchaseToken: string;
+-  requestedProductId?: string;
+-}) {
+-  const { uid, purchaseToken, requestedProductId } = opts;
+-  if (requestedProductId && !PRODUCT_PLAN_MAP[requestedProductId]) {
+-    throw new HttpsError(
+-      "failed-precondition",
+-      `Unknown Google Play product: ${requestedProductId}. Valid products: ${Object.keys(PRODUCT_PLAN_MAP).join(", ")}`,
+-    );
+-  }
+-
+-  const purchase = await getPlaySubscription(purchaseToken);
+-  const lineItem = pickPlayLineItem(purchase.lineItems, requestedProductId);
+-  const productId = lineItem?.productId;
+-  if (!lineItem || !productId) {
+-    throw new HttpsError(
+-      "failed-precondition",
+-      "Google Play purchase has no subscription line item.",
+-    );
+-  }
+-  if (requestedProductId && requestedProductId !== productId) {
+-    throw new HttpsError(
+-      "permission-denied",
+-      "Google Play purchase token does not match the requested product.",
+-    );
+-  }
+-  if (!PRODUCT_PLAN_MAP[productId]) {
+-    throw new HttpsError(
+-      "failed-precondition",
+-      `Unknown Google Play subscription product: ${productId}`,
+-    );
+-  }
+-
+-  const isTrial = !!lineItem.offerDetails;
+-  const status = mapPlaySubscriptionStatus(
+-    purchase.subscriptionState,
+-    lineItem.expiryTime,
+-    isTrial,
+-  );
+-
+-  if (
+-    (status === "active" || status === "trial") &&
+-    purchase.acknowledgementState === "ACKNOWLEDGEMENT_STATE_PENDING"
+-  ) {
+-    await acknowledgePlaySubscription(productId, purchaseToken, uid);
+-    purchase.acknowledgementState = "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED";
+-  }
+-
+-  const result = await applyPlaySubscriptionState({
+-    uid,
+-    purchaseToken,
+-    productId,
+-    purchase,
+-    lineItem,
+-    status,
+-  });
+-
+-  return {
+-    ...result,
+-    productId,
+-    subscriptionState: purchase.subscriptionState ?? null,
+-    acknowledgementState: purchase.acknowledgementState ?? null,
+-  };
+-}
+-
+-export const verifyPlayPurchase = onCall(
+-  { secrets: [PLAY_SERVICE_ACCOUNT_JSON] },
+-  async (request) => {
+-    const uid = request.auth?.uid;
+-    if (!uid) {
+-      throw new HttpsError("unauthenticated", "Sign in first.");
+-    }
+-
+-    const purchaseToken = request.data?.purchaseToken as string | undefined;
+-    const requestedProductId = request.data?.productId as string | undefined;
+-    if (!purchaseToken || purchaseToken.length < 16) {
+-      throw new HttpsError(
+-        "invalid-argument",
+-        "Missing Google Play purchase token.",
+-      );
+-    }
+-
+-    const result = await verifyAndApplyPlayPurchase({
+-      uid,
+-      purchaseToken,
+-      requestedProductId,
+-    });
+-
+-    return {
+-      ok: true,
+-      ...result,
+-    };
+-  },
+-);
+-
+-function decodePubSubData(data: string | undefined) {
+-  if (!data) return null;
+-  try {
+-    return JSON.parse(
+-      Buffer.from(data, "base64").toString("utf8"),
+-    ) as GooglePlayDeveloperNotification;
+-  } catch {
+-    return null;
+-  }
+-}
+-
+-// ────────────────────────────────────────────────────────────────────────────
+-// Google OIDC token verification — the Android equivalent of Apple Root CA
+-// JWS validation. Google's Pub/Sub push delivery attaches an OIDC token in
+-// the `Authorization: Bearer` header signed by the service account
+-// configured on the push subscription. Verifying this token proves the
+-// request actually came from Google's Pub/Sub, not a forger with a leaked
+-// shared token.
+-//
+-// Verification steps (RFC 7515 + RFC 7519):
+-//   1. Parse JWT (header.payload.signature, all base64url).
+-//   2. Header must declare alg in { RS256, ES256 } — Google uses RS256.
+-//   3. Fetch Google's JWKS from https://www.googleapis.com/oauth2/v3/certs
+-//      (cached for 1h — Google rotates keys but signs JWTs with old keys
+-//      for ~24h after rotation).
+-//   4. Find the key in JWKS whose `kid` matches the JWT header's `kid`.
+-//   5. Verify the signature over `header.payload`.
+-//   6. Check claims: iss == accounts.google.com, aud == expected audience,
+-//      email == configured service account, email_verified == true,
+-//      exp > now (with 60s clock skew), iat < now + 60s.
+-// ────────────────────────────────────────────────────────────────────────────
+-const GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs";
+-let cachedGoogleJwks: { keys: Record<string, unknown>[]; expiresAt: number } | null = null;
+-const JWKS_TTL_MS = 60 * 60 * 1000;
+-
+-async function getGoogleJwks(): Promise<Record<string, unknown>[]> {
+-  if (cachedGoogleJwks && cachedGoogleJwks.expiresAt > Date.now()) {
+-    return cachedGoogleJwks.keys;
+-  }
+-  const res = await fetch(GOOGLE_JWKS_URL);
+-  if (!res.ok) {
+-    throw new Error(`JWKS fetch failed: ${res.status}`);
+-  }
+-  const json = (await res.json()) as { keys: Record<string, unknown>[] };
+-  cachedGoogleJwks = { keys: json.keys, expiresAt: Date.now() + JWKS_TTL_MS };
+-  return json.keys;
+-}
+-
+-interface OidcResult {
+-  ok: boolean;
+-  reason?: string;
+-  claims?: { email?: string; aud?: string; iss?: string; email_verified?: boolean; exp?: number; iat?: number };
+-}
+-
+-async function verifyGoogleOidcToken(
+-  jwt: string,
+-  opts: { expectedEmail: string; expectedAudience?: string },
+-): Promise<OidcResult> {
+-  const parts = jwt.split(".");
+-  if (parts.length !== 3) return { ok: false, reason: "malformed JWT" };
+-  const [headerB64, payloadB64, sigB64] = parts;
+-
+-  let header: { alg?: string; kid?: string };
+-  let payload: { iss?: string; aud?: string; email?: string; email_verified?: boolean; exp?: number; iat?: number };
+-  try {
+-    header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf8"));
+-    payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
+-  } catch {
+-    return { ok: false, reason: "parse failed" };
+-  }
+-
+-  if (header.alg !== "RS256") return { ok: false, reason: `unsupported alg ${header.alg}` };
+-  if (!header.kid) return { ok: false, reason: "missing kid" };
+-
+-  // Locate the matching JWK.
+-  let jwks: Record<string, unknown>[];
+-  try {
+-    jwks = await getGoogleJwks();
+-  } catch (e) {
+-    return { ok: false, reason: `JWKS unavailable: ${(e as Error).message}` };
+-  }
+-  const jwk = jwks.find((k) => (k as { kid?: string }).kid === header.kid);
+-  if (!jwk) {
+-    // Cache might be stale — bust and retry once.
+-    cachedGoogleJwks = null;
+-    try {
+-      const fresh = await getGoogleJwks();
+-      const match = fresh.find((k) => (k as { kid?: string }).kid === header.kid);
+-      if (!match) return { ok: false, reason: `kid not found in JWKS: ${header.kid}` };
+-      jwks = fresh;
+-    } catch (e) {
+-      return { ok: false, reason: `JWKS unavailable: ${(e as Error).message}` };
+-    }
+-  }
+-  const matchedJwk = jwks.find((k) => (k as { kid?: string }).kid === header.kid)!;
+-
+-  // Verify signature.
+-  let pubKey;
+-  try {
+-    pubKey = createPublicKey({
+-      // Node's typings want a specific JsonWebKey shape; the JWK from
+-      // Google's JWKS has the same fields, so cast through unknown.
+-      key: matchedJwk as unknown as import("crypto").JsonWebKey,
+-      format: "jwk",
+-    });
+-  } catch (e) {
+-    return { ok: false, reason: `JWK to key failed: ${(e as Error).message}` };
+-  }
+-  const verifier = createVerify("RSA-SHA256");
+-  verifier.update(Buffer.from(`${headerB64}.${payloadB64}`, "utf8"));
+-  verifier.end();
+-  const ok = verifier.verify(pubKey, Buffer.from(sigB64, "base64url"));
+-  if (!ok) return { ok: false, reason: "signature invalid", claims: payload };
+-
+-  // Check claims.
+-  const now = Math.floor(Date.now() / 1000);
+-  if (payload.iss !== "https://accounts.google.com") {
+-    return { ok: false, reason: `bad iss: ${payload.iss}`, claims: payload };
+-  }
+-  if (payload.email !== opts.expectedEmail) {
+-    return { ok: false, reason: `bad email: ${payload.email}`, claims: payload };
+-  }
+-  if (payload.email_verified !== true) {
+-    return { ok: false, reason: "email not verified", claims: payload };
+-  }
+-  if (typeof payload.exp !== "number" || payload.exp + 60 < now) {
+-    return { ok: false, reason: "expired", claims: payload };
+-  }
+-  if (typeof payload.iat === "number" && payload.iat > now + 60) {
+-    return { ok: false, reason: "iat in future", claims: payload };
+-  }
+-  // Audience is optional — if the user didn't set a custom audience on the
+-  // push subscription, Google sets it to the push endpoint URL itself. We
+-  // accept any audience by default unless the caller passes expectedAudience.
+-  if (opts.expectedAudience && payload.aud !== opts.expectedAudience) {
+-    return { ok: false, reason: `bad aud: ${payload.aud}`, claims: payload };
+-  }
+-
+-  return { ok: true, claims: payload };
+-}
+-
+-export const googlePlayDeveloperNotification = onRequest(
+-  {
+-    secrets: [
+-      PLAY_SERVICE_ACCOUNT_JSON,
+-      GOOGLE_RTDN_TOKEN,
+-      GOOGLE_RTDN_SA_EMAIL,
+-    ],
+-  },
+-  async (req, res) => {
+-    if (req.method !== "POST") {
+-      res.status(405).send("Method not allowed");
+-      return;
+-    }
+-
+-    // ── Auth: prefer OIDC verification, fall back to shared token ──────────
+-    //
+-    // OIDC is the right Google-Cloud-native security model — verifies the
+-    // request was actually signed by Google's Pub/Sub service account. The
+-    // shared `?token=` fallback exists so existing deployments don't break
+-    // when GOOGLE_RTDN_SA_EMAIL hasn't been configured yet.
+-    let expectedEmail = "";
+-    try {
+-      expectedEmail = GOOGLE_RTDN_SA_EMAIL.value();
+-    } catch {
+-      // secret unset — fall through to shared-token check
+-    }
+-
+-    const authHeader = req.get("authorization") ?? "";
+-    const bearer = authHeader.toLowerCase().startsWith("bearer ")
+-      ? authHeader.slice(7).trim()
+-      : "";
+-
+-    if (expectedEmail) {
+-      if (!bearer) {
+-        logger.warn("RTDN: OIDC required but no Authorization header");
+-        res.status(401).send("Unauthorized");
+-        return;
+-      }
+-      const result = await verifyGoogleOidcToken(bearer, {
+-        expectedEmail,
+-      });
+-      if (!result.ok) {
+-        logger.warn("RTDN: OIDC verification failed", {
+-          reason: result.reason,
+-          email: result.claims?.email,
+-        });
+-        res.status(401).send("Unauthorized");
+-        return;
+-      }
+-    } else {
+-      // Legacy shared-token fallback. Keep this branch only until GOOGLE_RTDN_SA_EMAIL
+-      // is configured on every environment, then delete it.
+-      const endpointToken = req.query.token;
+-      if (
+-        typeof endpointToken !== "string" ||
+-        endpointToken !== GOOGLE_RTDN_TOKEN.value()
+-      ) {
+-        res.status(401).send("Unauthorized");
+-        return;
+-      }
+-    }
+-
+-    const message = req.body?.message as
+-      | { data?: string; messageId?: string }
+-      | undefined;
+-    const notification = decodePubSubData(message?.data);
+-    const subscriptionNotification = notification?.subscriptionNotification;
+-    const purchaseToken = subscriptionNotification?.purchaseToken;
+-    const productId = subscriptionNotification?.subscriptionId;
+-
+-    if (
+-      notification?.packageName &&
+-      notification.packageName !== GOOGLE_PLAY_PACKAGE_NAME
+-    ) {
+-      logger.warn("Google RTDN package mismatch", {
+-        packageName: notification.packageName,
+-      });
+-      res.status(200).send("ok");
+-      return;
+-    }
+-
+-    if (!purchaseToken) {
+-      logger.info("Google RTDN without subscription purchase token", {
+-        messageId: message?.messageId,
+-      });
+-      res.status(200).send("ok");
+-      return;
+-    }
+-
+-    const ownerSnap = await admin
+-      .firestore()
+-      .collection("billing_private")
+-      .where("googlePurchaseToken", "==", purchaseToken)
+-      .limit(1)
+-      .get();
+-
+-    if (ownerSnap.empty) {
+-      logger.warn("Google RTDN has no matching restaurant", {
+-        messageId: message?.messageId,
+-        notificationType: subscriptionNotification?.notificationType,
+-      });
+-      res.status(200).send("ok");
+-      return;
+-    }
+-
+-    await verifyAndApplyPlayPurchase({
+-      uid: ownerSnap.docs[0].id,
+-      purchaseToken,
+-      requestedProductId: productId,
+-    });
+-
+-    res.status(200).send("ok");
+-  },
+-);
+diff -ruN -x o Websites/vendor_web/functions/src/mess.ts adminpanels/vendor_dash/functions/src/mess.ts
+--- Websites/vendor_web/functions/src/mess.ts	2026-09-28 05:54:33
++++ adminpanels/vendor_dash/functions/src/mess.ts	2026-10-12 22:30:29
+@@ -21,6 +21,8 @@
+  * ─────────────────────────────────────────────────────────────────────────
+  */
+ import * as admin from "firebase-admin";
++import { uniqueReceipt } from "./gateway";
++import { STRAY_OUTCOMES, refundStrayPayment, strayPaymentMessage } from "./paymentCapture";
+ import * as crypto from "crypto";
+ import { onCall, HttpsError } from "firebase-functions/v2/https";
+ import { onSchedule } from "firebase-functions/v2/scheduler";
+@@ -134,7 +136,7 @@
+       Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`,
+       "Content-Type": "application/json",
+     },
+-    body: JSON.stringify({ amount: amountPaise, currency: "INR", receipt: receipt.slice(0, 40), notes }),
++    body: JSON.stringify({ amount: amountPaise, currency: "INR", receipt: uniqueReceipt(receipt), notes }),
+   });
+   if (!res.ok) {
+     logger.error("Mess Razorpay order failed", { status: res.status, body: await res.text() });
+@@ -294,29 +296,83 @@
+       throw new HttpsError("permission-denied", "Payment signature verification failed.");
+     }
+ 
+-    const db = admin.firestore();
+-    const ref = db.collection("mess_subscriptions").doc(subscriptionId);
+-    await db.runTransaction(async (tx) => {
+-      const snap = await tx.get(ref);
+-      if (!snap.exists) throw new HttpsError("not-found", "Subscription not found.");
+-      const sub = snap.data() ?? {};
+-      if (sub.customerUid !== uid) throw new HttpsError("permission-denied", "This isn't your subscription.");
+-      if (sub.paymentStatus === "paid") return; // already done
+-      if (sub.razorpayOrderId && sub.razorpayOrderId !== razorpayOrderId) {
+-        throw new HttpsError("failed-precondition", "That payment belongs to another subscription.");
+-      }
+-      tx.update(ref, {
+-        status: "active",
+-        paymentStatus: "paid",
+-        razorpayPaymentId,
+-        paidAt: admin.firestore.FieldValue.serverTimestamp(),
+-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+-      });
+-    });
++    // Only the subscriber may confirm, and only their own subscription.
++    const owner = (await admin.firestore().collection("mess_subscriptions").doc(subscriptionId).get()).data();
++    if (!owner) throw new HttpsError("not-found", "Subscription not found.");
++    if (owner.customerUid !== uid) throw new HttpsError("permission-denied", "This isn't your subscription.");
++    if (owner.razorpayOrderId !== razorpayOrderId) {
++      throw new HttpsError("failed-precondition", "That payment belongs to another subscription.");
++    }
+ 
++    const outcome = await applyMessPayment({
++      subscriptionId,
++      razorpayOrderId,
++      paymentId: razorpayPaymentId,
++      amountPaise: Math.round(Number(owner.amountPaise) || 0),
++      source: "app",
++    });
++    if (STRAY_OUTCOMES.has(outcome)) {
++      throw new HttpsError(
++        "failed-precondition",
++        strayPaymentMessage(outcome, Math.round(Number(owner.amountPaise) || 0)),
++        { reason: "refunded", outcome },
++      );
++    }
+     return { ok: true, subscriptionId, status: "active" };
+   },
+ );
++
++/**
++ * Apply a captured payment to a mess subscription, exactly once. Shared by
++ * verifyMessPayment (app), the Razorpay webhook and the 5-minute payment
++ * sweep, so a customer whose app closed right after paying still gets the plan
++ * they paid for. An `abandoned` row (the hourly sweeper gave up on it) is
++ * revived, since the customer did pay; a cancelled or already-paid one gets
++ * the money back.
++ */
++export async function applyMessPayment(args: {
++  subscriptionId: string;
++  razorpayOrderId: string;
++  paymentId: string;
++  amountPaise: number;
++  source: "app" | "webhook" | "sweep";
++}): Promise<"paid" | "already_paid" | "duplicate" | "closed" | "underpaid" | "missing"> {
++  const db = admin.firestore();
++  const ref = db.collection("mess_subscriptions").doc(args.subscriptionId);
++  const outcome = await db.runTransaction(async (tx) => {
++    const snap = await tx.get(ref);
++    if (!snap.exists) return "missing" as const;
++    const sub = snap.data() ?? {};
++    if (sub.paymentStatus === "paid") {
++      return String(sub.razorpayPaymentId ?? "") === args.paymentId ? ("already_paid" as const) : ("duplicate" as const);
++    }
++    if (sub.razorpayOrderId && sub.razorpayOrderId !== args.razorpayOrderId) return "missing" as const;
++    if (sub.status === "cancelled") return "closed" as const;
++    if (args.amountPaise < Math.round(Number(sub.amountPaise) || 0)) return "underpaid" as const;
++    const now = admin.firestore.FieldValue.serverTimestamp();
++    tx.update(ref, {
++      status: "active",
++      paymentStatus: "paid",
++      razorpayPaymentId: args.paymentId,
++      paidAmountPaise: args.amountPaise,
++      paidVia: args.source,
++      paidAt: now,
++      updatedAt: now,
++    });
++    return "paid" as const;
++  });
++  if (STRAY_OUTCOMES.has(outcome)) {
++    await refundStrayPayment({
++      paymentId: args.paymentId,
++      amountPaise: args.amountPaise,
++      kind: "mess_subscription",
++      relatedId: args.subscriptionId,
++      outcome,
++      source: args.source,
++    });
++  }
++  return outcome;
++}
+ 
+ /**
+  * Skip a day (going home, travelling). Recorded against the subscription so
+diff -ruN -x o Websites/vendor_web/functions/src/paymentCapture.ts adminpanels/vendor_dash/functions/src/paymentCapture.ts
+--- Websites/vendor_web/functions/src/paymentCapture.ts	2026-10-12 22:15:31
++++ adminpanels/vendor_dash/functions/src/paymentCapture.ts	2026-10-12 22:30:29
+@@ -83,6 +83,13 @@
+   return `${REFUND_REASON[outcome] ?? "This payment couldn't be used."} We've refunded ₹${rupees} to your original payment method — it usually reaches you in 5–7 working days.`;
+ }
+ 
++const STRAY_KIND_LABEL: Record<string, string> = {
++  food_order: "Order",
++  stay_booking: "Stay booking",
++  mess_subscription: "Mess subscription",
++  subscription: "Merchant subscription order",
++};
++
+ /**
+  * Refund a payment that isn't attached to anything, through the same
+  * two-phase engine as every other refund (platform_refunds + executeRazorpayRefund).
+@@ -94,7 +101,7 @@
+ export async function refundStrayPayment(args: {
+   paymentId: string;
+   amountPaise: number;
+-  kind: "food_order" | "stay_booking";
++  kind: "food_order" | "stay_booking" | "mess_subscription" | "subscription";
+   relatedId: string;
+   outcome: string;
+   source: string;
+@@ -132,7 +139,7 @@
+       type: result.status === "completed" ? "stray_payment_refunded" : "payment_needs_refund",
+       title: result.status === "completed" ? "Stray payment refunded automatically" : "Stray payment needs a refund",
+       message:
+-        `${args.kind === "stay_booking" ? "Stay booking" : "Order"} ${args.relatedId}: payment ${args.paymentId} ` +
++        `${STRAY_KIND_LABEL[args.kind] ?? "Order"} ${args.relatedId}: payment ${args.paymentId} ` +
+         `(₹${(args.amountPaise / 100).toFixed(2)}) — ${REFUND_REASON[args.outcome] ?? args.outcome} ` +
+         `Refund ${result.status}${result.error ? `: ${result.error}` : ""}.`,
+       relatedId: args.relatedId,
+diff -ruN -x o Websites/vendor_web/functions/src/paymentSweep.ts adminpanels/vendor_dash/functions/src/paymentSweep.ts
+--- Websites/vendor_web/functions/src/paymentSweep.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/paymentSweep.ts	2026-10-12 22:30:55
+@@ -6,6 +6,9 @@
+ import { creditWalletTopup } from "./wallet";
+ import { settleCodDeposit } from "./codReconciliation";
+ import { activateSubscription } from "./subscriptionBilling";
++import { applyMessPayment } from "./mess";
++import { capturePayment } from "./gateway";
++import { recoverStuckRefunds } from "./refunds";
+ 
+ /**
+  * ─────────────────────────────────────────────────────────────────────────
+@@ -47,7 +50,14 @@
+   return keyId && keySecret ? Buffer.from(`${keyId}:${keySecret}`).toString("base64") : null;
+ }
+ 
+-/** Captured payments on a gateway order, or null if Razorpay couldn't be asked. */
++/**
++ * Captured payments on a gateway order, or null if Razorpay couldn't be asked.
++ * A payment still `authorized` (auto-capture off or delayed) is captured here
++ * first — Razorpay voids uncaptured payments after a few days, which would
++ * hand the customer's money back while we had already given them the goods.
++ * A capture that is later found unusable (paid twice, order closed) is
++ * refunded by the caller's apply step like any other stray payment.
++ */
+ export async function capturedPayments(gatewayOrderId: string): Promise<GatewayPayment[] | null> {
+   const basic = auth();
+   if (!basic || !gatewayOrderId) return null;
+@@ -59,8 +69,16 @@
+       logger.warn("paymentSweep: gateway lookup failed", { gatewayOrderId, status: res.status });
+       return null;
+     }
+-    const body = (await res.json()) as { items?: GatewayPayment[] };
+-    return (body.items ?? []).filter((p) => p.status === "captured");
++    const body = (await res.json()) as { items?: (GatewayPayment & { currency?: string })[] };
++    const out: GatewayPayment[] = [];
++    for (const p of body.items ?? []) {
++      if (p.status === "captured") out.push(p);
++      else if (p.status === "authorized" && (await capturePayment(p.id, Number(p.amount), p.currency ?? "INR"))) {
++        logger.info("paymentSweep: captured an authorized payment", { gatewayOrderId, paymentId: p.id });
++        out.push({ ...p, status: "captured" });
++      }
++    }
++    return out;
+   } catch (e) {
+     logger.warn("paymentSweep: gateway lookup error", { gatewayOrderId, e: String(e) });
+     return null;
+@@ -150,15 +168,56 @@
+   return applied;
+ }
+ 
++/**
++ * Mess subscriptions waiting on payment — including ones the hourly mess
++ * sweeper already marked `abandoned`, since a UPI approval can land late.
++ * Keyed by subscription id, so they don't fit sweepKeyed.
++ */
++async function sweepMessPayments(): Promise<number> {
++  const db = admin.firestore();
++  const since = admin.firestore.Timestamp.fromMillis(Date.now() - 3 * 86_400_000);
++  const snap = await db
++    .collection("mess_subscriptions")
++    .where("status", "in", ["pending_payment", "abandoned"])
++    .where("createdAt", ">=", since)
++    .limit(100)
++    .get();
++  let applied = 0;
++  let checked = 0;
++  for (const doc of snap.docs) {
++    const gatewayOrderId = String(doc.get("razorpayOrderId") ?? "");
++    if (!gatewayOrderId || doc.get("paymentStatus") === "paid") continue;
++    if (ageMs(doc.get("createdAt")) < MIN_AGE_MS) continue;
++    if (checked++ >= MAX_PER_KIND) break;
++    for (const p of (await capturedPayments(gatewayOrderId)) ?? []) {
++      try {
++        const outcome = await applyMessPayment({
++          subscriptionId: doc.id,
++          razorpayOrderId: gatewayOrderId,
++          paymentId: p.id,
++          amountPaise: Number(p.amount) || 0,
++          source: "sweep",
++        });
++        if (outcome === "paid") applied++;
++      } catch (e) {
++        logger.error("paymentSweep: couldn't apply a mess payment", { id: doc.id, e: String(e) });
++      }
++    }
++  }
++  return applied;
++}
++
+ /** Everything except food orders and Stay bookings, which the expiry pass handles. */
+ export async function sweepKeyedPayments(): Promise<void> {
+   if (!auth()) return;
+-  const [topups, deposits, subs] = await Promise.all([
++  const [topups, deposits, subs, mess, refunds] = await Promise.all([
+     sweepKeyed("wallet_topups", "created", (id, p) => creditWalletTopup(id, p.id, Number(p.amount))),
+     sweepKeyed("cod_deposits", "pending", (id, p) => settleCodDeposit(id, p.id)),
+     sweepKeyed("subscription_orders", "pending", (id, p) => activateSubscription(id, p.id)),
++    sweepMessPayments(),
++    recoverStuckRefunds(),
+   ]);
+-  if (topups + deposits + subs > 0) {
+-    logger.info("paymentSweep: recovered unconfirmed payments", { topups, deposits, subs });
++  if (topups + deposits + subs + mess + refunds > 0) {
++    logger.info("paymentSweep: recovered unconfirmed payments", { topups, deposits, subs, mess, refunds });
+   }
+ }
+diff -ruN -x o Websites/vendor_web/functions/src/payments.ts adminpanels/vendor_dash/functions/src/payments.ts
+--- Websites/vendor_web/functions/src/payments.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/payments.ts	2026-10-12 22:30:01
+@@ -7,6 +7,7 @@
+ import { HOT_PATH } from "./options";
+ import { pricingAudit, verifyCustomerOrderPricing } from "./orderPricingServer";
+ import { applyFoodOrderPayment, signatureMatches, strayPaymentMessage } from "./paymentCapture";
++import { uniqueReceipt } from "./gateway";
+ 
+ /**
+  * Razorpay payment functions for the customer delivery app.
+@@ -134,7 +135,9 @@
+       body: JSON.stringify({
+         amount: chargePaise,
+         currency: "INR",
+-        receipt: orderId.slice(0, 40),
++        // Unique per attempt: Razorpay rejects a reused receipt, which made
++        // every retry after the first gateway order fail.
++        receipt: uniqueReceipt(orderId),
+         // Every note is server-decided: the webhook routes money by them.
+         notes: {
+           firestoreOrderId: orderId,
+diff -ruN -x o Websites/vendor_web/functions/src/pricing/placeOrder.ts adminpanels/vendor_dash/functions/src/pricing/placeOrder.ts
+--- Websites/vendor_web/functions/src/pricing/placeOrder.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/pricing/placeOrder.ts	2026-10-13 04:44:08
+@@ -13,10 +13,10 @@
+  * only.
+  */
+ import * as admin from "firebase-admin";
++import { moduleEnabled } from "../featureFlags";
+ import { onCall, HttpsError } from "firebase-functions/v2/https";
+ import { enforceRateLimit } from "../rateLimit";
+ import { HOT_PATH } from "../options";
+-import { platformEconomics } from "../delivery";
+ import { quoteFood, type FoodQuote } from "./food";
+ import { buildFoodQuoteInput, type FoodCartRequest } from "./foodLoader";
+ import { customerView } from "./callables";
+@@ -99,8 +99,10 @@
+   }
+ 
+   if (paymentMethod === "cod") {
+-    const econ = await platformEconomics();
+-    if (!econ.codEnabled) throw new HttpsError("failed-precondition", "Cash on delivery isn't available right now. Pay online or with your wallet.");
++    // Same switch the app shows: Feature Flags first, Platform Settings as
++    // the fallback (featureFlags.ts). Reading only Platform Settings let the
++    // two disagree.
++    if (!(await moduleEnabled("cashOnDelivery"))) throw new HttpsError("failed-precondition", "Cash on delivery isn't available right now. Pay online or with your wallet.");
+   }
+ 
+   const restaurantSnap = await db.collection("restaurants").doc(cart.restaurantId).get();
+diff -ruN -x o Websites/vendor_web/functions/src/pricing/stayCallables.ts adminpanels/vendor_dash/functions/src/pricing/stayCallables.ts
+--- Websites/vendor_web/functions/src/pricing/stayCallables.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/pricing/stayCallables.ts	2026-10-13 04:43:51
+@@ -15,6 +15,8 @@
+  *                        flagged for verification, not trusted
+  */
+ import * as admin from "firebase-admin";
++import { assertModuleEnabled } from "../featureFlags";
++import { uniqueReceipt } from "../gateway";
+ import { STRAY_OUTCOMES, refundStrayPayment, strayPaymentMessage } from "../paymentCapture";
+ import * as crypto from "crypto";
+ import { onCall, HttpsError } from "firebase-functions/v2/https";
+@@ -106,7 +108,7 @@
+   const res = await fetch("https://api.razorpay.com/v1/orders", {
+     method: "POST",
+     headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`, "Content-Type": "application/json" },
+-    body: JSON.stringify({ amount: amountPaise, currency: "INR", receipt: receipt.slice(0, 40), notes }),
++    body: JSON.stringify({ amount: amountPaise, currency: "INR", receipt: uniqueReceipt(receipt), notes }),
+   });
+   if (!res.ok) {
+     logger.error("Stay Razorpay order failed", { status: res.status, body: await res.text() });
+@@ -119,6 +121,7 @@
+ export const createStayBooking = onCall({ ...HOT_PATH, secrets: [RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET] }, async (request) => {
+   const uid = request.auth?.uid;
+   if (!uid) throw new HttpsError("unauthenticated", "Sign in to book.");
++  await assertModuleEnabled("kadaStay", "KadaStay bookings are paused right now.");
+   await enforceRateLimit(`book_stay_${uid}`, 20, 10 * 60_000);
+   const data = (request.data ?? {}) as Record<string, unknown>;
+   const quoteId = str(data.quoteId, 128);
+diff -ruN -x o Websites/vendor_web/functions/src/questTiers.ts adminpanels/vendor_dash/functions/src/questTiers.ts
+--- Websites/vendor_web/functions/src/questTiers.ts	1970-01-01 05:30:00
++++ adminpanels/vendor_dash/functions/src/questTiers.ts	2026-10-13 04:42:27
+@@ -0,0 +1,59 @@
++/**
++ * Rider Daily Quest — a ladder of milestones, each paid once per day when
++ * reached. The rider app (delivery_mobile_app/lib/models/quest_tier.dart)
++ * shows every rung and promises their SUM ("up to ₹700"); the server used to
++ * pay only the top rung's bonus, at the top rung's trip count. This module is
++ * the single server definition and mirrors the app's parsing exactly.
++ *
++ * Pure: no Firebase imports.
++ */
++export interface QuestTier {
++  trips: number;
++  bonus: number;
++}
++
++/** Same rules as QuestTier.parse in the rider app. */
++export function parseQuestTiers(settings: Record<string, unknown>): QuestTier[] {
++  const raw = settings.questTiers;
++  if (Array.isArray(raw) && raw.length > 0) {
++    const tiers = raw
++      .filter((m): m is Record<string, unknown> => !!m && typeof m === "object")
++      .map((m) => ({ trips: Math.trunc(Number(m.trips) || 0), bonus: Math.trunc(Number(m.bonus) || 0) }))
++      .filter((t) => t.trips > 0)
++      .sort((a, b) => a.trips - b.trips);
++    if (tiers.length > 0) return tiers;
++  }
++  // Legacy single target/bonus → the app's synthesized 40% / 75% / 100% ladder.
++  const target = Math.trunc(Number(settings.questTarget) || 8);
++  const bonus = Math.trunc(Number(settings.questBonus) || 150);
++  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
++  const t1 = clamp(Math.round(target * 0.4), 1, target);
++  const t2 = clamp(Math.round(target * 0.75), t1 + 1, target);
++  return [
++    { trips: t1, bonus: Math.round(bonus * 0.2) },
++    { trips: t2, bonus: Math.round(bonus * 0.55) },
++    { trips: target, bonus },
++  ];
++}
++
++/**
++ * Rungs to pay on this delivery: reached today and not yet paid today.
++ * `awardedToday` holds the trip counts of rungs already paid today.
++ */
++export function tiersToAward(tiers: QuestTier[], deliveriesToday: number, awardedToday: number[]): QuestTier[] {
++  const paid = new Set(awardedToday);
++  return tiers.filter((t) => t.bonus > 0 && t.trips <= deliveriesToday && !paid.has(t.trips));
++}
++
++/**
++ * Rungs already paid today, from the rider doc. A rider paid under the old
++ * single-bonus scheme earlier today counts as having every rung paid, so the
++ * switch-over day can't pay twice.
++ */
++export function awardedTodayFrom(rider: Record<string, unknown>, todayIst: string, tiers: QuestTier[]): number[] {
++  if (rider.questTiersAwardedDate === todayIst && Array.isArray(rider.questTiersAwarded)) {
++    return (rider.questTiersAwarded as unknown[]).map((n) => Number(n)).filter(Number.isFinite);
++  }
++  if (rider.questAwardedDate === todayIst) return tiers.map((t) => t.trips);
++  return [];
++}
+diff -ruN -x o Websites/vendor_web/functions/src/razorpayWebhook.ts adminpanels/vendor_dash/functions/src/razorpayWebhook.ts
+--- Websites/vendor_web/functions/src/razorpayWebhook.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/razorpayWebhook.ts	2026-10-12 22:42:16
+@@ -11,9 +11,22 @@
+ import { activateSubscription } from "./subscriptionBilling";
+ import { settleCodDeposit } from "./codReconciliation";
+ import { HOT_PATH } from "./options";
++import { applyMessPayment } from "./mess";
++import { applyRefundEvent } from "./refunds";
++import { capturePayment } from "./gateway";
+ 
+ const RAZORPAY_WEBHOOK_SECRET = defineSecret("RAZORPAY_WEBHOOK_SECRET");
+ 
++/** The id a webhook delivery is de-duplicated on (see the receiver below). */
++export function webhookEventId(header: string | string[] | undefined, payload: any, rawBody: string): string {
++  const fromHeader = Array.isArray(header) ? header[0] : header;
++  return String(
++    fromHeader ||
++      payload?.id ||
++      `body_${crypto.createHash("sha256").update(rawBody).digest("hex").slice(0, 40)}`,
++  );
++}
++
+ // 1. HTTP Endpoint: Validates signature and pushes to Firestore queue (razorpay_webhook_events)
+ export const razorpayWebhook = onRequest(
+   { ...HOT_PATH, secrets: [RAZORPAY_WEBHOOK_SECRET] },
+@@ -61,43 +74,49 @@
+       }
+ 
+       const payload = req.body;
+-      const razorpayEventId = payload.id;
+       const eventType = payload.event;
++      // Razorpay sends the event's unique id ONLY in the x-razorpay-event-id
++      // header — the JSON body has no top-level `id`. Reading `payload.id`
++      // rejected every real event with a 400 (so nothing was ever queued and
++      // Razorpay eventually disables the endpoint). The body hash is a last
++      // resort so a delivery is never dropped for lacking an id.
++      const razorpayEventId = webhookEventId(req.headers["x-razorpay-event-id"], payload, rawBody);
+ 
+-      if (!razorpayEventId) {
+-        res.status(400).send("Missing event ID");
+-        return;
+-      }
+-
+       const eventRef = admin.firestore().collection("razorpay_webhook_events").doc(String(razorpayEventId));
+-      
+-      const docSnap = await eventRef.get();
+-      if (docSnap.exists) {
+-        res.status(200).send("Idempotent acknowledgment");
+-        return;
+-      }
+ 
+       const paymentEntity = payload.payload?.payment?.entity || {};
+       const orderEntity = payload.payload?.order?.entity || {};
+       const payoutEntity = payload.payload?.payout?.entity || {};
++      const refundEntity = payload.payload?.refund?.entity || {};
+ 
+-      await eventRef.set({
++      // create() is atomic: two simultaneous redeliveries of one event can't
++      // both queue it (a read-then-write could).
++      try {
++        await eventRef.create({
+         razorpay_event_id: razorpayEventId,
+         event_type: eventType,
+-        payment_id: paymentEntity.id || null,
++        payment_id: paymentEntity.id || refundEntity.payment_id || null,
++        refund_id: refundEntity.id || null,
+         payout_id: payoutEntity.id || null,
+         reference_id: payoutEntity.reference_id || null,
+         razorpay_order_id: paymentEntity.order_id || orderEntity.id || null,
+         kada_order_id: paymentEntity.notes?.firestoreOrderId || orderEntity.notes?.firestoreOrderId || null,
+         payment_context: paymentEntity.notes?.payment_context || orderEntity.notes?.payment_context || 'UNKNOWN',
+-        amount: paymentEntity.amount || payoutEntity.amount || 0,
+-        currency: paymentEntity.currency || payoutEntity.currency || 'INR',
++        amount: paymentEntity.amount || refundEntity.amount || payoutEntity.amount || 0,
++        currency: paymentEntity.currency || refundEntity.currency || payoutEntity.currency || 'INR',
+         signature_valid: true,
+         processing_status: 'pending',
+         attempt_count: 0,
+         payload: payload,
+         received_at: admin.firestore.FieldValue.serverTimestamp(),
+-      });
++        });
++      } catch (e: any) {
++        if (e?.code === 6 || /already exists/i.test(String(e?.message))) {
++          res.status(200).send("Idempotent acknowledgment");
++          return;
++        }
++        throw e;
++      }
+ 
+       res.status(200).send("OK");
+     } catch (error) {
+@@ -120,11 +139,27 @@
+   async (event) => {
+     const snap = event.data;
+     if (!snap) return;
++    await processWebhookEvent(snap.ref);
++  }
++);
+ 
+-    const eventData = snap.data();
+-    if (eventData.processing_status === 'processed') return;
++/**
++ * Process one stored webhook event. Used by the queue trigger above and by
++ * the admin "Retry" action (adminPlatformAction → replayWebhookEvent) — the
++ * trigger fires only on create, so flipping a failed event back to pending
++ * from the browser never re-ran it. Every handler is idempotent, so a replay
++ * of an already-applied event changes nothing.
++ */
++export async function processWebhookEvent(
++  eventRef: admin.firestore.DocumentReference,
++  opts: { force?: boolean } = {},
++): Promise<void> {
++  {
++    const snap = await eventRef.get();
++    if (!snap.exists) return;
++    const eventData = snap.data() ?? {};
++    if (eventData.processing_status === 'processed' && !opts.force) return;
+ 
+-    const eventRef = snap.ref;
+     await eventRef.update({ 
+       processing_status: 'processing',
+       processing_started_at: admin.firestore.FieldValue.serverTimestamp(),
+@@ -140,6 +175,17 @@
+         if (paymentEntity) {
+           await handlePaymentCaptured(eventData, paymentEntity);
+         }
++      } else if (eventType === 'payment.authorized') {
++        // Normally the account auto-captures. If it doesn't, an authorized
++        // payment is voided back to the customer after a few days while we
++        // may already have delivered — so capture it; the payment.captured
++        // event that follows applies it (and refunds it if it can't be used).
++        if (paymentEntity?.id && paymentEntity.status === 'authorized') {
++          await capturePayment(String(paymentEntity.id), Number(paymentEntity.amount), paymentEntity.currency || 'INR');
++        }
++      } else if (typeof eventType === 'string' && eventType.startsWith('refund.')) {
++        const refundEntity = eventData.payload?.payload?.refund?.entity;
++        if (refundEntity) await applyRefundEvent(eventType, refundEntity);
+       } else if (eventType === 'payment.failed') {
+         if (paymentEntity) {
+           await handlePaymentFailed(eventData, paymentEntity);
+@@ -174,7 +220,7 @@
+       });
+ 
+     } catch (error: any) {
+-      console.error(`Error processing webhook ${snap.id}:`, error);
++      console.error(`Error processing webhook ${eventRef.id}:`, error);
+       await eventRef.update({
+         processing_status: 'failed',
+         error_message: error.message || String(error),
+@@ -183,7 +229,7 @@
+       throw error;
+     }
+   }
+-);
++}
+ 
+ async function handlePaymentCaptured(eventData: any, paymentEntity: any) {
+   const context = eventData.payment_context || paymentEntity.notes?.payment_context || 'UNKNOWN';
+@@ -216,7 +262,7 @@
+   } else if (context === 'SUBSCRIPTION') {
+     // Web subscription purchase (the Razorpay replacement for IAP). The order
+     // id carries the server-priced plan; activation is idempotent.
+-    await activateSubscription(String(paymentEntity.order_id), String(paymentEntity.id));
++    outcome = await activateSubscription(String(paymentEntity.order_id), String(paymentEntity.id));
+   } else if (context === 'STAY_BOOKING' && paymentEntity.notes?.stayBookingId) {
+     // Confirms a Stay booking when the app never returned to verify it; a
+     // payment the booking can't use is refunded automatically.
+@@ -227,6 +273,17 @@
+       amountPaise: Number(paymentEntity.amount) || 0,
+       source: "webhook",
+     });
++  } else if (context === 'MESS_SUBSCRIPTION' && paymentEntity.notes?.messSubscriptionId) {
++    // Mess plan bought in the customer app. Without this branch a customer
++    // whose app closed after paying was never given the plan — the hourly
++    // mess sweeper marked it "abandoned" while their money sat with us.
++    outcome = await applyMessPayment({
++      subscriptionId: String(paymentEntity.notes.messSubscriptionId),
++      razorpayOrderId: String(paymentEntity.order_id),
++      paymentId: String(paymentEntity.id),
++      amountPaise: Number(paymentEntity.amount) || 0,
++      source: "webhook",
++    });
+   } else if (context === 'COD_DEPOSIT') {
+     // Rider depositing collected cash back to the platform.
+     await settleCodDeposit(String(paymentEntity.order_id), String(paymentEntity.id));
+@@ -256,23 +313,41 @@
+     // `mapped: false` = money recorded but not tied to an order/topup (e.g. a
+     // subscription payment). Queryable so ops can attribute it later; the
+     // revenue is never lost from the ledger regardless.
+-    mapped: !!kadaOrderId || context === 'WALLET_TOPUP' || context === 'COD_DEPOSIT' || context === 'SUBSCRIPTION',
++    mapped: !!kadaOrderId || ['WALLET_TOPUP', 'COD_DEPOSIT', 'SUBSCRIPTION', 'MESS_SUBSCRIPTION', 'STAY_BOOKING'].includes(context),
+     outcome,
+     created_at: admin.firestore.FieldValue.serverTimestamp(),
+   });
+ }
+ 
+ async function handlePaymentFailed(eventData: any, paymentEntity: any) {
+-  const orderId = eventData.kada_order_id || paymentEntity.notes?.firestoreOrderId;
+-  console.log(`Payment failed: ${paymentEntity.id} for order ${orderId}`);
+-  if (!orderId || (eventData.payment_context ?? 'FOOD_ORDER') !== 'FOOD_ORDER') return;
++  const context = eventData.payment_context || paymentEntity.notes?.payment_context || 'FOOD_ORDER';
++  const notes = paymentEntity.notes ?? {};
++  const db = admin.firestore();
++  // Where the failure is shown: the thing the payment was for.
++  let ref: admin.firestore.DocumentReference | null = null;
++  if (context === 'FOOD_ORDER' && (eventData.kada_order_id || notes.firestoreOrderId)) {
++    ref = db.collection("orders").doc(String(eventData.kada_order_id || notes.firestoreOrderId));
++  } else if (context === 'SUBSCRIPTION' && paymentEntity.order_id) {
++    ref = db.collection("subscription_orders").doc(String(paymentEntity.order_id));
++  } else if (context === 'MESS_SUBSCRIPTION' && notes.messSubscriptionId) {
++    ref = db.collection("mess_subscriptions").doc(String(notes.messSubscriptionId));
++  } else if (context === 'STAY_BOOKING' && notes.stayBookingId) {
++    ref = db.collection("stay_bookings").doc(String(notes.stayBookingId));
++  } else if (context === 'WALLET_TOPUP' && paymentEntity.order_id) {
++    ref = db.collection("wallet_topups").doc(String(paymentEntity.order_id));
++  } else if (context === 'COD_DEPOSIT' && paymentEntity.order_id) {
++    ref = db.collection("cod_deposits").doc(String(paymentEntity.order_id));
++  }
++  console.log(`Payment failed: ${paymentEntity.id} (${context}) → ${ref?.path ?? "unmapped"}`);
++  if (!ref) return;
++  const target = ref;
+   // Give support the gateway's reason ("UPI request expired", "bank declined")
+-  // when a customer asks why their order didn't go through.
+-  const ref = admin.firestore().collection("orders").doc(String(orderId));
+-  await admin.firestore().runTransaction(async (tx) => {
+-    const cur = (await tx.get(ref)).data();
++  // when a customer or merchant asks why their payment didn't go through. A
++  // failed attempt never changes status — the customer can simply retry.
++  await db.runTransaction(async (tx) => {
++    const cur = (await tx.get(target)).data();
+     if (!cur || cur.paymentStatus === "paid") return;
+-    tx.update(ref, {
++    tx.update(target, {
+       lastPaymentFailure: {
+         razorpayPaymentId: String(paymentEntity.id ?? ""),
+         code: String(paymentEntity.error_code ?? ""),
+@@ -280,6 +355,7 @@
+         method: String(paymentEntity.method ?? ""),
+         at: admin.firestore.FieldValue.serverTimestamp(),
+       },
++      paymentFailureCount: admin.firestore.FieldValue.increment(1),
+     });
+   });
+ }
+diff -ruN -x o Websites/vendor_web/functions/src/refunds.ts adminpanels/vendor_dash/functions/src/refunds.ts
+--- Websites/vendor_web/functions/src/refunds.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/refunds.ts	2026-10-12 22:31:23
+@@ -123,6 +123,16 @@
+ 
+   try {
+     const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
++    // A retry (a failed attempt, or an execution interrupted mid-call) may
++    // follow a request Razorpay actually accepted — the timeout hid the reply.
++    // Adopt that refund instead of sending a second one.
++    if (Number(r.attempts ?? 0) >= 1) {
++      const prior = await findGatewayRefund(auth, paymentId, refundId);
++      if (prior) {
++        logger.warn("Adopted a refund the gateway already made", { refundId, razorpayRefundId: prior.id });
++        return markCompleted(refundId, orderId, r, prior);
++      }
++    }
+     const res = await fetch(
+       `https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}/refund`,
+       {
+@@ -148,37 +158,127 @@
+       return markFailed(refundId, orderId, `Razorpay: ${msg}`);
+     }
+ 
+-    const now = admin.firestore.FieldValue.serverTimestamp();
+-    const batch = db.batch();
++    return markCompleted(refundId, orderId, r, json);
++  } catch (e) {
++    return markFailed(refundId, orderId, e instanceof Error ? e.message : String(e));
++  }
++}
++
++/** The gateway refund already created for this refund record, if any. */
++async function findGatewayRefund(
++  auth: string,
++  paymentId: string,
++  refundId: string,
++): Promise<Record<string, any> | null> {
++  const res = await fetch(
++    `https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}/refunds?count=100`,
++    { headers: { Authorization: `Basic ${auth}` } },
++  );
++  // Can't tell: refuse to resend blind. The caller marks it failed and the
++  // next attempt asks again.
++  if (!res.ok) throw new Error(`Couldn't check existing refunds (HTTP ${res.status}).`);
++  const body = (await res.json()) as { items?: Record<string, any>[] };
++  return (
++    (body.items ?? []).find(
++      (x) => x?.notes?.kada_refund_id === refundId || x?.receipt === refundId.slice(0, 40),
++    ) ?? null
++  );
++}
++
++async function markCompleted(
++  refundId: string,
++  orderId: string,
++  r: FirebaseFirestore.DocumentData,
++  json: Record<string, any>,
++): Promise<RefundExecution> {
++  const db = admin.firestore();
++  const now = admin.firestore.FieldValue.serverTimestamp();
++  const batch = db.batch();
++  batch.set(
++    db.collection("platform_refunds").doc(refundId),
++    {
++      // "completed" = the gateway accepted the refund. Its own lifecycle
++      // (pending → processed / failed) arrives as refund.* webhooks and is
++      // kept in gatewayStatus.
++      status: "completed",
++      razorpayRefundId: json.id ?? null,
++      gatewayStatus: json.status ?? null,
++      error: admin.firestore.FieldValue.delete(),
++      completedAt: now,
++    },
++    { merge: true },
++  );
++  if (orderId) {
+     batch.set(
+-      refundRef,
++      db.collection("orders").doc(orderId),
+       {
+-        status: "completed",
++        // A partial admin refund must not relabel the order fully refunded.
++        refundStatus: r.onSuccessRefundStatus === "partial" ? "partial" : "refunded",
+         razorpayRefundId: json.id ?? null,
+-        gatewayStatus: json.status ?? null,
+-        completedAt: now,
++        refundedAt: now,
++        updatedAt: now,
+       },
+       { merge: true },
+     );
+-    if (orderId) {
+-      batch.set(
+-        db.collection("orders").doc(orderId),
+-        {
+-          // A partial admin refund must not relabel the order fully refunded.
+-          refundStatus: r.onSuccessRefundStatus === "partial" ? "partial" : "refunded",
+-          razorpayRefundId: json.id ?? null,
+-          refundedAt: now,
+-          updatedAt: now,
+-        },
+-        { merge: true },
+-      );
+-    }
+-    await batch.commit();
+-    logger.info("Razorpay refund executed", { refundId, orderId, razorpayRefundId: json.id });
+-    return { status: "completed", razorpayRefundId: json.id };
+-  } catch (e) {
+-    return markFailed(refundId, orderId, e instanceof Error ? e.message : String(e));
+   }
++  await batch.commit();
++  logger.info("Razorpay refund executed", { refundId, orderId, razorpayRefundId: json.id });
++  return { status: "completed", razorpayRefundId: json.id };
++}
++
++/**
++ * Refunds left in `executing` — the function died between claiming the record
++ * and recording the gateway's answer. Run from the 5-minute payment sweep:
++ * after 15 minutes the record is released and re-executed, and the
++ * already-refunded check above stops a second refund if the first one landed.
++ */
++export async function recoverStuckRefunds(): Promise<number> {
++  const db = admin.firestore();
++  const cutoff = Date.now() - 15 * 60_000;
++  const snap = await db.collection("platform_refunds").where("status", "==", "executing").limit(50).get();
++  let recovered = 0;
++  for (const doc of snap.docs) {
++    const at = doc.get("executingAt");
++    if (!(at instanceof admin.firestore.Timestamp) || at.toMillis() > cutoff) continue;
++    const released = await db.runTransaction(async (tx) => {
++      const cur = await tx.get(doc.ref);
++      if (cur.get("status") !== "executing") return false;
++      tx.update(doc.ref, { status: "failed", error: "Interrupted while executing; re-checking with the gateway." });
++      return true;
++    });
++    if (!released) continue;
++    const out = await executeRazorpayRefund(doc.id);
++    if (out.status === "completed") recovered++;
++  }
++  return recovered;
++}
++
++/**
++ * refund.processed / refund.failed webhooks. Our record says "completed" once
++ * Razorpay accepts a refund; this keeps the gateway's later verdict on it, and
++ * turns a refund the bank bounced back into a failed one ops can retry.
++ */
++export async function applyRefundEvent(eventType: string, refund: Record<string, any>): Promise<void> {
++  const refundId = String(refund?.notes?.kada_refund_id ?? "");
++  if (!refundId) return; // a refund made from the Razorpay dashboard, not by Kada
++  const db = admin.firestore();
++  const ref = db.collection("platform_refunds").doc(refundId);
++  const snap = await ref.get();
++  if (!snap.exists) return;
++  const now = admin.firestore.FieldValue.serverTimestamp();
++  if (eventType === "refund.failed") {
++    await markFailed(refundId, String(snap.get("orderId") ?? ""), "The bank or gateway rejected the refund after it was accepted.");
++    return;
++  }
++  await ref.set(
++    {
++      razorpayRefundId: refund.id ?? snap.get("razorpayRefundId") ?? null,
++      gatewayStatus: refund.status ?? (eventType === "refund.processed" ? "processed" : null),
++      ...(eventType === "refund.processed" ? { gatewayProcessedAt: now } : {}),
++      ...(refund.acquirer_data?.arn ? { arn: String(refund.acquirer_data.arn) } : {}),
++    },
++    { merge: true },
++  );
+ }
+ 
+ export interface RefundOutcome {
+diff -ruN -x o Websites/vendor_web/functions/src/subscriptionBilling.ts adminpanels/vendor_dash/functions/src/subscriptionBilling.ts
+--- Websites/vendor_web/functions/src/subscriptionBilling.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/subscriptionBilling.ts	2026-10-12 22:32:40
+@@ -3,7 +3,9 @@
+ import { defineSecret } from "firebase-functions/params";
+ import { logger } from "firebase-functions";
+ import { readCatalog, findPlan, type PlanProduct } from "./planCatalog";
+-import { signatureMatches } from "./paymentCapture";
++import { refundStrayPayment, signatureMatches } from "./paymentCapture";
++import { executeRazorpayRefund } from "./refunds";
++import { uniqueReceipt } from "./gateway";
+ 
+ /**
+  * ─────────────────────────────────────────────────────────────────────────
+@@ -74,6 +76,29 @@
+       return { ok: true, activated: true };
+     }
+ 
++    // Cancel / resume. Plans are prepaid for a fixed period, so cancelling
++    // never cuts off time already paid for: it stops the merchant from being
++    // treated as a subscriber once the period ends (they fall back to
++    // commission billing then). Resuming before that undoes it.
++    if (request.data?.action === "cancel" || request.data?.action === "resume") {
++      const product: PlanProduct = request.data?.product === "stay" ? "stay" : "dine";
++      const ref = admin.firestore().collection(collectionFor(product)).doc(uid);
++      const cur = (await ref.get()).data();
++      if (!cur || cur.subscriptionStatus !== "active") {
++        throw new HttpsError("failed-precondition", "There's no active subscription to change.");
++      }
++      const cancel = request.data.action === "cancel";
++      await ref.set(
++        {
++          subscriptionCancelAtPeriodEnd: cancel,
++          subscriptionCancelledAt: cancel ? admin.firestore.FieldValue.serverTimestamp() : admin.firestore.FieldValue.delete(),
++          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
++        },
++        { merge: true },
++      );
++      return { ok: true, cancelAtPeriodEnd: cancel };
++    }
++
+     const product: PlanProduct = (request.data?.product ?? "dine") === "stay" ? "stay" : "dine";
+     const planId = (request.data?.planId ?? "").toString().trim();
+     const period: BillingPeriod = request.data?.period === "yearly" ? "yearly" : "monthly";
+@@ -114,7 +139,7 @@
+       body: JSON.stringify({
+         amount: amount * 100,
+         currency: "INR",
+-        receipt: `sub_${uid.slice(0, 8)}_${Date.now()}`,
++        receipt: uniqueReceipt(`sub_${uid.slice(0, 8)}`),
+         notes: {
+           payment_context: "SUBSCRIPTION",
+           uid,
+@@ -159,23 +184,28 @@
+ export async function activateSubscription(
+   razorpayOrderId: string,
+   razorpayPaymentId: string,
+-): Promise<void> {
++): Promise<"paid" | "already_paid" | "duplicate" | "missing"> {
+   const db = admin.firestore();
+   const orderRef = db.collection("subscription_orders").doc(razorpayOrderId);
+ 
+-  await db.runTransaction(async (tx) => {
++  const outcome = await db.runTransaction(async (tx) => {
+     const snap = await tx.get(orderRef);
+     if (!snap.exists) {
+       logger.warn(`activateSubscription: no record for ${razorpayOrderId}`);
+-      return;
++      return "missing" as const;
+     }
+     const o = snap.data() ?? {};
+-    if (o.status === "active") return; // already applied
++    if (o.status === "active" || o.status === "refunded") {
++      // Same payment again (verify vs webhook vs sweep) → nothing to do. A
++      // DIFFERENT payment on an order already used means the merchant paid
++      // twice; that one goes back.
++      return String(o.razorpayPaymentId ?? "") === razorpayPaymentId ? ("already_paid" as const) : ("duplicate" as const);
++    }
+ 
+     const uid = (o.uid ?? "").toString();
+     const product: PlanProduct = o.product === "stay" ? "stay" : "dine";
+     const period: BillingPeriod = o.period === "yearly" ? "yearly" : "monthly";
+-    if (!uid) return;
++    if (!uid) return "missing" as const;
+ 
+     const merchantRef = db.collection(collectionFor(product)).doc(uid);
+     const merchantSnap = await tx.get(merchantRef);
+@@ -208,6 +238,11 @@
+         lastPaymentAt: admin.firestore.FieldValue.serverTimestamp(),
+         // Paying for a plan puts the merchant on the subscription billing model.
+         billingModel: "subscription",
++        // Paying again is a renewal: it clears a pending cancellation and any
++        // grace window left from the previous period.
++        subscriptionCancelAtPeriodEnd: false,
++        subscriptionGraceEndDate: admin.firestore.FieldValue.delete(),
++        lastSubscriptionOrderId: razorpayOrderId,
+         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+       },
+       { merge: true },
+@@ -220,14 +255,93 @@
+         razorpayPaymentId,
+         activatedAt: admin.firestore.FieldValue.serverTimestamp(),
+         subscriptionEndDate: admin.firestore.Timestamp.fromDate(newEnd),
++        // What this purchase added, so a refund can take exactly that back.
++        previousEndDate: existingMs ? admin.firestore.Timestamp.fromMillis(existingMs) : null,
++        addedDays: period === "yearly" ? 365 : 30,
+       },
+       { merge: true },
+     );
++    return "paid" as const;
+   });
+ 
+-  logger.info(`Subscription activated for order ${razorpayOrderId}`);
++  if (outcome === "duplicate") {
++    const rec = (await orderRef.get()).data() ?? {};
++    await refundStrayPayment({
++      paymentId: razorpayPaymentId,
++      amountPaise: Math.round(Number(rec.amount ?? 0) * 100),
++      kind: "subscription",
++      relatedId: razorpayOrderId,
++      outcome: "duplicate",
++      source: "subscription",
++    });
++  } else if (outcome === "paid") {
++    logger.info(`Subscription activated for order ${razorpayOrderId}`);
++  }
++  return outcome;
+ }
+ 
++/**
++ * Refund a subscription purchase (admin action) and take back exactly the
++ * time it bought. Money goes through the shared two-phase refund engine;
++ * entitlement is reversed in the same transaction that stages the refund, so
++ * a merchant never keeps a refunded period.
++ */
++export async function refundSubscriptionOrder(args: {
++  razorpayOrderId: string;
++  reason: string;
++  requestedBy: string;
++}): Promise<{ refundId: string; status: string; error?: string }> {
++  const db = admin.firestore();
++  const orderRef = db.collection("subscription_orders").doc(args.razorpayOrderId);
++  const refundId = `sub_${args.razorpayOrderId}`;
++  await db.runTransaction(async (tx) => {
++    const snap = await tx.get(orderRef);
++    if (!snap.exists) throw new HttpsError("not-found", "Subscription purchase not found.");
++    const o = snap.data() ?? {};
++    if (o.status === "refunded") return; // staged before — the executor decides what is left
++    if (o.status !== "active" || !o.razorpayPaymentId) {
++      throw new HttpsError("failed-precondition", `Only a paid subscription can be refunded (this one is ${o.status ?? "unknown"}).`);
++    }
++    const product: PlanProduct = o.product === "stay" ? "stay" : "dine";
++    const merchantRef = db.collection(collectionFor(product)).doc(String(o.uid));
++    const m = (await tx.get(merchantRef)).data() ?? {};
++    const endRaw = m.subscriptionEndDate;
++    const endMs = endRaw instanceof admin.firestore.Timestamp ? endRaw.toMillis() : 0;
++    const takeBackMs = (Number(o.addedDays) || (o.period === "yearly" ? 365 : 30)) * 86_400_000;
++    const newEndMs = Math.max(Date.now(), endMs - takeBackMs);
++    const lapsed = newEndMs <= Date.now();
++    const now = admin.firestore.FieldValue.serverTimestamp();
++    tx.set(
++      merchantRef,
++      {
++        subscriptionEndDate: admin.firestore.Timestamp.fromMillis(newEndMs),
++        ...(lapsed ? { subscriptionStatus: "expired" } : {}),
++        updatedAt: now,
++      },
++      { merge: true },
++    );
++    tx.update(orderRef, { status: "refunded", refundId, refundReason: args.reason, refundedAt: now });
++    tx.set(db.collection("platform_refunds").doc(refundId), {
++      orderId: "",
++      relatedKind: "subscription",
++      relatedId: args.razorpayOrderId,
++      merchantUid: String(o.uid),
++      method: "original",
++      status: "pending_execution",
++      razorpayPaymentId: String(o.razorpayPaymentId),
++      amountPaise: Math.round(Number(o.amount ?? 0) * 100),
++      amount: Number(o.amount ?? 0),
++      reason: args.reason,
++      source: "admin",
++      requestedBy: args.requestedBy,
++      requestedByRole: "admin",
++      createdAt: now,
++    });
++  });
++  const exec = await executeRazorpayRefund(refundId);
++  return { refundId, status: exec.status, ...(exec.error ? { error: exec.error } : {}) };
++}
++
+ /** What the app/dashboard should show. Read-only entitlement. */
+ export const getSubscriptionStatus = onCall({ maxInstances: 3 }, async (request) => {
+   const uid = request.auth?.uid;
+@@ -258,5 +372,6 @@
+     period: (d.subscriptionType ?? "").toString(),
+     endsAt: endMs || null,
+     billingModel: (d.billingModel ?? "commission").toString(),
++    cancelAtPeriodEnd: d.subscriptionCancelAtPeriodEnd === true,
+   };
+ });
+diff -ruN -x o Websites/vendor_web/functions/src/wallet.ts adminpanels/vendor_dash/functions/src/wallet.ts
+--- Websites/vendor_web/functions/src/wallet.ts	2026-09-26 19:24:04
++++ adminpanels/vendor_dash/functions/src/wallet.ts	2026-10-13 04:43:51
+@@ -1,4 +1,5 @@
+ import * as admin from "firebase-admin";
++import { assertModuleEnabled } from "./featureFlags";
+ import * as crypto from "crypto";
+ import { onCall, HttpsError } from "firebase-functions/v2/https";
+ import { defineSecret } from "firebase-functions/params";
+@@ -35,6 +36,7 @@
+     if (!uid) {
+       throw new HttpsError("unauthenticated", "Sign in to add money.");
+     }
++    await assertModuleEnabled("wallet", "Kada Money top-ups are paused right now.");
+     // Each call creates a gateway order; a retry loop shouldn't hammer Razorpay.
+     await enforceRateLimit(`wallet_topup_${uid}`, 20, 10 * 60_000);
+     const amount = Number(request.data?.amount);
+@@ -206,6 +208,7 @@
+   if (!orderId) {
+     throw new HttpsError("invalid-argument", "orderId is required.");
+   }
++  await assertModuleEnabled("wallet", "Paying with Kada Money is paused right now. Please pay online.");
+ 
+   const db = admin.firestore();
+   const orderRef = db.collection("orders").doc(orderId);
+--- Websites/vendor_web/firestore.rules	2026-10-07 17:13:08
++++ adminpanels/vendor_dash/firestore.rules	2026-10-13 04:47:58
+@@ -714,8 +714,16 @@
+     }
+     
+     match /config/{configId} {
+-      allow read: if true;
+-      allow write: if isAdmin();
++      // Public read: the apps read pricing baselines, module switches, the
++      // plan catalog and the changelog before sign-in. Reconciliation holds
++      // settled-revenue totals, so it is admin-only (and server-written).
++      allow read: if configId != "reconciliation" || isAdmin();
++      // Fees, commission, rider pay and module switches change money and
++      // what every customer can do — not for support roles.
++      allow write: if configId != "reconciliation" && isAdmin() && (
++        !(configId in ["platform", "feature_flags", "platform_features"]) ||
++        hasAdminRole(['super_admin', 'platform_admin', 'finance_manager', 'ops_manager'])
++      );
+     }
+ 
+     // Admin-managed promo codes / coupons surfaced in the customer app. Codes
+@@ -863,7 +871,11 @@
+     // ─── Platform / Delivery Settings ────────────────────────────────────────
+     match /settings/{settingsId} {
+       allow read: if true;
+-      allow write: if isAdmin();
++      // settings/delivery = surge + rider quest bonuses (money).
++      allow write: if isAdmin() && (
++        settingsId != "delivery" ||
++        hasAdminRole(['super_admin', 'platform_admin', 'finance_manager', 'ops_manager'])
++      );
+     }
+ 
+     // ─── Vendor Payout & Commission Settlements ─────────────────────────────
+@@ -1242,7 +1254,7 @@
+         "referralEarnings", "referralCount",
+         // Stamped by onCustomerProfileLocationChanged from the live zone
+         // polygons — a client must not be able to claim a zone.
+-        "primaryZoneId", "primaryZoneName", "nearestZoneName", "primaryZoneResolvedAt"
++        "primaryZoneId", "primaryZoneName", "nearestZoneName", "nearestZoneKm", "primaryZoneResolvedAt"
+       ];
+     }
+     match /customer_users/{uid} {
+@@ -1791,8 +1803,11 @@
+     }
+     match /platform_refunds/{id} {
+       allow read: if isAdmin();
+-      // Money: only finance/support/platform/super may issue refunds.
+-      allow write: if hasAdminRole(['super_admin', 'platform_admin', 'finance_manager', 'support_manager']);
++      // Money: refunds are created and executed ONLY by Cloud Functions
++      // (adminPlatformAction, vendor/customer cancellation, the payment
++      // sweep). A browser write could mark a refund "completed" that never
++      // reached the gateway.
++      allow write: if false;
+     }
+     match /host_settlements/{id} {
+       allow read: if isAdmin() || (request.auth != null && (
+@@ -1815,17 +1830,26 @@
+       allow read: if true;
+       allow write: if isAdmin();
+     }
++    // Signature-verified gateway events: written only by razorpayWebhook.
++    // Admin "Retry" goes through adminPlatformAction(replayWebhookEvent).
+     match /razorpay_webhook_events/{id} {
+       allow read: if isAdmin();
+-      allow write: if isAdmin();
++      allow write: if false;
+     }
+     match /wallet_topups/{id} {
+       allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+-      allow write: if isAdmin();
++      allow write: if false;
+     }
++    // Web subscription purchases (subscriptionBilling.ts). Server-only; the
++    // merchant can read their own purchase history.
++    match /subscription_orders/{id} {
++      allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
++      allow write: if false;
++    }
+     match /transactions/{txId} {
+       allow read: if isAdmin();
+-      allow write: if isAdmin();
++      // The money-in ledger is written only by the Razorpay webhook processor.
++      allow write: if false;
+     }
+     // RazorpayX payout ledger — written ONLY by Cloud Functions (admin SDK).
+     // Admins may read it; no client (not even the admin console) may mutate it,
+--- Websites/vendor_web/firestore.indexes.json	2026-09-28 01:34:23
++++ adminpanels/vendor_dash/firestore.indexes.json	2026-10-12 22:33:07
+@@ -1300,7 +1300,35 @@
+         },
+         {
+           "fieldPath": "status",
++          "order": "ASCENDING"
++        }
++      ]
++    },
++    {
++      "collectionGroup": "restaurants",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {
++          "fieldPath": "subscriptionStatus",
++          "order": "ASCENDING"
++        },
++        {
++          "fieldPath": "subscriptionEndDate",
++          "order": "ASCENDING"
++        }
++      ]
++    },
++    {
++      "collectionGroup": "restaurants",
++      "queryScope": "COLLECTION",
++      "fields": [
++        {
++          "fieldPath": "subscriptionStatus",
+           "order": "ASCENDING"
++        },
++        {
++          "fieldPath": "subscriptionGraceEndDate",
++          "order": "ASCENDING"
+         }
+       ]
+     }
+--- /dev/null	2026-10-13 04:51:49
++++ adminpanels/vendor_dash/functions/test/razorpayIntegration.test.ts	2026-10-12 22:42:16
+@@ -0,0 +1,43 @@
++import { describe, it, expect } from "vitest";
++import { webhookEventId } from "../src/razorpayWebhook";
++import { uniqueReceipt } from "../src/gateway";
++
++// A real Razorpay delivery: the body has NO top-level `id` — the event id
++// arrives only in the x-razorpay-event-id header. Reading payload.id rejected
++// every production event with a 400.
++const realBody = {
++  entity: "event",
++  account_id: "acc_X",
++  event: "payment.captured",
++  contains: ["payment"],
++  payload: { payment: { entity: { id: "pay_1", order_id: "order_1", amount: 1000 } } },
++  created_at: 1700000000,
++};
++
++describe("webhookEventId", () => {
++  it("uses the x-razorpay-event-id header", () => {
++    expect(webhookEventId("evt_abc", realBody, JSON.stringify(realBody))).toBe("evt_abc");
++  });
++  it("never fails a real delivery that lacks a body id", () => {
++    const id = webhookEventId(undefined, realBody, JSON.stringify(realBody));
++    expect(id).toMatch(/^body_[0-9a-f]{40}$/);
++  });
++  it("is stable for a redelivery of the same body (dedupes)", () => {
++    const raw = JSON.stringify(realBody);
++    expect(webhookEventId(undefined, realBody, raw)).toBe(webhookEventId(undefined, realBody, raw));
++  });
++  it("takes the first header value when repeated", () => {
++    expect(webhookEventId(["evt_1", "evt_2"], realBody, "")).toBe("evt_1");
++  });
++});
++
++describe("uniqueReceipt", () => {
++  it("fits Razorpay's 40-char limit even for long ids", () => {
++    expect(uniqueReceipt("x".repeat(80)).length).toBeLessThanOrEqual(40);
++  });
++  it("differs between attempts for the same order", async () => {
++    const a = uniqueReceipt("order123");
++    await new Promise((r) => setTimeout(r, 2));
++    expect(uniqueReceipt("order123")).not.toBe(a);
++  });
++});
+--- /dev/null	2026-10-13 04:51:49
++++ adminpanels/vendor_dash/functions/test/questTiers.test.ts	2026-10-13 04:44:08
+@@ -0,0 +1,56 @@
++import { describe, it, expect } from "vitest";
++import { awardedTodayFrom, parseQuestTiers, tiersToAward } from "../src/questTiers";
++
++const ladder = parseQuestTiers({ questTiers: [{ trips: 15, bonus: 250 }, { trips: 8, bonus: 150 }, { trips: 20, bonus: 300 }] });
++
++describe("parseQuestTiers", () => {
++  it("sorts configured rungs", () => {
++    expect(ladder.map((t) => t.trips)).toEqual([8, 15, 20]);
++  });
++  it("matches the rider app's legacy 40/75/100 ladder", () => {
++    // quest_tier.dart: target 8, bonus 150 → (3,30) (6,83) (8,150)
++    expect(parseQuestTiers({ questTarget: 8, questBonus: 150 })).toEqual([
++      { trips: 3, bonus: 30 },
++      { trips: 6, bonus: 83 },
++      { trips: 8, bonus: 150 },
++    ]);
++  });
++});
++
++describe("tiersToAward", () => {
++  it("pays the first rung at 8 trips (used to pay nothing until 20)", () => {
++    expect(tiersToAward(ladder, 8, [])).toEqual([{ trips: 8, bonus: 150 }]);
++  });
++  it("pays each rung once a day; all three sum to what the app promises", () => {
++    let paid: number[] = [];
++    let total = 0;
++    for (let n = 1; n <= 25; n++) {
++      const due = tiersToAward(ladder, n, paid);
++      paid = [...paid, ...due.map((t) => t.trips)];
++      total += due.reduce((s, t) => s + t.bonus, 0);
++    }
++    expect(total).toBe(700);
++  });
++});
++
++describe("awardedTodayFrom", () => {
++  it("treats a legacy single-bonus payout today as every rung paid", () => {
++    expect(awardedTodayFrom({ questAwardedDate: "2026-10-13" }, "2026-10-13", ladder)).toEqual([8, 15, 20]);
++  });
++  it("ignores yesterday", () => {
++    expect(awardedTodayFrom({ questTiersAwardedDate: "2026-10-12", questTiersAwarded: [8] }, "2026-10-13", ladder)).toEqual([]);
++  });
++});
++
++import { resolveModule } from "../src/featureFlags";
++
++describe("resolveModule (same precedence as the customer app)", () => {
++  it("feature_flags wins over config/platform", () => {
++    expect(resolveModule("cashOnDelivery", { cashOnDelivery: true }, { codEnabled: false })).toBe(true);
++    expect(resolveModule("wallet", { wallet: false }, { walletEnabled: true })).toBe(false);
++  });
++  it("falls back to the legacy platform field, then on", () => {
++    expect(resolveModule("kadaGold", {}, { goldEnabled: false })).toBe(false);
++    expect(resolveModule("giftCards", undefined, undefined)).toBe(true);
++  });
++});

@@ -1,0 +1,96 @@
+# Kada Dine
+> Cloud restaurant POS, billing, and operations software built for Indian restaurants, cafes, QSRs, retail stores, and salons.
+
+Kada Dine is a comprehensive cloud-based Point-of-Sale (POS) and restaurant management platform designed specifically for the Indian market. It combines billing, QR digital menus, kitchen display systems (KDS), table management, inventory, CRM, and analytics into one integrated system.
+
+## What is Kada Dine?
+
+Kada Dine is a SaaS restaurant and retail management platform that helps business owners:
+- Accept orders and print bills via a cloud POS terminal
+- Offer guests a QR-code digital menu for table-side ordering without staff
+- Manage kitchen operations via a Kitchen Display System (KDS) and KOT printing
+- Track inventory down to ingredient level with automatic depletion on each sale
+- Build customer loyalty through CRM, loyalty points, and WhatsApp marketing automation
+- Analyse sales, revenue, staff performance, and menu trends via real-time dashboards
+- Manage multiple outlet locations from a single dashboard
+
+## Pricing
+
+Kada Dine offers monthly and annual subscription plans. A 7-day free trial is available with no credit card required. Plans are priced in INR and USD. See full pricing at: https://kadadine.thekada.in/pricing
+
+## Key Features
+
+- **Cloud POS & Billing**: GST-ready invoices, split bills, multiple payment modes (cash, card, UPI), offline mode
+- **QR Digital Menu**: Contactless table ordering; guests scan, order, and pay from their phone
+- **Kitchen Display System (KDS)**: Real-time order routing to kitchen screens; replaces paper KOT tickets
+- **Table & Floor Management**: Live floor plan with drag-and-drop tables, colour-coded order status
+- **Inventory Management**: Recipe-level ingredient depletion, low-stock alerts, supplier purchase orders
+- **CRM & Loyalty**: Customer phone/email capture, loyalty points, birthday automation, WhatsApp campaigns
+- **Analytics & Reports**: Revenue trends, best-selling items, staff performance, COGS margins
+- **Staff & Attendance**: Role-based access control, shift scheduling, payroll tracking
+- **Multi-location**: Manage multiple branches, transfer stock between outlets
+- **Vendor Mobile App**: iOS and Android app for on-the-go management
+
+## Industries Served
+
+- Full-service restaurants and fine dining
+- Quick service restaurants (QSR) and fast food chains
+- Cafes and bakeries
+- Grocery and kirana stores
+- Fashion retail and general retail stores
+- Salons and spas
+
+## Technology
+
+- Web dashboard: React, TypeScript, Firebase (Firestore, Auth, Cloud Functions)
+- Mobile vendor app: Flutter (iOS & Android)
+- Payment processing: Razorpay integration
+- Offline support: Works without internet; syncs when reconnected
+- Data residency: India
+
+## Company
+
+- Product: Kada Dine
+- Website: https://kadadine.thekada.in
+- Contact: support@thekada.in
+- Location: India
+- Target market: Indian restaurants, cafes, retail, QSR
+
+## Common Questions Answered
+
+**What is the best POS software for restaurants in India?**
+Kada Dine is a cloud POS built specifically for Indian restaurants with GST billing, QR menus, KDS, and WhatsApp marketing.
+
+**Does Kada Dine work offline?**
+Yes. The POS operates in offline mode and automatically syncs all data when internet connectivity is restored.
+
+**What is a QR menu system?**
+A QR menu system lets restaurant guests scan a QR code at their table using their smartphone, browse the digital menu, and place orders directly — without needing a physical menu card or waiting for a waiter.
+
+**How does a Kitchen Display System (KDS) work?**
+A KDS replaces paper KOT (Kitchen Order Ticket) slips. Orders placed at the POS or via QR menu appear instantly on a screen in the kitchen, reducing errors and improving order speed.
+
+**Does Kada Dine integrate with Swiggy or Zomato?**
+Kada Dine's Orders Hub aggregates orders from third-party delivery platforms alongside dine-in orders, centralising all order management in one screen.
+
+**Can I manage multiple restaurant branches?**
+Yes. Kada Dine supports multi-location management, consolidated reporting across branches, and inter-branch stock transfers.
+
+## Links
+
+- Homepage: https://kadadine.thekada.in/
+- Pricing: https://kadadine.thekada.in/pricing
+- All Features: https://kadadine.thekada.in/features
+- POS & Billing: https://kadadine.thekada.in/features/pos-billing
+- QR Menu: https://kadadine.thekada.in/features/qr-menu
+- Kitchen Display: https://kadadine.thekada.in/features/kitchen-display
+- Inventory: https://kadadine.thekada.in/features/inventory
+- Analytics: https://kadadine.thekada.in/features/analytics
+- CRM & Loyalty: https://kadadine.thekada.in/features/customer-insights
+- Table Management: https://kadadine.thekada.in/features/tables
+- For Restaurants: https://kadadine.thekada.in/industries/restaurant
+- For QSR: https://kadadine.thekada.in/industries/qsr
+- For Retail: https://kadadine.thekada.in/industries/retail
+- Blog: https://kadadine.thekada.in/blog
+- Demo Request: https://kadadine.thekada.in/demo
+- Free Trial: https://kadadine.thekada.in/signup

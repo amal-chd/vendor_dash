@@ -1,0 +1,31 @@
+{
+  "name": "kada-functions",
+  "private": true,
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc -w",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^5.1.1",
+    "ngeohash": "^0.6.4",
+    "nodemailer": "^6.9.16",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/ngeohash": "^0.6.8",
+    "@types/nodemailer": "^6.4.17",
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.9"
+  }
+}

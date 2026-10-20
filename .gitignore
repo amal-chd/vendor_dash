@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Production build outputs
+dist/
+dist-ssr/
+functions/lib/
+
+# Local env files
+.env
+.env.*
+!.env.example
+functions/.env
+functions/.env.*
+!functions/.env.example
+
+# OS & Editor
+.DS_Store
+*.local
+.vscode/
+.idea/
+*.log
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Firebase cache & logs
+.firebase/
+firebase-debug.log
+firebase-debug.*.log

@@ -1,0 +1,2702 @@
+[
+  {
+    "id": "preset_001_hyderabadi_chicken_dum_b",
+    "name": "Hyderabadi Chicken Dum Biryani",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Hyderabadi Chicken Dum Biryani."
+  },
+  {
+    "id": "preset_002_malabar_mutton_biryani",
+    "name": "Malabar Mutton Biryani",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1642821373181-696a54913e93?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1642821373181-696a54913e93?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Malabar Mutton Biryani."
+  },
+  {
+    "id": "preset_003_thalassery_chicken_birya",
+    "name": "Thalassery Chicken Biryani",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Thalassery Chicken Biryani."
+  },
+  {
+    "id": "preset_004_royal_veg_dum_biryani",
+    "name": "Royal Veg Dum Biryani",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Royal Veg Dum Biryani."
+  },
+  {
+    "id": "preset_005_spicy_prawns_biryani",
+    "name": "Spicy Prawns Biryani",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1630409346824-4f0e7b080087?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1630409346824-4f0e7b080087?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Spicy Prawns Biryani."
+  },
+  {
+    "id": "preset_006_chicken_tikka_biryani",
+    "name": "Chicken Tikka Biryani",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Tikka Biryani."
+  },
+  {
+    "id": "preset_007_egg_dum_biryani",
+    "name": "Egg Dum Biryani",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Egg Dum Biryani."
+  },
+  {
+    "id": "preset_008_paneer_tikka_biryani",
+    "name": "Paneer Tikka Biryani",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Paneer Tikka Biryani."
+  },
+  {
+    "id": "preset_009_kashmiri_mutton_pulao",
+    "name": "Kashmiri Mutton Pulao",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kashmiri Mutton Pulao."
+  },
+  {
+    "id": "preset_010_fragrant_ghee_rice",
+    "name": "Fragrant Ghee Rice",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1574484284002-952d92456975?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1574484284002-952d92456975?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fragrant Ghee Rice."
+  },
+  {
+    "id": "preset_011_jeera_basmati_rice",
+    "name": "Jeera Basmati Rice",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1625398407796-82650a8c135f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625398407796-82650a8c135f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Jeera Basmati Rice."
+  },
+  {
+    "id": "preset_012_kerala_traditional_veg_m",
+    "name": "Kerala Traditional Veg Meals",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1567337710282-00832b415979?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1567337710282-00832b415979?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kerala Traditional Veg Meals."
+  },
+  {
+    "id": "preset_013_south_indian_curd_rice",
+    "name": "South Indian Curd Rice",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1541832676-9b763b0239ab?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1541832676-9b763b0239ab?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality South Indian Curd Rice."
+  },
+  {
+    "id": "preset_014_zesty_lemon_rice",
+    "name": "Zesty Lemon Rice",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1539136788836-5699e78bfc75?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1539136788836-5699e78bfc75?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Zesty Lemon Rice."
+  },
+  {
+    "id": "preset_015_chicken_fried_rice",
+    "name": "Chicken Fried Rice",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Fried Rice."
+  },
+  {
+    "id": "preset_016_schezwan_veg_fried_rice",
+    "name": "Schezwan Veg Fried Rice",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Schezwan Veg Fried Rice."
+  },
+  {
+    "id": "preset_017_egg_fried_rice_with_scal",
+    "name": "Egg Fried Rice with Scallions",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Egg Fried Rice with Scallions."
+  },
+  {
+    "id": "preset_018_prawns_fried_rice",
+    "name": "Prawns Fried Rice",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Prawns Fried Rice."
+  },
+  {
+    "id": "preset_019_steamed_jasmine_rice",
+    "name": "Steamed Jasmine Rice",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1516684732162-798a0062be99?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1516684732162-798a0062be99?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Steamed Jasmine Rice."
+  },
+  {
+    "id": "preset_020_matar_paneer_pulao",
+    "name": "Matar Paneer Pulao",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Matar Paneer Pulao."
+  },
+  {
+    "id": "preset_021_claypot_chicken_rice",
+    "name": "Claypot Chicken Rice",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Claypot Chicken Rice."
+  },
+  {
+    "id": "preset_022_brown_rice_salad_bowl",
+    "name": "Brown Rice Salad Bowl",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Brown Rice Salad Bowl."
+  },
+  {
+    "id": "preset_023_mushroom_biryani_pot",
+    "name": "Mushroom Biryani Pot",
+    "category": "Biryani & Rice",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631515242808-497c3fbd3972?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631515242808-497c3fbd3972?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mushroom Biryani Pot."
+  },
+  {
+    "id": "preset_024_special_beef_biryani",
+    "name": "Special Beef Biryani",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Special Beef Biryani."
+  },
+  {
+    "id": "preset_025_awadhi_biryani_platter",
+    "name": "Awadhi Biryani Platter",
+    "category": "Biryani & Rice",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Awadhi Biryani Platter."
+  },
+  {
+    "id": "preset_026_crispy_masala_dosa",
+    "name": "Crispy Masala Dosa",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Masala Dosa."
+  },
+  {
+    "id": "preset_027_golden_ghee_roast_dosa",
+    "name": "Golden Ghee Roast Dosa",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Golden Ghee Roast Dosa."
+  },
+  {
+    "id": "preset_028_mysore_masala_dosa",
+    "name": "Mysore Masala Dosa",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mysore Masala Dosa."
+  },
+  {
+    "id": "preset_029_onion_rava_dosa",
+    "name": "Onion Rava Dosa",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Onion Rava Dosa."
+  },
+  {
+    "id": "preset_030_fluffy_steamed_idli__3_p",
+    "name": "Fluffy Steamed Idli (3 pc)",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fluffy Steamed Idli (3 pc)."
+  },
+  {
+    "id": "preset_031_crispy_medu_vada__2_pc_",
+    "name": "Crispy Medu Vada (2 pc)",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Medu Vada (2 pc)."
+  },
+  {
+    "id": "preset_032_sambar_vada_dip",
+    "name": "Sambar Vada Dip",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1546833999-56f55f35f685?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1546833999-56f55f35f685?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Sambar Vada Dip."
+  },
+  {
+    "id": "preset_033_flaky_malabar_parotta__2",
+    "name": "Flaky Malabar Parotta (2 pc)",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Flaky Malabar Parotta (2 pc)."
+  },
+  {
+    "id": "preset_034_appam_with_coconut_milk",
+    "name": "Appam with Coconut Milk",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Appam with Coconut Milk."
+  },
+  {
+    "id": "preset_035_kerala_puttu_with_kadala",
+    "name": "Kerala Puttu with Kadala Curry",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kerala Puttu with Kadala Curry."
+  },
+  {
+    "id": "preset_036_soft_idiyappam__noolputt",
+    "name": "Soft Idiyappam (Noolputtu)",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Soft Idiyappam (Noolputtu)."
+  },
+  {
+    "id": "preset_037_tomato_onion_uttapam",
+    "name": "Tomato Onion Uttapam",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Tomato Onion Uttapam."
+  },
+  {
+    "id": "preset_038_poori_masala_with_potato",
+    "name": "Poori Masala with Potato Bhaji",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1630409346824-4f0e7b080087?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1630409346824-4f0e7b080087?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Poori Masala with Potato Bhaji."
+  },
+  {
+    "id": "preset_039_traditional_rava_upma",
+    "name": "Traditional Rava Upma",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Traditional Rava Upma."
+  },
+  {
+    "id": "preset_040_ven_pongal_with_ghee",
+    "name": "Ven Pongal with Ghee",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Ven Pongal with Ghee."
+  },
+  {
+    "id": "preset_041_chettinad_chicken_dosa",
+    "name": "Chettinad Chicken Dosa",
+    "category": "South Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chettinad Chicken Dosa."
+  },
+  {
+    "id": "preset_042_kerala_beef_fry_with_par",
+    "name": "Kerala Beef Fry with Parotta",
+    "category": "South Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kerala Beef Fry with Parotta."
+  },
+  {
+    "id": "preset_043_crispy_kuzhi_paniyaram",
+    "name": "Crispy Kuzhi Paniyaram",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Kuzhi Paniyaram."
+  },
+  {
+    "id": "preset_044_bisi_bele_bath_with_boon",
+    "name": "Bisi Bele Bath with Boondi",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Bisi Bele Bath with Boondi."
+  },
+  {
+    "id": "preset_045_south_indian_filter_coff",
+    "name": "South Indian Filter Coffee",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality South Indian Filter Coffee."
+  },
+  {
+    "id": "preset_046_paneer_dosa_roll",
+    "name": "Paneer Dosa Roll",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Paneer Dosa Roll."
+  },
+  {
+    "id": "preset_047_set_dosa_with_vadacurry",
+    "name": "Set Dosa with Vadacurry",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Set Dosa with Vadacurry."
+  },
+  {
+    "id": "preset_048_avial___kerala_rice",
+    "name": "Avial & Kerala Rice",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1567337710282-00832b415979?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1567337710282-00832b415979?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Avial & Kerala Rice."
+  },
+  {
+    "id": "preset_049_neer_dosa_with_chutney",
+    "name": "Neer Dosa with Chutney",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Neer Dosa with Chutney."
+  },
+  {
+    "id": "preset_050_curd_vada__dahi_vada_sou",
+    "name": "Curd Vada (Dahi Vada South Style)",
+    "category": "South Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Curd Vada (Dahi Vada South Style)."
+  },
+  {
+    "id": "preset_051_butter_chicken__murgh_ma",
+    "name": "Butter Chicken (Murgh Makhani)",
+    "category": "North Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Butter Chicken (Murgh Makhani)."
+  },
+  {
+    "id": "preset_052_paneer_butter_masala",
+    "name": "Paneer Butter Masala",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Paneer Butter Masala."
+  },
+  {
+    "id": "preset_053_chicken_tikka_masala",
+    "name": "Chicken Tikka Masala",
+    "category": "North Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Tikka Masala."
+  },
+  {
+    "id": "preset_054_mutton_rogan_josh",
+    "name": "Mutton Rogan Josh",
+    "category": "North Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1545247181-516773cae754?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1545247181-516773cae754?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mutton Rogan Josh."
+  },
+  {
+    "id": "preset_055_dal_makhani_with_butter",
+    "name": "Dal Makhani with Butter",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1546833999-56f55f35f685?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1546833999-56f55f35f685?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Dal Makhani with Butter."
+  },
+  {
+    "id": "preset_056_yellow_dal_tadka",
+    "name": "Yellow Dal Tadka",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Yellow Dal Tadka."
+  },
+  {
+    "id": "preset_057_kadai_chicken_special",
+    "name": "Kadai Chicken Special",
+    "category": "North Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kadai Chicken Special."
+  },
+  {
+    "id": "preset_058_palak_paneer__spinach_co",
+    "name": "Palak Paneer (Spinach Cottage Cheese)",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Palak Paneer (Spinach Cottage Cheese)."
+  },
+  {
+    "id": "preset_059_kadai_paneer_gravy",
+    "name": "Kadai Paneer Gravy",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kadai Paneer Gravy."
+  },
+  {
+    "id": "preset_060_shahi_paneer_in_cashew_g",
+    "name": "Shahi Paneer in Cashew Gravy",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Shahi Paneer in Cashew Gravy."
+  },
+  {
+    "id": "preset_061_punjabi_chole_masala",
+    "name": "Punjabi Chole Masala",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Punjabi Chole Masala."
+  },
+  {
+    "id": "preset_062_chicken_korma_nawabi",
+    "name": "Chicken Korma Nawabi",
+    "category": "North Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Korma Nawabi."
+  },
+  {
+    "id": "preset_063_malai_kofta_in_cream_sau",
+    "name": "Malai Kofta in Cream Sauce",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Malai Kofta in Cream Sauce."
+  },
+  {
+    "id": "preset_064_aloo_gobi_adraki",
+    "name": "Aloo Gobi Adraki",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Aloo Gobi Adraki."
+  },
+  {
+    "id": "preset_065_rajma_masala_punjabi",
+    "name": "Rajma Masala Punjabi",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1546833999-56f55f35f685?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1546833999-56f55f35f685?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Rajma Masala Punjabi."
+  },
+  {
+    "id": "preset_066_kashmiri_dum_aloo",
+    "name": "Kashmiri Dum Aloo",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kashmiri Dum Aloo."
+  },
+  {
+    "id": "preset_067_bhindi_do_pyaza",
+    "name": "Bhindi Do Pyaza",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Bhindi Do Pyaza."
+  },
+  {
+    "id": "preset_068_egg_curry_homestyle",
+    "name": "Egg Curry Homestyle",
+    "category": "North Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Egg Curry Homestyle."
+  },
+  {
+    "id": "preset_069_fish_tikka_masala",
+    "name": "Fish Tikka Masala",
+    "category": "North Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1631292784640-2b24be784d5d?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631292784640-2b24be784d5d?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fish Tikka Masala."
+  },
+  {
+    "id": "preset_070_butter_naan__tandoori_",
+    "name": "Butter Naan (Tandoori)",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1626074353765-517a681e40be?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626074353765-517a681e40be?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Butter Naan (Tandoori)."
+  },
+  {
+    "id": "preset_071_garlic_naan_with_butter",
+    "name": "Garlic Naan with Butter",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1626074353765-517a681e40be?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626074353765-517a681e40be?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Garlic Naan with Butter."
+  },
+  {
+    "id": "preset_072_tandoori_roti__2_pc_",
+    "name": "Tandoori Roti (2 pc)",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Tandoori Roti (2 pc)."
+  },
+  {
+    "id": "preset_073_laccha_paratha",
+    "name": "Laccha Paratha",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Laccha Paratha."
+  },
+  {
+    "id": "preset_074_amritsari_kulcha_with_ch",
+    "name": "Amritsari Kulcha with Chole",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Amritsari Kulcha with Chole."
+  },
+  {
+    "id": "preset_075_mutton_korma_mughlai",
+    "name": "Mutton Korma Mughlai",
+    "category": "North Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1545247181-516773cae754?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1545247181-516773cae754?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mutton Korma Mughlai."
+  },
+  {
+    "id": "preset_076_methi_malai_matar",
+    "name": "Methi Malai Matar",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Methi Malai Matar."
+  },
+  {
+    "id": "preset_077_chicken_saagwala",
+    "name": "Chicken Saagwala",
+    "category": "North Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Saagwala."
+  },
+  {
+    "id": "preset_078_tawa_paneer_masala",
+    "name": "Tawa Paneer Masala",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Tawa Paneer Masala."
+  },
+  {
+    "id": "preset_079_keema_matar__minced_meat",
+    "name": "Keema Matar (Minced Meat)",
+    "category": "North Indian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1545247181-516773cae754?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1545247181-516773cae754?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Keema Matar (Minced Meat)."
+  },
+  {
+    "id": "preset_080_mixed_vegetable_curry",
+    "name": "Mixed Vegetable Curry",
+    "category": "North Indian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mixed Vegetable Curry."
+  },
+  {
+    "id": "preset_081_classic_chicken_shawarma",
+    "name": "Classic Chicken Shawarma Roll",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Classic Chicken Shawarma Roll."
+  },
+  {
+    "id": "preset_082_plate_shawarma_with_toum",
+    "name": "Plate Shawarma with Toum & Fries",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Plate Shawarma with Toum & Fries."
+  },
+  {
+    "id": "preset_083_charcoal_al_faham_chicke",
+    "name": "Charcoal Al Faham Chicken",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Charcoal Al Faham Chicken."
+  },
+  {
+    "id": "preset_084_peri_peri_al_faham",
+    "name": "Peri Peri Al Faham",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Peri Peri Al Faham."
+  },
+  {
+    "id": "preset_085_shish_tawook_skewers",
+    "name": "Shish Tawook Skewers",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Shish Tawook Skewers."
+  },
+  {
+    "id": "preset_086_tandoori_chicken_full",
+    "name": "Tandoori Chicken Full",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Tandoori Chicken Full."
+  },
+  {
+    "id": "preset_087_chicken_tikka_platter",
+    "name": "Chicken Tikka Platter",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Tikka Platter."
+  },
+  {
+    "id": "preset_088_mutton_seekh_kebab",
+    "name": "Mutton Seekh Kebab",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mutton Seekh Kebab."
+  },
+  {
+    "id": "preset_089_smoky_bbq_chicken_wings",
+    "name": "Smoky BBQ Chicken Wings",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1527477321076-02e3b2e5414f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1527477321076-02e3b2e5414f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Smoky BBQ Chicken Wings."
+  },
+  {
+    "id": "preset_090_chicken_malai_tikka",
+    "name": "Chicken Malai Tikka",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Malai Tikka."
+  },
+  {
+    "id": "preset_091_paneer_tikka_charcoal_gr",
+    "name": "Paneer Tikka Charcoal Grill",
+    "category": "Arabian & Grills",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Paneer Tikka Charcoal Grill."
+  },
+  {
+    "id": "preset_092_arabic_mandi_rice_with_c",
+    "name": "Arabic Mandi Rice with Chicken",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Arabic Mandi Rice with Chicken."
+  },
+  {
+    "id": "preset_093_mutton_mandi_feast",
+    "name": "Mutton Mandi Feast",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1642821373181-696a54913e93?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1642821373181-696a54913e93?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mutton Mandi Feast."
+  },
+  {
+    "id": "preset_094_kabsa_rice_with_roasted_",
+    "name": "Kabsa Rice with Roasted Meat",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kabsa Rice with Roasted Meat."
+  },
+  {
+    "id": "preset_095_hummus_with_warm_khubz_p",
+    "name": "Hummus with Warm Khubz Pita",
+    "category": "Arabian & Grills",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Hummus with Warm Khubz Pita."
+  },
+  {
+    "id": "preset_096_falafel_platter_with_tah",
+    "name": "Falafel Platter with Tahini",
+    "category": "Arabian & Grills",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Falafel Platter with Tahini."
+  },
+  {
+    "id": "preset_097_baba_ganoush__smoked_egg",
+    "name": "Baba Ganoush (Smoked Eggplant Dip)",
+    "category": "Arabian & Grills",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Baba Ganoush (Smoked Eggplant Dip)."
+  },
+  {
+    "id": "preset_098_grilled_lamb_chops",
+    "name": "Grilled Lamb Chops",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Grilled Lamb Chops."
+  },
+  {
+    "id": "preset_099_smoked_beef_short_ribs",
+    "name": "Smoked Beef Short Ribs",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Smoked Beef Short Ribs."
+  },
+  {
+    "id": "preset_100_grilled_fish_fillet_with",
+    "name": "Grilled Fish Fillet with Lemon",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Grilled Fish Fillet with Lemon."
+  },
+  {
+    "id": "preset_101_mixed_arabic_mezze_platt",
+    "name": "Mixed Arabic Mezze Platter",
+    "category": "Arabian & Grills",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mixed Arabic Mezze Platter."
+  },
+  {
+    "id": "preset_102_bbq_paneer_skewers",
+    "name": "BBQ Paneer Skewers",
+    "category": "Arabian & Grills",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality BBQ Paneer Skewers."
+  },
+  {
+    "id": "preset_103_charcoal_grilled_prawns",
+    "name": "Charcoal Grilled Prawns",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Charcoal Grilled Prawns."
+  },
+  {
+    "id": "preset_104_grilled_chicken_kebabs",
+    "name": "Grilled Chicken Kebabs",
+    "category": "Arabian & Grills",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Grilled Chicken Kebabs."
+  },
+  {
+    "id": "preset_105_fattoush_salad_with_suma",
+    "name": "Fattoush Salad with Sumac",
+    "category": "Arabian & Grills",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fattoush Salad with Sumac."
+  },
+  {
+    "id": "preset_106_classic_gourmet_cheesebu",
+    "name": "Classic Gourmet Cheeseburger",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Classic Gourmet Cheeseburger."
+  },
+  {
+    "id": "preset_107_double_smash_beef_burger",
+    "name": "Double Smash Beef Burger",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Double Smash Beef Burger."
+  },
+  {
+    "id": "preset_108_crispy_fried_chicken_bur",
+    "name": "Crispy Fried Chicken Burger",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Fried Chicken Burger."
+  },
+  {
+    "id": "preset_109_smoky_bbq_bacon_burger",
+    "name": "Smoky BBQ Bacon Burger",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1553979459-d2229ba7433b?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1553979459-d2229ba7433b?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Smoky BBQ Bacon Burger."
+  },
+  {
+    "id": "preset_110_veggie_supreme_bean_burg",
+    "name": "Veggie Supreme Bean Burger",
+    "category": "Burgers & Sandwiches",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1520072959219-c595dc870360?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1520072959219-c595dc870360?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Veggie Supreme Bean Burger."
+  },
+  {
+    "id": "preset_111_paneer_tikka_burger",
+    "name": "Paneer Tikka Burger",
+    "category": "Burgers & Sandwiches",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Paneer Tikka Burger."
+  },
+  {
+    "id": "preset_112_triple_club_sandwich_wit",
+    "name": "Triple Club Sandwich with Fries",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Triple Club Sandwich with Fries."
+  },
+  {
+    "id": "preset_113_grilled_chicken_sourdoug",
+    "name": "Grilled Chicken Sourdough Sandwich",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Grilled Chicken Sourdough Sandwich."
+  },
+  {
+    "id": "preset_114_melting_grilled_cheese_t",
+    "name": "Melting Grilled Cheese Toast",
+    "category": "Burgers & Sandwiches",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Melting Grilled Cheese Toast."
+  },
+  {
+    "id": "preset_115_bombay_masala_grilled_sa",
+    "name": "Bombay Masala Grilled Sandwich",
+    "category": "Burgers & Sandwiches",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Bombay Masala Grilled Sandwich."
+  },
+  {
+    "id": "preset_116_chicken_egg_salad_sub",
+    "name": "Chicken Egg Salad Sub",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1509722747041-616f39b57569?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Egg Salad Sub."
+  },
+  {
+    "id": "preset_117_grilled_veggie_tortilla_",
+    "name": "Grilled Veggie Tortilla Wrap",
+    "category": "Burgers & Sandwiches",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Grilled Veggie Tortilla Wrap."
+  },
+  {
+    "id": "preset_118_chicken_shawarma_wrap",
+    "name": "Chicken Shawarma Wrap",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Shawarma Wrap."
+  },
+  {
+    "id": "preset_119_kolkata_kathi_roll__chic",
+    "name": "Kolkata Kathi Roll (Chicken)",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kolkata Kathi Roll (Chicken)."
+  },
+  {
+    "id": "preset_120_paneer_kathi_roll",
+    "name": "Paneer Kathi Roll",
+    "category": "Burgers & Sandwiches",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Paneer Kathi Roll."
+  },
+  {
+    "id": "preset_121_mexican_chicken_burrito",
+    "name": "Mexican Chicken Burrito",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mexican Chicken Burrito."
+  },
+  {
+    "id": "preset_122_sliders_duo__mini_burger",
+    "name": "Sliders Duo (Mini Burgers)",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Sliders Duo (Mini Burgers)."
+  },
+  {
+    "id": "preset_123_pulled_pork___bbq_beef_s",
+    "name": "Pulled Pork / BBQ Beef Sub",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1553979459-d2229ba7433b?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1553979459-d2229ba7433b?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Pulled Pork / BBQ Beef Sub."
+  },
+  {
+    "id": "preset_124_avocado___egg_breakfast_",
+    "name": "Avocado & Egg Breakfast Toast",
+    "category": "Burgers & Sandwiches",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Avocado & Egg Breakfast Toast."
+  },
+  {
+    "id": "preset_125_loaded_cheese_bacon_frie",
+    "name": "Loaded Cheese Bacon Fries",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Loaded Cheese Bacon Fries."
+  },
+  {
+    "id": "preset_126_golden_peri_peri_fries",
+    "name": "Golden Peri Peri Fries",
+    "category": "Burgers & Sandwiches",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Golden Peri Peri Fries."
+  },
+  {
+    "id": "preset_127_crispy_onion_rings_baske",
+    "name": "Crispy Onion Rings Basket",
+    "category": "Burgers & Sandwiches",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1639024471285-0af50858e44d?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1639024471285-0af50858e44d?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Onion Rings Basket."
+  },
+  {
+    "id": "preset_128_bacon_lettuce_tomato__bl",
+    "name": "Bacon Lettuce Tomato (BLT)",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Bacon Lettuce Tomato (BLT)."
+  },
+  {
+    "id": "preset_129_fish_fillet_burger_with_",
+    "name": "Fish Fillet Burger with Tartar",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fish Fillet Burger with Tartar."
+  },
+  {
+    "id": "preset_130_spicy_mexican_tacos__3_p",
+    "name": "Spicy Mexican Tacos (3 pc)",
+    "category": "Burgers & Sandwiches",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Spicy Mexican Tacos (3 pc)."
+  },
+  {
+    "id": "preset_131_woodfired_margherita_piz",
+    "name": "Woodfired Margherita Pizza",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Woodfired Margherita Pizza."
+  },
+  {
+    "id": "preset_132_classic_pepperoni_pizza",
+    "name": "Classic Pepperoni Pizza",
+    "category": "Pizza & Italian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Classic Pepperoni Pizza."
+  },
+  {
+    "id": "preset_133_bbq_smoked_chicken_pizza",
+    "name": "BBQ Smoked Chicken Pizza",
+    "category": "Pizza & Italian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality BBQ Smoked Chicken Pizza."
+  },
+  {
+    "id": "preset_134_farmhouse_veggie_delight",
+    "name": "Farmhouse Veggie Delight Pizza",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Farmhouse Veggie Delight Pizza."
+  },
+  {
+    "id": "preset_135_quattro_formaggi__four_c",
+    "name": "Quattro Formaggi (Four Cheese Pizza)",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1573821663912-569905455b1c?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1573821663912-569905455b1c?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Quattro Formaggi (Four Cheese Pizza)."
+  },
+  {
+    "id": "preset_136_truffle_wild_mushroom_pi",
+    "name": "Truffle Wild Mushroom Pizza",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Truffle Wild Mushroom Pizza."
+  },
+  {
+    "id": "preset_137_spicy_fiery_paneer_pizza",
+    "name": "Spicy Fiery Paneer Pizza",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1604382355076-af4b0eb60143?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1604382355076-af4b0eb60143?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Spicy Fiery Paneer Pizza."
+  },
+  {
+    "id": "preset_138_penne_all_arrabbiata",
+    "name": "Penne all'Arrabbiata",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Penne all'Arrabbiata."
+  },
+  {
+    "id": "preset_139_creamy_fettuccine_alfred",
+    "name": "Creamy Fettuccine Alfredo",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1645112411341-6c4fd023714a?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1645112411341-6c4fd023714a?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Creamy Fettuccine Alfredo."
+  },
+  {
+    "id": "preset_140_chicken_alfredo_pasta_wi",
+    "name": "Chicken Alfredo Pasta with Herbs",
+    "category": "Pizza & Italian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Alfredo Pasta with Herbs."
+  },
+  {
+    "id": "preset_141_basil_genovese_pesto_pas",
+    "name": "Basil Genovese Pesto Pasta",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1608897013039-887f21d8c804?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1608897013039-887f21d8c804?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Basil Genovese Pesto Pasta."
+  },
+  {
+    "id": "preset_142_spaghetti_alla_bolognese",
+    "name": "Spaghetti alla Bolognese",
+    "category": "Pizza & Italian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Spaghetti alla Bolognese."
+  },
+  {
+    "id": "preset_143_baked_cheesy_lasagna",
+    "name": "Baked Cheesy Lasagna",
+    "category": "Pizza & Italian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1574894709920-11b28e7367e3?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Baked Cheesy Lasagna."
+  },
+  {
+    "id": "preset_144_spinach___ricotta_raviol",
+    "name": "Spinach & Ricotta Ravioli",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Spinach & Ricotta Ravioli."
+  },
+  {
+    "id": "preset_145_garlic_bread_with_melted",
+    "name": "Garlic Bread with Melted Mozzarella",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1573140247632-f8fd74997d5c?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1573140247632-f8fd74997d5c?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Garlic Bread with Melted Mozzarella."
+  },
+  {
+    "id": "preset_146_tomato_basil_bruschetta",
+    "name": "Tomato Basil Bruschetta",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Tomato Basil Bruschetta."
+  },
+  {
+    "id": "preset_147_wild_mushroom_risotto",
+    "name": "Wild Mushroom Risotto",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1633964913295-ceb43826e7c9?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1633964913295-ceb43826e7c9?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Wild Mushroom Risotto."
+  },
+  {
+    "id": "preset_148_seafood_marinara_spaghet",
+    "name": "Seafood Marinara Spaghetti",
+    "category": "Pizza & Italian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Seafood Marinara Spaghetti."
+  },
+  {
+    "id": "preset_149_folded_calzone_pizza_poc",
+    "name": "Folded Calzone Pizza Pocket",
+    "category": "Pizza & Italian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Folded Calzone Pizza Pocket."
+  },
+  {
+    "id": "preset_150_caprese_salad_with_burra",
+    "name": "Caprese Salad with Burrata",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1592417817098-8f3d69109853?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1592417817098-8f3d69109853?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Caprese Salad with Burrata."
+  },
+  {
+    "id": "preset_151_spicy_buffalo_chicken_pi",
+    "name": "Spicy Buffalo Chicken Pizza",
+    "category": "Pizza & Italian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Spicy Buffalo Chicken Pizza."
+  },
+  {
+    "id": "preset_152_macaroni_and_cheese_bake",
+    "name": "Macaroni and Cheese Bake",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Macaroni and Cheese Bake."
+  },
+  {
+    "id": "preset_153_prawns_aglio_olio_pepero",
+    "name": "Prawns Aglio Olio Peperoncino",
+    "category": "Pizza & Italian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Prawns Aglio Olio Peperoncino."
+  },
+  {
+    "id": "preset_154_thin_crust_marinara_pizz",
+    "name": "Thin Crust Marinara Pizza",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Thin Crust Marinara Pizza."
+  },
+  {
+    "id": "preset_155_cheesy_italian_stuffed_g",
+    "name": "Cheesy Italian Stuffed Garlic Bread",
+    "category": "Pizza & Italian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1573140247632-f8fd74997d5c?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1573140247632-f8fd74997d5c?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Cheesy Italian Stuffed Garlic Bread."
+  },
+  {
+    "id": "preset_156_steamed_chicken_momos__8",
+    "name": "Steamed Chicken Momos (8 pc)",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Steamed Chicken Momos (8 pc)."
+  },
+  {
+    "id": "preset_157_crispy_fried_veg_momos",
+    "name": "Crispy Fried Veg Momos",
+    "category": "Chinese & Asian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Fried Veg Momos."
+  },
+  {
+    "id": "preset_158_schezwan_momos_in_chilli",
+    "name": "Schezwan Momos in Chilli Sauce",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Schezwan Momos in Chilli Sauce."
+  },
+  {
+    "id": "preset_159_dim_sum_basket__assorted",
+    "name": "Dim Sum Basket (Assorted)",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Dim Sum Basket (Assorted)."
+  },
+  {
+    "id": "preset_160_veg_hakka_noodles_wok_to",
+    "name": "Veg Hakka Noodles Wok-Tossed",
+    "category": "Chinese & Asian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Veg Hakka Noodles Wok-Tossed."
+  },
+  {
+    "id": "preset_161_chicken_hakka_noodles",
+    "name": "Chicken Hakka Noodles",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Hakka Noodles."
+  },
+  {
+    "id": "preset_162_chilli_chicken_dry___gra",
+    "name": "Chilli Chicken Dry / Gravy",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1569058242567-93de6f36f5e6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1569058242567-93de6f36f5e6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chilli Chicken Dry / Gravy."
+  },
+  {
+    "id": "preset_163_crispy_dragon_chicken",
+    "name": "Crispy Dragon Chicken",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1527477321076-02e3b2e5414f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1527477321076-02e3b2e5414f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Dragon Chicken."
+  },
+  {
+    "id": "preset_164_veg_manchurian_in_garlic",
+    "name": "Veg Manchurian in Garlic Gravy",
+    "category": "Chinese & Asian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1569058242567-93de6f36f5e6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1569058242567-93de6f36f5e6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Veg Manchurian in Garlic Gravy."
+  },
+  {
+    "id": "preset_165_gobi_manchurian_dry",
+    "name": "Gobi Manchurian Dry",
+    "category": "Chinese & Asian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Gobi Manchurian Dry."
+  },
+  {
+    "id": "preset_166_assorted_sushi___maki_ro",
+    "name": "Assorted Sushi & Maki Rolls",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1579871494447-08e1fc560839?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1579871494447-08e1fc560839?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Assorted Sushi & Maki Rolls."
+  },
+  {
+    "id": "preset_167_salmon_nigiri_sushi__4_p",
+    "name": "Salmon Nigiri Sushi (4 pc)",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1611143669185-af224c5e3252?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1611143669185-af224c5e3252?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Salmon Nigiri Sushi (4 pc)."
+  },
+  {
+    "id": "preset_168_pad_thai_noodles_with_pe",
+    "name": "Pad Thai Noodles with Peanuts",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Pad Thai Noodles with Peanuts."
+  },
+  {
+    "id": "preset_169_thai_green_curry_with_ja",
+    "name": "Thai Green Curry with Jasmine Rice",
+    "category": "Chinese & Asian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Thai Green Curry with Jasmine Rice."
+  },
+  {
+    "id": "preset_170_japanese_chicken_ramen_b",
+    "name": "Japanese Chicken Ramen Bowl",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Japanese Chicken Ramen Bowl."
+  },
+  {
+    "id": "preset_171_hot___sour_soup",
+    "name": "Hot & Sour Soup",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1547592180-85f1dda482cd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1547592180-85f1dda482cd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Hot & Sour Soup."
+  },
+  {
+    "id": "preset_172_chicken_manchow_soup_wit",
+    "name": "Chicken Manchow Soup with Noodles",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1547592180-85f1dda482cd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1547592180-85f1dda482cd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken Manchow Soup with Noodles."
+  },
+  {
+    "id": "preset_173_crispy_spring_rolls__4_p",
+    "name": "Crispy Spring Rolls (4 pc)",
+    "category": "Chinese & Asian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Spring Rolls (4 pc)."
+  },
+  {
+    "id": "preset_174_honey_chilli_potato_stic",
+    "name": "Honey Chilli Potato Sticks",
+    "category": "Chinese & Asian",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Honey Chilli Potato Sticks."
+  },
+  {
+    "id": "preset_175_sweet___sour_crispy_chic",
+    "name": "Sweet & Sour Crispy Chicken",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1569058242567-93de6f36f5e6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1569058242567-93de6f36f5e6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Sweet & Sour Crispy Chicken."
+  },
+  {
+    "id": "preset_176_kung_pao_chicken_with_ca",
+    "name": "Kung Pao Chicken with Cashews",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kung Pao Chicken with Cashews."
+  },
+  {
+    "id": "preset_177_nasi_goreng_with_fried_e",
+    "name": "Nasi Goreng with Fried Egg",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Nasi Goreng with Fried Egg."
+  },
+  {
+    "id": "preset_178_chilli_garlic_prawns",
+    "name": "Chilli Garlic Prawns",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chilli Garlic Prawns."
+  },
+  {
+    "id": "preset_179_singapore_street_noodles",
+    "name": "Singapore Street Noodles",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Singapore Street Noodles."
+  },
+  {
+    "id": "preset_180_wonton_soup_with_pak_cho",
+    "name": "Wonton Soup with Pak Choi",
+    "category": "Chinese & Asian",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1547592180-85f1dda482cd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1547592180-85f1dda482cd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Wonton Soup with Pak Choi."
+  },
+  {
+    "id": "preset_181_karimeen_pollichathu__pe",
+    "name": "Karimeen Pollichathu (Pearl Spot)",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Karimeen Pollichathu (Pearl Spot)."
+  },
+  {
+    "id": "preset_182_kerala_fish_curry__kudam",
+    "name": "Kerala Fish Curry (Kudampuli)",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1631292784640-2b24be784d5d?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631292784640-2b24be784d5d?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kerala Fish Curry (Kudampuli)."
+  },
+  {
+    "id": "preset_183_butter_garlic_tiger_praw",
+    "name": "Butter Garlic Tiger Prawns",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Butter Garlic Tiger Prawns."
+  },
+  {
+    "id": "preset_184_crispy_calamari_squid_ri",
+    "name": "Crispy Calamari Squid Rings",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Calamari Squid Rings."
+  },
+  {
+    "id": "preset_185_malabar_crab_masala_roas",
+    "name": "Malabar Crab Masala Roast",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Malabar Crab Masala Roast."
+  },
+  {
+    "id": "preset_186_fish_moilee_with_coconut",
+    "name": "Fish Moilee with Coconut Cream",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1631292784640-2b24be784d5d?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631292784640-2b24be784d5d?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fish Moilee with Coconut Cream."
+  },
+  {
+    "id": "preset_187_pan_seared_atlantic_salm",
+    "name": "Pan-Seared Atlantic Salmon",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Pan-Seared Atlantic Salmon."
+  },
+  {
+    "id": "preset_188_classic_fish_and_chips_w",
+    "name": "Classic Fish and Chips with Tartar",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1576777647209-e8733d9b8413?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1576777647209-e8733d9b8413?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Classic Fish and Chips with Tartar."
+  },
+  {
+    "id": "preset_189_spicy_prawns_theeyal",
+    "name": "Spicy Prawns Theeyal",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Spicy Prawns Theeyal."
+  },
+  {
+    "id": "preset_190_lobster_thermidor_in_she",
+    "name": "Lobster Thermidor in Shell",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1553659971-f01207815844?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1553659971-f01207815844?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Lobster Thermidor in Shell."
+  },
+  {
+    "id": "preset_191_grilled_whole_pomfret_ta",
+    "name": "Grilled Whole Pomfret Tandoori",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Grilled Whole Pomfret Tandoori."
+  },
+  {
+    "id": "preset_192_kerala_beef_fry_with_coc",
+    "name": "Kerala Beef Fry with Coconut",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626082927389-6cd097cee6a6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kerala Beef Fry with Coconut."
+  },
+  {
+    "id": "preset_193_slow_roasted_beef_ularth",
+    "name": "Slow Roasted Beef Ularthiyathu",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1545247181-516773cae754?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1545247181-516773cae754?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Slow Roasted Beef Ularthiyathu."
+  },
+  {
+    "id": "preset_194_kerala_duck_roast__thara",
+    "name": "Kerala Duck Roast (Tharavu Roast)",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1545247181-516773cae754?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1545247181-516773cae754?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kerala Duck Roast (Tharavu Roast)."
+  },
+  {
+    "id": "preset_195_nadan_kozhi_curry__keral",
+    "name": "Nadan Kozhi Curry (Kerala Chicken)",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Nadan Kozhi Curry (Kerala Chicken)."
+  },
+  {
+    "id": "preset_196_meen_peera_pattichathu__",
+    "name": "Meen Peera Pattichathu (Anchovies)",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1631292784640-2b24be784d5d?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631292784640-2b24be784d5d?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Meen Peera Pattichathu (Anchovies)."
+  },
+  {
+    "id": "preset_197_squid_roast_with_curry_l",
+    "name": "Squid Roast with Curry Leaves",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Squid Roast with Curry Leaves."
+  },
+  {
+    "id": "preset_198_seafood_mixed_grill_plat",
+    "name": "Seafood Mixed Grill Platter",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Seafood Mixed Grill Platter."
+  },
+  {
+    "id": "preset_199_steamed_mussels_in_garli",
+    "name": "Steamed Mussels in Garlic Broth",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Steamed Mussels in Garlic Broth."
+  },
+  {
+    "id": "preset_200_kakkarirachi__clam_meat_",
+    "name": "Kakkarirachi (Clam Meat Roast)",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kakkarirachi (Clam Meat Roast)."
+  },
+  {
+    "id": "preset_201_kallummakkaya_nirachathu",
+    "name": "Kallummakkaya Nirachathu (Stuffed Mussels)",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kallummakkaya Nirachathu (Stuffed Mussels)."
+  },
+  {
+    "id": "preset_202_grilled_king_fish_steak",
+    "name": "Grilled King Fish Steak",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Grilled King Fish Steak."
+  },
+  {
+    "id": "preset_203_coconut_crab_curry",
+    "name": "Coconut Crab Curry",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Coconut Crab Curry."
+  },
+  {
+    "id": "preset_204_kerala_chicken_stew_with",
+    "name": "Kerala Chicken Stew with Potatoes",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1547592180-85f1dda482cd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1547592180-85f1dda482cd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kerala Chicken Stew with Potatoes."
+  },
+  {
+    "id": "preset_205_fish_finger_bites_with_t",
+    "name": "Fish Finger Bites with Tartar Dip",
+    "category": "Seafood & Kerala",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1576777647209-e8733d9b8413?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1576777647209-e8733d9b8413?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fish Finger Bites with Tartar Dip."
+  },
+  {
+    "id": "preset_206_gulab_jamun_with_rabdi",
+    "name": "Gulab Jamun with Rabdi",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Gulab Jamun with Rabdi."
+  },
+  {
+    "id": "preset_207_rasmalai_in_saffron_milk",
+    "name": "Rasmalai in Saffron Milk",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Rasmalai in Saffron Milk."
+  },
+  {
+    "id": "preset_208_soft_bengali_rasgulla",
+    "name": "Soft Bengali Rasgulla",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Soft Bengali Rasgulla."
+  },
+  {
+    "id": "preset_209_crispy_jalebi_with_cream",
+    "name": "Crispy Jalebi with Creamy Rabdi",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Jalebi with Creamy Rabdi."
+  },
+  {
+    "id": "preset_210_gajar_ka_halwa__carrot_h",
+    "name": "Gajar Ka Halwa (Carrot Halwa)",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Gajar Ka Halwa (Carrot Halwa)."
+  },
+  {
+    "id": "preset_211_molten_chocolate_lava_ca",
+    "name": "Molten Chocolate Lava Cake",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Molten Chocolate Lava Cake."
+  },
+  {
+    "id": "preset_212_warm_fudgy_brownie_with_",
+    "name": "Warm Fudgy Brownie with Ice Cream",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1564355808539-22fda35bed7e?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1564355808539-22fda35bed7e?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Warm Fudgy Brownie with Ice Cream."
+  },
+  {
+    "id": "preset_213_classic_new_york_cheesec",
+    "name": "Classic New York Cheesecake",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Classic New York Cheesecake."
+  },
+  {
+    "id": "preset_214_red_velvet_cake_slice",
+    "name": "Red Velvet Cake Slice",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1586788680434-30d324b2d46f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1586788680434-30d324b2d46f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Red Velvet Cake Slice."
+  },
+  {
+    "id": "preset_215_italian_tiramisu_cup",
+    "name": "Italian Tiramisu Cup",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Italian Tiramisu Cup."
+  },
+  {
+    "id": "preset_216_belgian_chocolate_waffle",
+    "name": "Belgian Chocolate Waffles",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1562376552-0d160a2f238d?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1562376552-0d160a2f238d?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Belgian Chocolate Waffles."
+  },
+  {
+    "id": "preset_217_fluffy_buttermilk_pancak",
+    "name": "Fluffy Buttermilk Pancakes with Berries",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1506084868230-bb9d95c24759?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1506084868230-bb9d95c24759?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fluffy Buttermilk Pancakes with Berries."
+  },
+  {
+    "id": "preset_218_glazed_chocolate_donut",
+    "name": "Glazed Chocolate Donut",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Glazed Chocolate Donut."
+  },
+  {
+    "id": "preset_219_assorted_french_macarons",
+    "name": "Assorted French Macarons Box",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1569864321338-7f9999a4e402?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1569864321338-7f9999a4e402?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Assorted French Macarons Box."
+  },
+  {
+    "id": "preset_220_warm_churros_with_chocol",
+    "name": "Warm Churros with Chocolate Dip",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1624300629298-e9de39c13be5?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1624300629298-e9de39c13be5?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Warm Churros with Chocolate Dip."
+  },
+  {
+    "id": "preset_221_tender_coconut_ice_cream",
+    "name": "Tender Coconut Ice Cream",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Tender Coconut Ice Cream."
+  },
+  {
+    "id": "preset_222_belgian_dark_chocolate_g",
+    "name": "Belgian Dark Chocolate Gelato",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Belgian Dark Chocolate Gelato."
+  },
+  {
+    "id": "preset_223_strawberry_sundae_bowl",
+    "name": "Strawberry Sundae Bowl",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Strawberry Sundae Bowl."
+  },
+  {
+    "id": "preset_224_authentic_turkish_baklav",
+    "name": "Authentic Turkish Baklava",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1519869325930-281384150729?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1519869325930-281384150729?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Authentic Turkish Baklava."
+  },
+  {
+    "id": "preset_225_traditional_palada_payas",
+    "name": "Traditional Palada Payasam (Kheer)",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Traditional Palada Payasam (Kheer)."
+  },
+  {
+    "id": "preset_226_kaju_katli_diamond_sweet",
+    "name": "Kaju Katli Diamond Sweets",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kaju Katli Diamond Sweets."
+  },
+  {
+    "id": "preset_227_motichoor_ladoo__4_pc_",
+    "name": "Motichoor Ladoo (4 pc)",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Motichoor Ladoo (4 pc)."
+  },
+  {
+    "id": "preset_228_apple_cinnamon_crumble_p",
+    "name": "Apple Cinnamon Crumble Pie",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1568571780765-9276ac8b75a2?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1568571780765-9276ac8b75a2?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Apple Cinnamon Crumble Pie."
+  },
+  {
+    "id": "preset_229_butter_croissant_freshly",
+    "name": "Butter Croissant Freshly Baked",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1555507015-d6565f4c2810?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1555507015-d6565f4c2810?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Butter Croissant Freshly Baked."
+  },
+  {
+    "id": "preset_230_chocolate_filled_croissa",
+    "name": "Chocolate Filled Croissant (Pain au Chocolat)",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1555507015-d6565f4c2810?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1555507015-d6565f4c2810?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chocolate Filled Croissant (Pain au Chocolat)."
+  },
+  {
+    "id": "preset_231_blueberry_cheesecake_jar",
+    "name": "Blueberry Cheesecake Jar",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Blueberry Cheesecake Jar."
+  },
+  {
+    "id": "preset_232_mango_kulfi_on_stick",
+    "name": "Mango Kulfi on Stick",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mango Kulfi on Stick."
+  },
+  {
+    "id": "preset_233_kunafa_with_rose_sugar_s",
+    "name": "Kunafa with Rose Sugar Syrup",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1519869325930-281384150729?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1519869325930-281384150729?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kunafa with Rose Sugar Syrup."
+  },
+  {
+    "id": "preset_234_banana_split_ice_cream_b",
+    "name": "Banana Split Ice Cream Boat",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Banana Split Ice Cream Boat."
+  },
+  {
+    "id": "preset_235_chocolate_chip_muffin",
+    "name": "Chocolate Chip Muffin",
+    "category": "Desserts & Sweets",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1586985289688-ca3cf47d3e6e?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1586985289688-ca3cf47d3e6e?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chocolate Chip Muffin."
+  },
+  {
+    "id": "preset_236_fresh_alfonso_mango_lass",
+    "name": "Fresh Alfonso Mango Lassi",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fresh Alfonso Mango Lassi."
+  },
+  {
+    "id": "preset_237_sweet_punjabi_lassi_in_c",
+    "name": "Sweet Punjabi Lassi in Clay Cup",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Sweet Punjabi Lassi in Clay Cup."
+  },
+  {
+    "id": "preset_238_cold_brew_iced_coffee",
+    "name": "Cold Brew Iced Coffee",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Cold Brew Iced Coffee."
+  },
+  {
+    "id": "preset_239_iced_caramel_macchiato",
+    "name": "Iced Caramel Macchiato",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Iced Caramel Macchiato."
+  },
+  {
+    "id": "preset_240_artisanal_hot_cappuccino",
+    "name": "Artisanal Hot Cappuccino",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Artisanal Hot Cappuccino."
+  },
+  {
+    "id": "preset_241_double_shot_espresso",
+    "name": "Double Shot Espresso",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Double Shot Espresso."
+  },
+  {
+    "id": "preset_242_kada_special_cardamom_te",
+    "name": "Kada Special Cardamom Tea",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1594631252845-5eab1ce8098c?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1594631252845-5eab1ce8098c?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kada Special Cardamom Tea."
+  },
+  {
+    "id": "preset_243_masala_chai_with_ginger",
+    "name": "Masala Chai with Ginger",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1594631252845-5eab1ce8098c?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1594631252845-5eab1ce8098c?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Masala Chai with Ginger."
+  },
+  {
+    "id": "preset_244_matcha_green_tea_latte",
+    "name": "Matcha Green Tea Latte",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1536256263959-770b48d82b0a?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1536256263959-770b48d82b0a?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Matcha Green Tea Latte."
+  },
+  {
+    "id": "preset_245_freshly_squeezed_orange_",
+    "name": "Freshly Squeezed Orange Juice",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Freshly Squeezed Orange Juice."
+  },
+  {
+    "id": "preset_246_watermelon_mint_refreshe",
+    "name": "Watermelon Mint Refresher",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Watermelon Mint Refresher."
+  },
+  {
+    "id": "preset_247_classic_mint_virgin_moji",
+    "name": "Classic Mint Virgin Mojito",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Classic Mint Virgin Mojito."
+  },
+  {
+    "id": "preset_248_thick_belgian_chocolate_",
+    "name": "Thick Belgian Chocolate Shake",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1572490142747-398ba0fe9a85?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1572490142747-398ba0fe9a85?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Thick Belgian Chocolate Shake."
+  },
+  {
+    "id": "preset_249_oreo_cookie_milkshake",
+    "name": "Oreo Cookie Milkshake",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1572490142747-398ba0fe9a85?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1572490142747-398ba0fe9a85?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Oreo Cookie Milkshake."
+  },
+  {
+    "id": "preset_250_fresh_strawberry_milksha",
+    "name": "Fresh Strawberry Milkshake",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1572490142747-398ba0fe9a85?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1572490142747-398ba0fe9a85?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fresh Strawberry Milkshake."
+  },
+  {
+    "id": "preset_251_tender_coconut_water__fr",
+    "name": "Tender Coconut Water (Fresh)",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Tender Coconut Water (Fresh)."
+  },
+  {
+    "id": "preset_252_lemon_mint_iced_tea",
+    "name": "Lemon Mint Iced Tea",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Lemon Mint Iced Tea."
+  },
+  {
+    "id": "preset_253_peach_blossom_iced_tea",
+    "name": "Peach Blossom Iced Tea",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Peach Blossom Iced Tea."
+  },
+  {
+    "id": "preset_254_blue_curacao_lemonade",
+    "name": "Blue Curacao Lemonade",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Blue Curacao Lemonade."
+  },
+  {
+    "id": "preset_255_avocado_honey_smoothie",
+    "name": "Avocado Honey Smoothie",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Avocado Honey Smoothie."
+  },
+  {
+    "id": "preset_256_cold_badam_milk__almond_",
+    "name": "Cold Badam Milk (Almond Shake)",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Cold Badam Milk (Almond Shake)."
+  },
+  {
+    "id": "preset_257_pineapple_mint_fresh_jui",
+    "name": "Pineapple Mint Fresh Juice",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Pineapple Mint Fresh Juice."
+  },
+  {
+    "id": "preset_258_rose_milk_with_basil_see",
+    "name": "Rose Milk with Basil Seeds",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1572490142747-398ba0fe9a85?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1572490142747-398ba0fe9a85?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Rose Milk with Basil Seeds."
+  },
+  {
+    "id": "preset_259_hot_chocolate_with_marsh",
+    "name": "Hot Chocolate with Marshmallows",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1542990253-0d0f5be5f0ed?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1542990253-0d0f5be5f0ed?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Hot Chocolate with Marshmallows."
+  },
+  {
+    "id": "preset_260_sparkling_berry_lemonade",
+    "name": "Sparkling Berry Lemonade",
+    "category": "Beverages & Shakes",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Sparkling Berry Lemonade."
+  },
+  {
+    "id": "preset_261_english_breakfast_platte",
+    "name": "English Breakfast Platter",
+    "category": "Breakfast & Bakery",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality English Breakfast Platter."
+  },
+  {
+    "id": "preset_262_avocado_sourdough_toast_",
+    "name": "Avocado Sourdough Toast with Poached Egg",
+    "category": "Breakfast & Bakery",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Avocado Sourdough Toast with Poached Egg."
+  },
+  {
+    "id": "preset_263_three_egg_cheese_omelett",
+    "name": "Three-Egg Cheese Omelette with Toast",
+    "category": "Breakfast & Bakery",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1510693206972-df098062cb71?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1510693206972-df098062cb71?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Three-Egg Cheese Omelette with Toast."
+  },
+  {
+    "id": "preset_264_masala_scrambled_eggs__a",
+    "name": "Masala Scrambled Eggs (Akuri)",
+    "category": "Breakfast & Bakery",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1510693206972-df098062cb71?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1510693206972-df098062cb71?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Masala Scrambled Eggs (Akuri)."
+  },
+  {
+    "id": "preset_265_french_toast_with_maple_",
+    "name": "French Toast with Maple Glaze",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1484723091739-30a097e8f929?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1484723091739-30a097e8f929?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality French Toast with Maple Glaze."
+  },
+  {
+    "id": "preset_266_oatmeal_porridge_with_nu",
+    "name": "Oatmeal Porridge with Nuts & Honey",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1517673132405-a56a62b18caf?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1517673132405-a56a62b18caf?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Oatmeal Porridge with Nuts & Honey."
+  },
+  {
+    "id": "preset_267_granola_yogurt_parfait_b",
+    "name": "Granola Yogurt Parfait Bowl",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Granola Yogurt Parfait Bowl."
+  },
+  {
+    "id": "preset_268_fresh_cinnamon_swirl_rol",
+    "name": "Fresh Cinnamon Swirl Roll",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Fresh Cinnamon Swirl Roll."
+  },
+  {
+    "id": "preset_269_artisan_sourdough_loaf__",
+    "name": "Artisan Sourdough Loaf (Sliced)",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Artisan Sourdough Loaf (Sliced)."
+  },
+  {
+    "id": "preset_270_banana_walnut_bread",
+    "name": "Banana Walnut Bread",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Banana Walnut Bread."
+  },
+  {
+    "id": "preset_271_bagel_with_herb_cream_ch",
+    "name": "Bagel with Herb Cream Cheese",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1585478259715-876a6a61fcce?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585478259715-876a6a61fcce?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Bagel with Herb Cream Cheese."
+  },
+  {
+    "id": "preset_272_smoked_salmon_cream_chee",
+    "name": "Smoked Salmon Cream Cheese Bagel",
+    "category": "Breakfast & Bakery",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1585478259715-876a6a61fcce?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1585478259715-876a6a61fcce?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Smoked Salmon Cream Cheese Bagel."
+  },
+  {
+    "id": "preset_273_cheese_croissant_toasted",
+    "name": "Cheese Croissant Toasted",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1555507015-d6565f4c2810?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1555507015-d6565f4c2810?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Cheese Croissant Toasted."
+  },
+  {
+    "id": "preset_274_nutella_brioche_toast",
+    "name": "Nutella Brioche Toast",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1484723091739-30a097e8f929?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1484723091739-30a097e8f929?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Nutella Brioche Toast."
+  },
+  {
+    "id": "preset_275_blueberry_crumb_muffin",
+    "name": "Blueberry Crumb Muffin",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1586985289688-ca3cf47d3e6e?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1586985289688-ca3cf47d3e6e?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Blueberry Crumb Muffin."
+  },
+  {
+    "id": "preset_276_almond_croissant_with_po",
+    "name": "Almond Croissant with Powdered Sugar",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1555507015-d6565f4c2810?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1555507015-d6565f4c2810?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Almond Croissant with Powdered Sugar."
+  },
+  {
+    "id": "preset_277_sunny_side_up_eggs_with_",
+    "name": "Sunny Side Up Eggs with Sausages",
+    "category": "Breakfast & Bakery",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Sunny Side Up Eggs with Sausages."
+  },
+  {
+    "id": "preset_278_hash_browns_crispy_golde",
+    "name": "Hash Browns Crispy Golden (3 pc)",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Hash Browns Crispy Golden (3 pc)."
+  },
+  {
+    "id": "preset_279_breakfast_burrito_with_s",
+    "name": "Breakfast Burrito with Salsa",
+    "category": "Breakfast & Bakery",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Breakfast Burrito with Salsa."
+  },
+  {
+    "id": "preset_280_chia_seed_pudding_bowl",
+    "name": "Chia Seed Pudding Bowl",
+    "category": "Breakfast & Bakery",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chia Seed Pudding Bowl."
+  },
+  {
+    "id": "preset_281_crispy_potato_samosa__2_",
+    "name": "Crispy Potato Samosa (2 pc)",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Potato Samosa (2 pc)."
+  },
+  {
+    "id": "preset_282_pani_puri___golgappe_pla",
+    "name": "Pani Puri / Golgappe Platter (8 pc)",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Pani Puri / Golgappe Platter (8 pc)."
+  },
+  {
+    "id": "preset_283_sev_puri_with_tangy_chut",
+    "name": "Sev Puri with Tangy Chutneys",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Sev Puri with Tangy Chutneys."
+  },
+  {
+    "id": "preset_284_dahi_papdi_chaat",
+    "name": "Dahi Papdi Chaat",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Dahi Papdi Chaat."
+  },
+  {
+    "id": "preset_285_buttery_mumbai_pav_bhaji",
+    "name": "Buttery Mumbai Pav Bhaji",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Buttery Mumbai Pav Bhaji."
+  },
+  {
+    "id": "preset_286_classic_mumbai_vada_pav",
+    "name": "Classic Mumbai Vada Pav",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Classic Mumbai Vada Pav."
+  },
+  {
+    "id": "preset_287_crispy_onion_pakoda___bh",
+    "name": "Crispy Onion Pakoda / Bhajiya",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Onion Pakoda / Bhajiya."
+  },
+  {
+    "id": "preset_288_aloo_tikki_chaat_with_ch",
+    "name": "Aloo Tikki Chaat with Chole",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Aloo Tikki Chaat with Chole."
+  },
+  {
+    "id": "preset_289_crispy_fried_chicken_nug",
+    "name": "Crispy Fried Chicken Nuggets (8 pc)",
+    "category": "Snacks & Chaat",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crispy Fried Chicken Nuggets (8 pc)."
+  },
+  {
+    "id": "preset_290_crunchy_chicken_popcorn",
+    "name": "Crunchy Chicken Popcorn",
+    "category": "Snacks & Chaat",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1626645738113-ac2354c5ee4c?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1626645738113-ac2354c5ee4c?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Crunchy Chicken Popcorn."
+  },
+  {
+    "id": "preset_291_cheesy_loaded_nachos_gra",
+    "name": "Cheesy Loaded Nachos Grande",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1513456852971-a5d9f750c950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1513456852971-a5d9f750c950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Cheesy Loaded Nachos Grande."
+  },
+  {
+    "id": "preset_292_mozzarella_cheese_sticks",
+    "name": "Mozzarella Cheese Sticks with Marinara",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1531749668029-2db88e4276c7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1531749668029-2db88e4276c7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mozzarella Cheese Sticks with Marinara."
+  },
+  {
+    "id": "preset_293_kerala_banana_chips__nen",
+    "name": "Kerala Banana Chips (Nendran)",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kerala Banana Chips (Nendran)."
+  },
+  {
+    "id": "preset_294_kerala_meat_cutlet__beef",
+    "name": "Kerala Meat Cutlet (Beef / Chicken)",
+    "category": "Snacks & Chaat",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Kerala Meat Cutlet (Beef / Chicken)."
+  },
+  {
+    "id": "preset_295_parippu_vada__dal_vada_c",
+    "name": "Parippu Vada (Dal Vada Crunchy)",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Parippu Vada (Dal Vada Crunchy)."
+  },
+  {
+    "id": "preset_296_mirchi_bajji__chilli_fri",
+    "name": "Mirchi Bajji (Chilli Fritters)",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Mirchi Bajji (Chilli Fritters)."
+  },
+  {
+    "id": "preset_297_bhel_puri_with_chutneys",
+    "name": "Bhel Puri with Chutneys",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Bhel Puri with Chutneys."
+  },
+  {
+    "id": "preset_298_chicken_65_spicy_bites",
+    "name": "Chicken 65 Spicy Bites",
+    "category": "Snacks & Chaat",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1569058242567-93de6f36f5e6?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1569058242567-93de6f36f5e6?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Chicken 65 Spicy Bites."
+  },
+  {
+    "id": "preset_299_paneer_65_crispy",
+    "name": "Paneer 65 Crispy",
+    "category": "Snacks & Chaat",
+    "isVeg": true,
+    "url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Paneer 65 Crispy."
+  },
+  {
+    "id": "preset_300_egg_bonda___fritters",
+    "name": "Egg Bonda / Fritters",
+    "category": "Snacks & Chaat",
+    "isVeg": false,
+    "url": "https://images.unsplash.com/photo-1510693206972-df098062cb71?auto=format&fit=crop&w=600&q=80",
+    "thumbnailUrl": "https://images.unsplash.com/photo-1510693206972-df098062cb71?auto=format&fit=crop&w=260&q=70",
+    "description": "Freshly prepared studio quality Egg Bonda / Fritters."
+  }
+]

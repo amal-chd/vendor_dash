@@ -1,0 +1,78 @@
+{
+  "hosting": {
+    "target": "vendor-dash",
+    "public": "dist",
+    "cleanUrls": true,
+    "postdeploy": [
+      "node \"$PROJECT_DIR/scripts/changelog/push-release-manifest.mjs\" hosting"
+    ],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      }
+    ]
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json",
+    "predeploy": [
+      "bash \"/Users/amalchand/Documents/The Kada/deploy_guard.sh\""
+    ]
+  },
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Kada Dine",
+        "supportEmail": "admin@kadadine.com",
+        "authorizedRedirectUris": [
+          "http://localhost"
+        ]
+      }
+    }
+  },
+  "storage": {
+    "rules": "storage.rules",
+    "predeploy": [
+      "bash \"/Users/amalchand/Documents/The Kada/deploy_guard.sh\""
+    ]
+  },
+  "functions": {
+    "source": "functions",
+    "predeploy": [
+      "bash \"/Users/amalchand/Documents/The Kada/deploy_guard.sh\"",
+      "npm --prefix \"$RESOURCE_DIR\" run build"
+    ],
+    "postdeploy": [
+      "node \"$PROJECT_DIR/scripts/changelog/push-release-manifest.mjs\" functions"
+    ]
+  }
+}

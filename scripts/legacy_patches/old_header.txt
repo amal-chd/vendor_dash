@@ -1,0 +1,209 @@
+
+class _Header extends StatelessWidget {
+  final RiderProfile profile;
+  const _Header({required this.profile});
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = profile.name.isEmpty ? 'Rider' : profile.name.split(' ').first;
+    final ratingStr = profile.rating > 0 ? profile.rating.toStringAsFixed(1) : '4.9';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const DeliveryLogo(size: 38)
+                .animate()
+                .fadeIn(duration: 400.ms)
+                .scale(begin: const Offset(0.8, 0.8), curve: Curves.easeOutBack),
+            Row(
+              children: [
+                // Language Selector Switcher
+                Semantics(
+                  button: true,
+                  label: 'Change language',
+                  child: Tooltip(
+                    message: 'Change language',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        showLanguageSheet(context);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: RiderColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.language_rounded,
+                                size: 16, color: RiderColors.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              AppLocale.instance.current.code.toUpperCase(),
+                              style: GoogleFonts.plusJakartaSans(
+                                  color: RiderColors.primary,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ).animate().fadeIn(delay: 100.ms),
+                const SizedBox(width: 8),
+
+                // Notification Bell
+                _NotificationBell().animate().fadeIn(delay: 200.ms),
+                const SizedBox(width: 8),
+
+                // SOS Safety Shield
+                Semantics(
+                  button: true,
+                  label: 'Emergency SOS and safety options',
+                  child: Tooltip(
+                    message: 'Safety & SOS',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        showSosSheet(context);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: RiderColors.danger.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: RiderColors.danger.withValues(alpha: 0.2),
+                              blurRadius: 12,
+                              spreadRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.shield_rounded,
+                                size: 15, color: RiderColors.danger),
+                            const SizedBox(width: 4),
+                            Text(
+                              'SOS',
+                              style: GoogleFonts.plusJakartaSans(
+                                  color: RiderColors.danger,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ).animate(onPlay: (c) => c.repeat(reverse: true))
+                       .shimmer(duration: 2000.ms, color: RiderColors.danger.withValues(alpha: 0.5)),
+                    ),
+                  ),
+                ).animate().fadeIn(delay: 300.ms),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: RiderColors.primary.withValues(alpha: 0.15),
+                  backgroundImage: profile.photoUrl.isNotEmpty
+                      ? CachedNetworkImageProvider(profile.photoUrl)
+                      : null,
+                  child: profile.photoUrl.isEmpty
+                      ? const Icon(Icons.person_rounded,
+                          color: RiderColors.primary, size: 30)
+                      : null,
+                ),
+                Positioned(
+                  bottom: -2,
+                  right: -4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFBBF24), width: 1.2),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star_rounded, color: Color(0xFFFBBF24), size: 11),
+                        const SizedBox(width: 2),
+                        Text(
+                          ratingStr,
+                          style: GoogleFonts.plusJakartaSans(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ).animate().scaleXY(begin: 0.5, end: 1.0, duration: 500.ms, curve: Curves.easeOutBack),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${_greeting()}, $name 👋',
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.3))
+                      .animate().fadeIn(delay: 200.ms).slideX(begin: -0.1, end: 0, curve: Curves.easeOut),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: profile.isOnline ? RiderColors.success : RiderColors.muted,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        profile.isOnline ? 'Online • Ready for orders' : 'Offline • Tap to go online',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: profile.isOnline ? RiderColors.success : RiderColors.muted,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.1, end: 0, curve: Curves.easeOut),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
