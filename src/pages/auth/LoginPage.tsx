@@ -111,6 +111,10 @@ export default function LoginPage() {
         msg = "This account has been disabled. Contact support.";
       else if (code === "auth/invalid-email")
         msg = "Please enter a valid email address.";
+      else if (code === "auth/internal-error")
+        msg = "Authentication service error. Please check your network and verify your domain is authorized in Firebase Console.";
+      else if (msg.includes("auth/internal-error"))
+        msg = "Authentication service error. Please check your network and verify your domain is authorized in Firebase Console.";
       toast.error(msg);
     } finally {
       setLoading(false);

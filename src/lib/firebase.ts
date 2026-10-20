@@ -5,7 +5,7 @@ import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBYYVtgpvq_Esn7NpLftweuZ0AzsdfHqTk",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID ?? "kada-restaurant-os-v1",
   appId: import.meta.env.VITE_FIREBASE_APP_ID ?? "1:434348622340:web:0f651dcfce5714c2aa2b51",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ?? "kada-restaurant-os-v1.firebasestorage.app",

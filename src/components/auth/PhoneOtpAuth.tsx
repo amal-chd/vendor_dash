@@ -133,6 +133,8 @@ export function PhoneOtpAuth({ restaurantName, onSuccess }: PhoneOtpAuthProps) {
         msg = "Phone Authentication is not enabled in Firebase Console. Please enable Phone provider in Firebase Authentication.";
       } else if (err?.code === "auth/captcha-check-failed") {
         msg = "reCAPTCHA verification check failed. Please refresh and try again.";
+      } else if (err?.code === "auth/internal-error" || err?.message?.includes("auth/internal-error")) {
+        msg = "Authentication service error. Please check your network and verify your domain is authorized in Firebase Console.";
       } else if (err?.message) {
         msg = err.message;
       }

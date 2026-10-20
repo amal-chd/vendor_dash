@@ -127,6 +127,8 @@ export default function SignupPage() {
         msg = "Please enter a valid email address.";
       } else if (code === "auth/weak-password") {
         msg = "Password is too weak. Please use a stronger password.";
+      } else if (code === "auth/internal-error" || msg.includes("auth/internal-error")) {
+        msg = "Authentication service error. Please check your network and verify your domain is authorized in Firebase Console.";
       }
       toast.error(msg);
     } finally {
