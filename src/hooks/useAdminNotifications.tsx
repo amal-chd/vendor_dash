@@ -8,13 +8,14 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { collection, onSnapshot, query, where, limit } from "firebase/firestore";
+import { collection, onSnapshot, query, where, limit, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { OPS_QUEUE_STATES } from "@/lib/onboarding";
 import { useAuth } from "./useAuth";
 import { usePermissions } from "./usePermissions";
 import { roleCan } from "@/lib/rbac";
 import { toast } from "sonner";
+import { categorizeAdminNotification } from "@/lib/adminAlertCategory";
 import type {
   AdminAlert,
   NotificationSummary,
@@ -117,6 +118,9 @@ function useAdminNotificationsInternal(): AdminNotificationsContextValue {
   const [settlementInfo, setSettlementInfo] = useState({ count: 0, amount: 0 });
   const [pendingRefunds, setPendingRefunds] = useState<AdminAlert[]>([]);
   const [openIncidents, setOpenIncidents] = useState<AdminAlert[]>([]);
+  // Server-raised alerts (admin_notifications): Assist escalations + SLA
+  // breaches, unverified stay payments, failed refunds, COD excess, …
+  const [serverAlerts, setServerAlerts] = useState<AdminAlert[]>([]);
   const [delayedDeliveries, setDelayedDeliveries] = useState(0);
   const [paymentFailures, setPaymentFailures] = useState(0);
   const [onboardingCounts, setOnboardingCounts] = useState({ vendors: 0, riders: 0, hosts: 0 });
@@ -191,6 +195,40 @@ function useAdminNotificationsInternal(): AdminNotificationsContextValue {
     const logErr = (tag: string) => (err: unknown) => {
       console.warn(`[useAdminNotifications] ${tag} listener non-fatal:`, err);
     };
+
+    // 0. Alerts the backend posts to admin_notifications. The bell used to
+    // derive everything from live collections and never read these, so an
+    // SLA breach or an unverified stay payment raised server-side reached no
+    // one. Last 7 days, unread only; categorised by type.
+    unsubs.push(
+      onSnapshot(
+        query(collection(db, "admin_notifications"), orderBy("createdAt", "desc"), limit(80)),
+        (s) => {
+          const weekAgo = Date.now() - 7 * 86_400_000;
+          const rows: AdminAlert[] = [];
+          s.docs.forEach((d) => {
+            const data = d.data() as Record<string, unknown>;
+            if (data.read === true || data.resolved === true) return;
+            const ts = (data.createdAt as { toMillis?: () => number } | undefined)?.toMillis?.() ?? 0;
+            if (ts && ts < weekAgo) return;
+            const { category, severity, href } = categorizeAdminNotification(data);
+            rows.push({
+              id: `server-${d.id}`,
+              type: "system",
+              title: String(data.title ?? data.type ?? "Alert"),
+              message: String(data.message ?? data.body ?? ""),
+              severity,
+              category,
+              href,
+              timestamp: ts || Date.now(),
+              metadata: { serverType: data.type, docId: d.id },
+            });
+          });
+          setServerAlerts(rows);
+        },
+        logErr("admin_notifications"),
+      ),
+    );
 
     // 1. Escalated Support Chats
     unsubs.push(
@@ -357,6 +395,7 @@ function useAdminNotificationsInternal(): AdminNotificationsContextValue {
 
     // Critical incidents from Firestore
     openIncidents.forEach((inc) => list.push(inc));
+    serverAlerts.forEach((a) => list.push(a));
 
     // Delayed deliveries
     if (delayedDeliveries > 0) {
@@ -491,6 +530,7 @@ function useAdminNotificationsInternal(): AdminNotificationsContextValue {
     });
   }, [
     openIncidents,
+    serverAlerts,
     delayedDeliveries,
     paymentFailures,
     escalatedChats,
@@ -531,8 +571,8 @@ function useAdminNotificationsInternal(): AdminNotificationsContextValue {
       delivery: onboardingCounts.riders,
       finance: (settlementInfo.count > 0 ? 1 : 0) + pendingRefunds.length,
       stay: onboardingCounts.hosts,
-      support: escalatedChats,
-      quality: bankActionCount,
+      support: escalatedChats + serverAlerts.filter((a) => a.category === "support").length,
+      quality: bankActionCount + serverAlerts.filter((a) => a.category === "quality").length,
     };
 
     return {
@@ -554,6 +594,7 @@ function useAdminNotificationsInternal(): AdminNotificationsContextValue {
     pendingRefunds.length,
     escalatedChats,
     bankActionCount,
+    serverAlerts,
   ]);
 
   const counts: AdminItemCounts = useMemo(
