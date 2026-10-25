@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { doc, onSnapshot, collection, query, where, limit, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, collection, query, where, limit, updateDoc, deleteField, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { isOnlineOrder } from "@/lib/orderChannels";
 import {
@@ -72,6 +72,28 @@ interface Restaurant {
   branches?: number;
   operatingHours?: string;
   deliverySettings?: string;
+  /** Online/offline switch; absent = taking orders. */
+  acceptingOrders?: boolean;
+  pausedUntil?: { toMillis?: () => number } | null;
+  /** Set when Kada switched the store off (e.g. "missed_order"). */
+  autoOfflineReason?: string;
+  pausedBy?: string;
+}
+
+/** Mirrors storeState() in functions/src/storeState.ts. */
+function storeAvailability(r: Restaurant): { label: string; tone: Tone; online: boolean } {
+  if (r.acceptingOrders === false) {
+    const why = r.autoOfflineReason === "missed_order"
+      ? " · missed an order"
+      : r.pausedBy === "dispatch" ? " · paused by ops" : "";
+    return { label: `OFFLINE${why}`, tone: "danger", online: false };
+  }
+  const until = r.pausedUntil?.toMillis?.() ?? 0;
+  if (until > Date.now()) {
+    const t = new Date(until).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return { label: `PAUSED until ${t}`, tone: "warning", online: false };
+  }
+  return { label: "TAKING ORDERS", tone: "success", online: true };
 }
 interface OrderRow {
   id: string;
@@ -108,6 +130,7 @@ export default function Vendor360() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   
   const [suspendOpen, setSuspendOpen] = useState(false);
+  const [storeBusy, setStoreBusy] = useState(false);
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -265,6 +288,36 @@ export default function Vendor360() {
       toast.error("Failed to update vendor: " + (e?.message || "Unknown error"));
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  // Ops could pause a store from Live Operations but had no way to switch it
+  // back on. Admins may write the restaurant doc directly (rules: isAdmin).
+  const setTakingOrders = async (on: boolean) => {
+    if (!id || !r) return;
+    setStoreBusy(true);
+    try {
+      await updateDoc(doc(db, "restaurants", id), on
+        ? {
+            acceptingOrders: true,
+            pausedUntil: deleteField(),
+            autoOfflineReason: deleteField(),
+            pausedBy: deleteField(),
+            storeStatusUpdatedAt: serverTimestamp(),
+            storeStatusUpdatedBy: { role: "admin" },
+          }
+        : {
+            acceptingOrders: false,
+            pausedAt: serverTimestamp(),
+            pausedBy: "dispatch",
+            storeStatusUpdatedAt: serverTimestamp(),
+            storeStatusUpdatedBy: { role: "admin" },
+          });
+      toast.success(on ? `${r.name || "Store"} is taking orders again` : `${r.name || "Store"} stopped taking new orders`);
+    } catch (e: unknown) {
+      toast.error(`Couldn't change the store status: ${e instanceof Error ? e.message : "unknown error"}`);
+    } finally {
+      setStoreBusy(false);
     }
   };
 
@@ -431,6 +484,20 @@ export default function Vendor360() {
                   <div className="grid grid-cols-2 gap-4">
                      <Fact label="KYC Status"><StatusBadge label={(r.kycStatus || "pending").toUpperCase()} tone={kycTone} /></Fact>
                      <Fact label="Account Status"><StatusBadge label={r.isBlocked ? "SUSPENDED" : "ACTIVE"} tone={r.isBlocked ? "danger" : "success"} /></Fact>
+                     <Fact label="Store">
+                       <div className="flex flex-wrap items-center gap-2">
+                         <StatusBadge label={storeAvailability(r).label} tone={storeAvailability(r).tone} />
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           className="h-7 text-xs"
+                           disabled={storeBusy || (!!r.isBlocked && !storeAvailability(r).online)}
+                           onClick={() => setTakingOrders(!storeAvailability(r).online)}
+                         >
+                           {storeAvailability(r).online ? "Pause orders" : "Turn orders on"}
+                         </Button>
+                       </div>
+                     </Fact>
                      <Fact label="Delivery Mode">{r.deliverySettings || "Standard Delivery"}</Fact>
                      <Fact label="Commission Model"><strong className="capitalize">{billingModel}</strong> ({commission}%)</Fact>
                   </div>
