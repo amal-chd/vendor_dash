@@ -4,7 +4,7 @@ import { auth, db } from "@/lib/firebase";
 import { comms, commsOp, errMessage, num, pct, when } from "./commsApi";
 import { ConditionsEditor, describeCondition, USER_TYPES } from "./ConditionsEditor";
 import {
-  ADDABLE, JOURNEY_STATUS_TONE, STEP_META, blankStep, duration, eventLabel, newStepId, pctOf, slots, summarize,
+  ADDABLE, BUNDLED, JOURNEY_STATUS_TONE, STEP_META, blankStep, duration, eventLabel, newStepId, pctOf, slots, summarize,
   type Journey, type JourneyCatalog, type Step, type StepType,
 } from "./journeyTypes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +28,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-interface Template { key: string; name: string; category: string }
+interface Template { key: string; name: string; category: string; seeded?: boolean }
 interface Detail {
   waiting: Record<string, number>;
   recent: {
@@ -84,11 +84,19 @@ export default function JourneyEditor({ id, catalog, onClose, onCreated }: {
     }, (err) => { console.error("[JourneyEditor] journey listener failed", err); setMissing(true); });
   }, [id]);
 
-  useEffect(() => onSnapshot(collection(db, "emailTemplates"), (s) =>
-    setTemplates(s.docs.filter((d) => d.data().status === "published" && d.data().language === "en")
-      .map((d) => ({ key: d.data().key as string, name: (d.data().name as string) || d.id, category: d.data().category as string }))
-      .sort((a, b) => a.name.localeCompare(b.name))),
-  (err) => console.error("[JourneyEditor] templates listener failed", err)), []);
+  // Published templates, plus the platform defaults not seeded yet — so a
+  // journey can be built before "Set up everything" has run. Unseeded ones
+  // are marked, and going live is refused until they're published.
+  useEffect(() => onSnapshot(collection(db, "emailTemplates"), (s) => {
+    const live = s.docs.filter((d) => d.data().status === "published" && (d.data().language || "en") === "en")
+      .map((d) => ({ key: (d.data().key as string) || d.id.replace(/__en$/, ""), name: (d.data().name as string) || d.id, category: d.data().category as string, seeded: true }));
+    const have = new Set(live.map((t) => t.key));
+    const pending = BUNDLED.templates.filter((t) => !have.has(t.key)).map((t) => ({ ...t, seeded: false }));
+    setTemplates([...live, ...pending].sort((a, b) => a.name.localeCompare(b.name)));
+  }, (err) => {
+    console.error("[JourneyEditor] templates listener failed", err);
+    setTemplates(BUNDLED.templates.map((t) => ({ ...t, seeded: false })));
+  }), []);
 
   const loadDetail = useCallback(async () => {
     if (!id) return;
@@ -102,7 +110,10 @@ export default function JourneyEditor({ id, catalog, onClose, onCreated }: {
 
   const events = catalog?.events || [];
   const fields = catalog?.segmentFields || [];
-  const tName = useCallback((k?: string) => templates.find((t) => t.key === k)?.name || (k ? `${k} (not published)` : "Choose a template"), [templates]);
+  const tName = useCallback((k?: string) => {
+    const t = templates.find((x) => x.key === k);
+    return t ? `${t.name}${t.seeded ? "" : " · not set up yet"}` : k ? `${k} (not published)` : "Choose a template";
+  }, [templates]);
   const marketingKeys = useMemo(() => new Set(templates.filter((t) => t.category === "marketing" || t.category === "announcements").map((t) => t.key)), [templates]);
 
   const dirty = !!draft && (!saved || JSON.stringify(pick(draft)) !== JSON.stringify(pick(saved)));
@@ -206,7 +217,7 @@ export default function JourneyEditor({ id, catalog, onClose, onCreated }: {
         {adder}
         <StepCard step={s} summary={summarize(s, events, tName)} stats={saved?.stepStats?.[s.id]} waiting={detail?.waiting?.[s.id]}
           selected={editing === s.id} onClick={() => setEditing(s.id)}
-          warn={s.type === "email" && !templates.some((t) => t.key === s.templateKey)} />
+          warn={s.type === "email" && !templates.some((t) => t.key === s.templateKey && t.seeded)} />
         {sl.length === 1 && (
           <>
             <Connector />
@@ -634,9 +645,12 @@ function StepEditor({ step, steps, events, fields, templates, isStart, onChange,
           <Select value={step.templateKey || ""} onValueChange={(v) => onChange({ templateKey: v })}>
             <SelectTrigger><SelectValue placeholder="Choose a published template" /></SelectTrigger>
             <SelectContent className="max-h-80">
-              {templates.map((t) => <SelectItem key={t.key} value={t.key}>{t.name} · {t.category}</SelectItem>)}
+              {templates.map((t) => <SelectItem key={t.key} value={t.key}>{t.name} · {t.category}{t.seeded ? "" : " · not set up yet"}</SelectItem>)}
             </SelectContent>
           </Select>
+          {templates.some((t) => t.key === step.templateKey && !t.seeded) && (
+            <p className="text-[11px] text-amber-700">This default template isn't in the database yet — run Marketing → Autopilot → “Set up everything” (or Templates → Seed defaults) before going live.</p>
+          )}
           <p className="text-[11px] text-muted-foreground">Marketing templates only reach opted-in people; service templates (orders, partners) always send. The event's details and profile fields ({"{{firstName}}"}, {"{{zoneName}}"}, {"{{lastVendorName}}"}…) fill the template.</p>
         </Field>
       )}

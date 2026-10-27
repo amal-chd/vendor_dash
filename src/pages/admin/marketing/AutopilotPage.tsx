@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { comms, commsOp, errMessage, num, pct, when } from "../comms/commsApi";
+import { BUNDLED } from "../comms/journeyTypes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,10 +58,7 @@ const STAGES: { key: string; label: string; tone: string; hint: string }[] = [
   { key: "lapsed", label: "Lapsed", tone: "bg-orange-600", hint: "Win-back" },
   { key: "lost", label: "Lost", tone: "bg-rose-600", hint: "Sunset policy" },
 ];
-const JOURNEY_NAMES: Record<string, string> = {
-  welcome_series: "Welcome series", second_order: "First → second order", review_request: "Post-delivery review",
-  winback: "Win-back (30 days)", sunset: "Sunset policy", stay_pre_arrival: "Stay pre-arrival", partner_onboarding: "Partner first week",
-};
+const JOURNEY_NAMES: Record<string, string> = Object.fromEntries(BUNDLED.library.map((l) => [l.key, l.title]));
 
 /**
  * Marketing autopilot: one switch for the recurring work — lifecycle journeys,

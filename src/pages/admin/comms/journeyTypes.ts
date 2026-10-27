@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { comms, type SegmentField } from "./commsApi";
 import type { Condition } from "./ConditionsEditor";
+import { BUNDLED_JOURNEY_CATALOG } from "./journeyCatalog.generated";
 
 /**
  * Admin-side shapes for journeys. Mirrors functions/src/comms/journeyModel.ts —
@@ -74,10 +75,30 @@ export interface LibraryJourney {
   def: Omit<Journey, "id" | "status">;
 }
 export interface JourneyCatalog { events: JourneyEvent[]; library: LibraryJourney[]; segmentFields: SegmentField[] }
+export interface DefaultTemplate { key: string; name: string; category: string }
+
+/** The catalog this admin was built with (generated from the server source). */
+export const BUNDLED = BUNDLED_JOURNEY_CATALOG as unknown as JourneyCatalog & { templates: DefaultTemplate[] };
 
 let catalogPromise: Promise<JourneyCatalog> | null = null;
+/**
+ * Live catalog from commsAdmin, falling back to the bundled copy — so the
+ * builder still works against an older or unreachable backend. Library
+ * entries the server doesn't know yet are kept from the bundle.
+ */
 export function loadJourneyCatalog(): Promise<JourneyCatalog> {
-  return (catalogPromise ||= comms<JourneyCatalog>("journeyCatalog").catch((e) => { catalogPromise = null; throw e; }));
+  return (catalogPromise ||= comms<JourneyCatalog>("journeyCatalog")
+    .then((live) => {
+      if (!live?.events?.length) return BUNDLED;
+      const known = new Set((live.library || []).map((l) => l.key));
+      const liveEvents = new Set(live.events.map((e) => e.key));
+      return {
+        events: [...live.events, ...BUNDLED.events.filter((e) => !liveEvents.has(e.key))],
+        library: [...(live.library || []), ...BUNDLED.library.filter((l) => !known.has(l.key))],
+        segmentFields: live.segmentFields?.length ? live.segmentFields : BUNDLED.segmentFields,
+      };
+    })
+    .catch(() => BUNDLED));
 }
 
 export const STEP_META: Record<StepType, { label: string; icon: LucideIcon; tone: string; hint: string }> = {
