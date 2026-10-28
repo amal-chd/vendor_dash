@@ -118,7 +118,7 @@ export function MenuItemDialog({ open, onOpenChange, existing, restaurantId, kno
     if (!form.name.trim()) { toast.error("Please enter a dish name first"); return; }
     setOptimizing(true);
     try {
-      const optimizeFn = httpsCallable(functions, "optimizeMenuItem");
+      const optimizeFn = httpsCallable(functions, "optimizeMenuItem", { timeout: 120_000 });
       const result = await optimizeFn({
         name: form.name,
         currentDesc: form.desc,
@@ -126,7 +126,9 @@ export function MenuItemDialog({ open, onOpenChange, existing, restaurantId, kno
         price: form.price,
         variants: form.variants || [],
         addons: form.addons || [],
-        restaurantId
+        restaurantId,
+        // This form is reviewed before saving, so suggested sizes/add-ons are welcome here.
+        suggest: true,
       });
       const data = (result.data as any)?.result;
       if (data) {
@@ -143,7 +145,9 @@ export function MenuItemDialog({ open, onOpenChange, existing, restaurantId, kno
           variants: data.variants && Array.isArray(data.variants) && data.variants.length > 0 ? data.variants : newVariants,
           addons: data.addons && Array.isArray(data.addons) && data.addons.length > 0 ? data.addons : newAddons
         });
-        toast.success("Item optimized with AI!");
+        const notes: string[] = Array.isArray(data.notes) ? data.notes : [];
+        if (notes.length) toast.warning(notes.join(" "), { duration: 8000 });
+        else toast.success("Item optimized with AI!");
       }
     } catch (e: any) { toast.error(e?.message || "AI optimization failed"); }
     finally { setOptimizing(false); }
