@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Ban, Eye, Loader2, MousePointerClick, RefreshCw, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface Day { day: string; sent: number; opened: number; clicked: number; bounced: number }
+interface Day { day: string; sent: number; opened: number; clicked: number; bounced: number; failed?: number }
 
 /**
  * Insights — 30 days of volume and engagement, plus how each journey and
@@ -42,8 +42,8 @@ export default function EmailInsightsPage() {
     "emailCampaigns", { orderByField: "createdAt", limit: 20 }, setCampaigns), []);
 
   const totals = useMemo(() => (days || []).reduce((t, d) => ({
-    sent: t.sent + d.sent, opened: t.opened + d.opened, clicked: t.clicked + d.clicked, bounced: t.bounced + d.bounced,
-  }), { sent: 0, opened: 0, clicked: 0, bounced: 0 }), [days]);
+    sent: t.sent + d.sent, opened: t.opened + d.opened, clicked: t.clicked + d.clicked, bounced: t.bounced + d.bounced, failed: t.failed + (d.failed || 0),
+  }), { sent: 0, opened: 0, clicked: 0, bounced: 0, failed: 0 }), [days]);
 
   const chart = (days || []).map((d) => ({ ...d, label: new Date(`${d.day}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) }));
   const ranked = journeys.filter((j) => j.status !== "archived" && Number(j.stats?.entered || 0) > 0)
@@ -63,7 +63,7 @@ export default function EmailInsightsPage() {
       </div>
 
       <StatCards stats={[
-        { label: "Sent · 30 days", value: num(totals.sent), icon: Send },
+        { label: "Sent · 30 days", value: num(totals.sent), icon: Send, hint: totals.failed ? `${num(totals.failed)} failed` : undefined },
         { label: "Opens", value: num(totals.opened), icon: Eye, hint: totals.sent ? `${pct(totals.opened / totals.sent)} of sends` : undefined },
         { label: "Clicks", value: num(totals.clicked), icon: MousePointerClick, tone: "text-sky-600", hint: totals.sent ? `${pct(totals.clicked / totals.sent)} of sends` : undefined },
         { label: "Bounces", value: num(totals.bounced), icon: Ban, tone: totals.sent && totals.bounced / totals.sent > 0.02 ? "text-rose-600" : undefined, hint: totals.sent ? `${pct(totals.bounced / totals.sent, 2)} · keep under 2%` : undefined },
@@ -90,6 +90,7 @@ export default function EmailInsightsPage() {
                 <Area type="monotone" name="Opened" dataKey="opened" stroke="#0d9488" strokeWidth={2} fill="url(#gOpen)" />
                 <Area type="monotone" name="Clicked" dataKey="clicked" stroke="#d97706" strokeWidth={2} fill="transparent" />
                 <Area type="monotone" name="Bounced" dataKey="bounced" stroke="#e11d48" strokeWidth={1.5} fill="transparent" />
+                <Area type="monotone" name="Failed" dataKey="failed" stroke="#7f1d1d" strokeDasharray="4 3" strokeWidth={1.5} fill="transparent" />
               </AreaChart>
             </ResponsiveContainer>
           )}

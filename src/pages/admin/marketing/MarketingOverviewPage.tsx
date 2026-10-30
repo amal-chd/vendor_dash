@@ -28,9 +28,12 @@ async function count(path: string, ...filters: QueryConstraint[]): Promise<numbe
 interface EmailHealth {
   providerConfigured: boolean;
   webhookSecret: boolean;
-  domains: { ok: boolean; domains: { status: string }[] };
+  domains: { ok: boolean; restricted?: boolean; inferredVerified?: boolean; domains: { status: string }[] };
+  webhookLastAt?: number | null;
+  reach?: { customers: number; customerProfiles: number; pushReachable: number };
+  queue?: { failed24h: number; failed7d?: number };
   switches: { pauseAll: boolean; pauseMarketing: boolean };
-  last30d: { reached: number; openRate: number | null; clickRate: number | null; complaintRate: number | null; bounceRate: number | null };
+  last30d: { accepted: number; failed: number; reached: number; openRate: number | null; clickRate: number | null; complaintRate: number | null; bounceRate: number | null };
   thresholds: { complaintRate: number; bounceRate: number };
 }
 
@@ -134,7 +137,11 @@ export default function MarketingOverviewPage() {
   const optInRate = s.emailOptIns !== null && s.emailProfiles ? s.emailOptIns / s.emailProfiles : null;
   const l = health?.last30d;
   const complaintHigh = !!(l && l.complaintRate !== null && health && l.complaintRate > health.thresholds.complaintRate);
-  const domainOk = !!health?.domains?.ok && (health.domains.domains || []).some((d) => d.status === "verified");
+  const domainOk = (!!health?.domains?.ok && (health.domains.domains || []).some((d) => d.status === "verified")) || !!health?.domains?.inferredVerified;
+  const webhookFresh = !!health?.webhookLastAt && Date.now() - health.webhookLastAt < 7 * 86400_000;
+  const reach = health?.reach;
+  const missingProfiles = reach ? Math.max(0, reach.customers - reach.customerProfiles) : 0;
+  const pushReach = reach ? reach.pushReachable : s.pushDevices;
 
   return (
     <div className="space-y-5">
@@ -157,7 +164,7 @@ export default function MarketingOverviewPage() {
             label: "Email opt-ins", value: s.emailOptIns === null ? "—" : num(s.emailOptIns), icon: MailCheck, tone: "text-sky-600",
             hint: optInRate === null ? "Customers who said yes to offers" : `${pct(optInRate)} of customer email profiles`,
           },
-          { label: "Push devices", value: s.pushDevices === null ? "—" : num(s.pushDevices), icon: Smartphone, tone: "text-violet-600", hint: "Registered app installs" },
+          { label: "Push reach", value: pushReach === null || pushReach === undefined ? "—" : num(pushReach), icon: Smartphone, tone: "text-violet-600", hint: "Customers with the app and notifications" },
           { label: "Suppressed emails", value: s.suppressed === null ? "—" : num(s.suppressed), icon: Ban, tone: "text-rose-600", hint: "Unsubscribed, bounced or reported" },
         ]} />
       </section>
@@ -212,7 +219,8 @@ export default function MarketingOverviewPage() {
               <p className="text-sm text-muted-foreground py-6 text-center">Email stats are unavailable right now.</p>
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                <Metric label="Delivered" value={num(l.reached)} />
+                <Metric label={webhookFresh ? "Delivered" : "Sent"} value={num(webhookFresh ? l.reached : l.accepted)}
+                  hint={l.failed ? `${num(l.failed)} failed` : webhookFresh ? undefined : "No delivery reports yet"} tone={l.failed ? "text-rose-600" : undefined} />
                 <Metric label="Open rate" value={pct(l.openRate)} hint="Apple Mail inflates opens" />
                 <Metric label="Click rate" value={pct(l.clickRate)} icon={<MousePointerClick className="h-3.5 w-3.5" />} />
                 <Metric
@@ -244,8 +252,14 @@ export default function MarketingOverviewPage() {
               to="/admin/growth?tab=email"
             />
             <Check
-              state={health?.webhookSecret ? "ok" : "bad"} label="Bounce & complaint feedback"
-              detail={health?.webhookSecret ? "Bounces and spam reports suppress the address automatically." : "Set RESEND_WEBHOOK_SECRET so bounces and complaints are recorded."}
+              state={webhookFresh ? "ok" : "bad"} label="Delivery reports from Resend"
+              detail={webhookFresh ? "Opens, clicks, bounces and complaints are arriving — bounces suppress automatically." : "None arriving. Add the webhook in Resend (Email → Overview shows the address) — without it bounces aren't suppressed and journeys can't react to clicks."}
+              to="/admin/growth?tab=email&section=overview"
+            />
+            <Check
+              state={missingProfiles === 0 && reach ? "ok" : "bad"} label="Every customer reachable"
+              detail={reach ? (missingProfiles ? `${num(missingProfiles)} of ${num(reach.customers)} customers have no marketing profile — sync them from Email → Overview.` : `All ${num(reach.customers)} customers have a marketing profile.`) : "Unknown."}
+              to="/admin/growth?tab=email&section=overview"
             />
             <Check
               state={complaintHigh ? "bad" : l ? "ok" : "warn"} label="Complaint rate under limit"
@@ -274,8 +288,8 @@ export default function MarketingOverviewPage() {
               to="/admin/growth?tab=email&section=templates"
             />
             <Check
-              state={(s.pushDevices ?? 0) > 0 ? "ok" : "warn"} label="Push audience"
-              detail={(s.pushDevices ?? 0) > 0 ? `${num(s.pushDevices)} devices registered.` : "No devices registered for push."}
+              state={(pushReach ?? 0) > 0 ? "ok" : "warn"} label="Push audience"
+              detail={(pushReach ?? 0) > 0 ? `${num(pushReach)} customers can receive push.` : "No customer has push turned on yet."}
             />
             <Check
               state={s.brandSaved ? "ok" : "warn"} label="Brand kit written down"

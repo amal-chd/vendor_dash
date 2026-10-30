@@ -126,7 +126,9 @@ export async function loadMarketingEvents(): Promise<MarketingEvent[]> {
     });
   }
   for (const c of email) {
-    const start = toDate(c.scheduledAt as Stamp) ?? toDate(c.completedAt as Stamp) ?? toDate(c.createdAt as Stamp);
+    // Autopilot drafts carry their intended send time; show that, not when they were drafted.
+    const planned = (c.autopilot as { sendAt?: number } | undefined)?.sendAt;
+    const start = toDate(c.scheduledAt as Stamp) ?? toDate(c.completedAt as Stamp) ?? (planned ? new Date(planned) : null) ?? toDate(c.createdAt as Stamp);
     if (!start) continue;
     out.push({
       id: `email:${c.id}`, source: "email", title: str(c.name, "Email campaign"), start,

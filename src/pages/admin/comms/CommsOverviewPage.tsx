@@ -23,7 +23,9 @@ interface Health {
   tokenSecret: boolean;
   webhookUrl: string;
   unsubscribeUrl: string;
-  domains: { ok: boolean; error?: string; domains: { name: string; status: string; records: { record: string; type: string; status: string }[] }[] };
+  domains: { ok: boolean; error?: string; restricted?: boolean; inferredVerified?: boolean; domains: { name: string; status: string; records: { record: string; type: string; status: string }[] }[] };
+  webhookLastAt?: number | null;
+  reach?: { customers: number; customerProfiles: number; pushReachable: number };
   switches: { pauseAll: boolean; pauseMarketing: boolean };
   last30d: {
     accepted: number; reached: number; opened: number; clicked: number; bounced: number; complained: number;
@@ -31,7 +33,7 @@ interface Health {
     bounceRate: number | null; complaintRate: number | null;
   };
   thresholds: { complaintRate: number; bounceRate: number };
-  queue: { transactional: number; bulk: number; failed24h: number };
+  queue: { transactional: number; bulk: number; failed24h: number; failed7d?: number };
   audience: { profiles: number; optedIn: number; suppressed: number };
 }
 
@@ -106,7 +108,19 @@ export default function CommsOverviewPage() {
   };
 
   const domain = h?.domains.domains.find((d) => d.name.endsWith("thekada.in")) || h?.domains.domains[0];
-  const domainOk = domain?.status === "verified";
+  const domainOk = domain?.status === "verified" || !!h?.domains.inferredVerified;
+  // Delivery reports only count as working if one actually arrived lately.
+  const webhookFresh = !!h?.webhookLastAt && Date.now() - h.webhookLastAt < 7 * 86400_000;
+  const missingProfiles = h?.reach ? Math.max(0, h.reach.customers - h.reach.customerProfiles) : 0;
+  const [busyFix, setBusyFix] = useState<string | null>(null);
+  const syncProfiles = async () => {
+    const r = await commsOp<Record<string, number>>("syncProfiles", {}, undefined, (b) => setBusyFix(b ? "sync" : null));
+    if (r) { toast.success(`Synced ${num(Object.values(r).reduce((a, b) => a + b, 0))} accounts into marketing profiles.`); load(); }
+  };
+  const retryFailed = async () => {
+    const r = await commsOp<{ retried: number }>("retryFailedSends", { hours: 24 }, undefined, (b) => setBusyFix(b ? "retry" : null));
+    if (r) { toast.success(r.retried ? `${r.retried} failed emails are queued again — they go out within 5 minutes.` : "Nothing failed in the last 24 hours."); load(); }
+  };
   const r = h?.last30d;
   const over = (v: number | null | undefined, limit: number) => v !== null && v !== undefined && v > limit;
 
@@ -176,19 +190,40 @@ export default function CommsOverviewPage() {
                   label={h.provider === "resend" ? "Sending through Resend" : "Sending through Gmail SMTP (fallback)"}
                   detail={h.provider === "resend" ? undefined : "Gmail caps volume and gives no delivery events. Set RESEND_API_KEY to switch."} />
                 <Check ok={domainOk}
-                  label={domain ? `${domain.name} is ${domain.status}` : "Sending domain"}
+                  label={domain ? `${domain.name} is ${domain.status}` : h.domains.inferredVerified ? "Sending domain verified" : "Sending domain"}
                   detail={h.domains.ok
                     ? domain ? domain.records.map((x) => `${x.record} ${x.status}`).join(" · ") : "No domain added in Resend yet."
-                    : h.domains.error || "Couldn't reach Resend."} />
-                <Check ok={h.webhookSecret} label="Delivery events webhook"
-                  detail={h.webhookSecret ? h.webhookUrl : `Set RESEND_WEBHOOK_SECRET and point a Resend webhook at ${h.webhookUrl}. Without it there are no delivery, open, bounce or complaint numbers, and bounced addresses aren't suppressed.`} />
+                    : h.domains.restricted
+                      ? h.domains.inferredVerified
+                        ? "Your Resend key can only send, so it can't read DNS status — but Resend is accepting your mail, which it only does for a verified domain."
+                        : "Your Resend key can only send, so domain status can't be read here. Check it in the Resend dashboard."
+                      : h.domains.error || "Couldn't reach Resend."} />
+                <Check ok={webhookFresh} warn={h.webhookSecret && !webhookFresh} label="Delivery reports from Resend"
+                  detail={webhookFresh
+                    ? `Last report ${new Date(h.webhookLastAt!).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.`
+                    : `No reports have arrived${h.webhookLastAt ? " in the last week" : " yet"}. In Resend → Webhooks, add ${h.webhookUrl} for all email events and use its signing secret as RESEND_WEBHOOK_SECRET. Until then there are no delivery, open, click, bounce or complaint numbers, bounced addresses aren't suppressed, and journeys can't react to clicks.`} />
                 <Check ok={h.tokenSecret} label="Signed unsubscribe links"
                   detail={h.tokenSecret ? `One-click unsubscribe (RFC 8058): ${h.unsubscribeUrl}` : "COMMS_TOKEN_SECRET is missing — unsubscribe links can't be signed."} />
                 <Check ok={(templates ?? 0) > 0} label={templates ? `${templates} templates` : "No templates yet"}
                   detail={templates ? undefined : "Seed the default set from Templates — every send skips until it exists."} />
-                <Check ok={(h.audience.profiles ?? 0) > 0} warn label={`${num(h.audience.profiles)} recipient profiles`}
-                  detail="Profiles are created as people order; backfill below to include everyone." />
+                <Check ok={!!h.reach && missingProfiles === 0} warn={missingProfiles > 0}
+                  label={h.reach ? `${num(h.reach.customerProfiles)} of ${num(h.reach.customers)} customers are reachable` : `${num(h.audience.profiles)} recipient profiles`}
+                  detail={missingProfiles > 0 ? `${num(missingProfiles)} customers have no marketing profile yet, so no journey or campaign can reach them.` : "Every customer account has a marketing profile."} />
+                {(h.queue.failed24h ?? 0) > 0 && (
+                  <Check ok={false} label={`${num(h.queue.failed24h)} emails failed in the last 24 hours`}
+                    detail="Usually a provider or key problem that's since been fixed. Retrying sends them again through the normal checks." />
+                )}
                 <div className="flex flex-wrap gap-2 pt-3">
+                  {missingProfiles > 0 && (
+                    <Button size="sm" onClick={syncProfiles} disabled={busyFix === "sync"}>
+                      {busyFix === "sync" && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}Sync all accounts
+                    </Button>
+                  )}
+                  {(h.queue.failed24h ?? 0) > 0 && (
+                    <Button size="sm" variant="outline" onClick={retryFailed} disabled={busyFix === "retry"}>
+                      {busyFix === "retry" && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}Retry failed sends
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => goTab("templates")}>Templates</Button>
                   <Button size="sm" variant="outline" onClick={() => goTab("settings")}>Settings</Button>
                   <Button size="sm" variant="outline" onClick={() => goTab("activity")}>Activity</Button>
