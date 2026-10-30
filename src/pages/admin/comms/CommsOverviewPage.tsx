@@ -208,7 +208,7 @@ export default function CommsOverviewPage() {
                   detail={templates ? undefined : "Seed the default set from Templates — every send skips until it exists."} />
                 <Check ok={!!h.reach && missingProfiles === 0} warn={missingProfiles > 0}
                   label={h.reach ? `${num(h.reach.customerProfiles)} of ${num(h.reach.customers)} customers are reachable` : `${num(h.audience.profiles)} recipient profiles`}
-                  detail={missingProfiles > 0 ? `${num(missingProfiles)} customers have no marketing profile yet, so no journey or campaign can reach them.` : "Every customer account has a marketing profile."} />
+                  detail={missingProfiles > 0 ? `${num(missingProfiles)} customers have no marketing profile yet, so no journey or campaign can reach them. Syncing adds them with marketing off — phone-only customers can still get push.` : "Every customer account has a marketing profile."} />
                 {(h.queue.failed24h ?? 0) > 0 && (
                   <Check ok={false} label={`${num(h.queue.failed24h)} emails failed in the last 24 hours`}
                     detail="Usually a provider or key problem that's since been fixed. Retrying sends them again through the normal checks." />
