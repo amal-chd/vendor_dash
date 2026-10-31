@@ -172,7 +172,7 @@ export function RecipeDialog({ open, onOpenChange, menuItem, restaurantId }: Pro
     if (!menuItem) return;
     setGenerating(true);
     try {
-      const call = httpsCallable(functions, "generateRecipe");
+      const call = httpsCallable(functions, "generateRecipe", { timeout: 120_000 });
       const res: any = await call({
         menuItemName: menuItem.name,
         inventoryItems: inventoryNames,

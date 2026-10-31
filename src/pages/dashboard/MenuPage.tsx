@@ -192,7 +192,7 @@ export default function MenuPage() {
   const bulkOptimizeMenu = async () => {
     if (!confirm(`AI optimize all ${items.length} dishes?`)) return;
     setBulkProgress({ current: 0, total: items.length });
-    const optimizeFn = httpsCallable(functions, "optimizeMenuItem");
+    const optimizeFn = httpsCallable(functions, "optimizeMenuItem", { timeout: 120_000 });
     let successCount = 0;
     
     for (let i = 0; i < items.length; i++) {
