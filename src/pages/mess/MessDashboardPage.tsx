@@ -377,7 +377,7 @@ export default function MessDashboardPage() {
     if (!user) return;
     if (!planName.trim()) return toast.error("Please enter a plan name.");
     const price = Number(planPrice);
-    if (!price || price < 100) return toast.error("Price must be at least ₹100.");
+    if (!planPrice.trim() || !Number.isFinite(price) || price < 0) return toast.error("Price must be at least ₹0.");
     const duration = Number(planDuration);
     if (!duration || duration < 1 || duration > 31) return toast.error("Duration must be between 1 and 31 days.");
     if (planMeals.length === 0) return toast.error("Select at least one meal.");

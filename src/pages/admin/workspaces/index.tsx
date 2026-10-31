@@ -51,6 +51,10 @@ import {
   History,
   Scale,
   Rocket,
+  CalendarRange,
+  Palette,
+  QrCode,
+  Bot,
 } from "lucide-react";
 import { WorkspaceShell, type WorkspaceTab } from "@/components/admin/core/WorkspaceShell";
 
@@ -126,6 +130,12 @@ const AdsPage = lazy(() => import("../AdsPage"));
 const MerchandisingPage = lazy(() => import("../MerchandisingPage"));
 const MobileNotificationsPage = lazy(() => import("../comms/MobileNotificationsPage"));
 const EmailPage = lazy(() => import("../comms/EmailPage"));
+const MarketingOverviewPage = lazy(() => import("../marketing/MarketingOverviewPage"));
+const MarketingPlannerPage = lazy(() => import("../marketing/MarketingPlannerPage"));
+const AudienceConsentPage = lazy(() => import("../marketing/AudienceConsentPage"));
+const LinksQrPage = lazy(() => import("../marketing/LinksQrPage"));
+const BrandKitPage = lazy(() => import("../marketing/BrandKitPage"));
+const AutopilotPage = lazy(() => import("../marketing/AutopilotPage"));
 const ChangelogAdminPage = lazy(() => import("../changelog/ChangelogAdminPage"));
 
 const AnalyticsPage = lazy(() => import("../AnalyticsPage"));
@@ -352,17 +362,23 @@ export function QualityWorkspace() {
 
 export function GrowthWorkspace() {
   const tabs: WorkspaceTab[] = [
+    { key: "overview", label: "Overview", icon: Activity, component: t(MarketingOverviewPage) },
+    { key: "autopilot", label: "Autopilot", icon: Bot, component: t(AutopilotPage) },
+    { key: "planner", label: "Planner", icon: CalendarRange, component: t(MarketingPlannerPage) },
+    { key: "audience", label: "Audience & consent", icon: ShieldCheck, component: t(AudienceConsentPage) },
+    { key: "email", label: "Email", icon: Mail, component: t(EmailPage) },
+    { key: "notifications", label: "Push", icon: Bell, component: t(MobileNotificationsPage) },
     { key: "promos", label: "Coupons & offers", icon: Ticket, component: t(PromosPage) },
     { key: "ads", label: "Ads", icon: Megaphone, component: t(AdsPage) },
     { key: "merchandising", label: "Merchandising", icon: Layers, component: t(MerchandisingPage) },
-    { key: "notifications", label: "Push", icon: Bell, component: t(MobileNotificationsPage) },
-    { key: "email", label: "Email", icon: Mail, component: t(EmailPage) },
+    { key: "links", label: "Links & QR", icon: QrCode, component: t(LinksQrPage) },
+    { key: "brand", label: "Brand kit", icon: Palette, component: t(BrandKitPage) },
     { key: "changelog", label: "Changelog", icon: Rocket, component: t(ChangelogAdminPage) },
   ];
   return (
     <WorkspaceShell
-      title="Growth"
-      description="Everything that reaches customers and partners: offers, ads, merchandising, campaigns and release notes."
+      title="Marketing"
+      description="Plan, reach and measure: campaigns across email, push, coupons, ads and banners — with consent, brand and tracking in one place."
       icon={Megaphone}
       tabs={tabs}
     />

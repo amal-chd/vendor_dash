@@ -8,6 +8,9 @@ import EmailLogsPage from "./EmailLogsPage";
 import CommsSettingsPage from "./CommsSettingsPage";
 import EmailAutomationsPage from "./EmailAutomationsPage";
 import EmailExperimentsPage from "./EmailExperimentsPage";
+import EmailJourneysPage from "./EmailJourneysPage";
+import ContactsPage from "./ContactsPage";
+import EmailInsightsPage from "./EmailInsightsPage";
 
 /**
  * EMAIL — one of the two (and only two) top-level communication channels.
@@ -20,17 +23,19 @@ export default function EmailPage() {
     <ChannelShell
       embedded
       title="Email"
-      subtitle="Transactional, lifecycle, operational & marketing email across all Kada apps."
+      subtitle="Every email The Kada sends — receipts, partner updates, automations and campaigns — in one branded, consent-safe pipeline."
       icon={<Mail className="h-5 w-5" />}
       tabs={[
         { key: "overview", label: "Overview", element: <CommsOverviewPage /> },
+        { key: "journeys", label: "Journeys", element: <EmailJourneysPage /> },
         { key: "campaigns", label: "Campaigns", element: <EmailCampaignsPage /> },
-        { key: "create", label: "Create", element: <EmailCampaignsPage openCreate /> },
-        { key: "audiences", label: "Audiences", element: <AudiencesPage /> },
-        { key: "automations", label: "Automations", element: <EmailAutomationsPage /> },
         { key: "templates", label: "Templates", element: <EmailTemplatesPage /> },
-        { key: "experiments", label: "Experiments", element: <EmailExperimentsPage /> },
-        { key: "analytics", label: "Analytics", element: <EmailLogsPage /> },
+        { key: "audiences", label: "Audiences", element: <AudiencesPage /> },
+        { key: "contacts", label: "Contacts", element: <ContactsPage /> },
+        { key: "insights", label: "Insights", element: <EmailInsightsPage /> },
+        { key: "experiments", label: "A/B tests", element: <EmailExperimentsPage /> },
+        { key: "automations", label: "Simple triggers", element: <EmailAutomationsPage /> },
+        { key: "activity", label: "Activity", element: <EmailLogsPage /> },
         { key: "settings", label: "Settings", element: <CommsSettingsPage /> },
       ]}
     />

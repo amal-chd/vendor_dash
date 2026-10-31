@@ -65,6 +65,10 @@ import {
   History,
   Scale,
   Rocket,
+  CalendarRange,
+  Palette,
+  QrCode,
+  Bot,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -306,14 +310,20 @@ const WORKSPACES: NavWorkspace[] = [
   },
   {
     id: "growth",
-    label: "Growth",
+    label: "Marketing",
     icon: Megaphone,
     items: [
-      { label: "Coupons & Offers", icon: Ticket, path: "/admin/growth" },
+      { label: "Overview", icon: Activity, path: "/admin/growth" },
+      { label: "Autopilot", icon: Bot, path: "/admin/growth?tab=autopilot" },
+      { label: "Planner", icon: CalendarRange, path: "/admin/growth?tab=planner" },
+      { label: "Audience & Consent", icon: ShieldCheck, path: "/admin/growth?tab=audience" },
+      { label: "Coupons & Offers", icon: Ticket, path: "/admin/growth?tab=promos" },
       { label: "Ads & Sponsorships", icon: Megaphone, path: "/admin/growth?tab=ads" },
       { label: "Home Merchandising", icon: Layers, path: "/admin/growth?tab=merchandising" },
       { label: "Mobile Notifications", icon: Bell, path: "/admin/growth?tab=notifications" },
       { label: "Email", icon: Mail, path: "/admin/growth?tab=email" },
+      { label: "Links & QR", icon: QrCode, path: "/admin/growth?tab=links" },
+      { label: "Brand Kit", icon: Palette, path: "/admin/growth?tab=brand" },
       { label: "Changelog", icon: Rocket, path: "/admin/growth?tab=changelog" },
     ],
   },
@@ -367,7 +377,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/mess": "Kada Mess",
   "/admin/support": "AI & Support",
   "/admin/quality": "Quality & Trust",
-  "/admin/growth": "Growth",
+  "/admin/growth": "Marketing",
   "/admin/analytics": "Analytics",
   "/admin/settings": "Settings",
 };

@@ -1,152 +1,170 @@
 import { useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { listenCollection } from "@/hooks/useLiveCollection";
+import { comms, commsOp, loadCatalog, num, type Catalog, type SegmentField } from "./commsApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
-import { Plus, Trash2, Users, X } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Loader2, Plus, Trash2, Users, Pencil, RefreshCw } from "lucide-react";
+import { ConditionsEditor, describeCondition as describe, loadFacets, type Condition, type Facets } from "./ConditionsEditor";
 
-interface Condition { field: string; op: string; value: string; }
-interface Segment { id: string; name: string; conditions: Condition[]; }
-
-const FIELDS = [
-  { v: "userType", label: "User type" },
-  { v: "city", label: "City" },
-  { v: "minOrders", label: "Min orders" },
-  { v: "maxOrders", label: "Max orders" },
-  { v: "inactiveDays", label: "Inactive for (days)" },
-  { v: "tag", label: "Has tag" },
-  { v: "hasActiveSubscription", label: "Active subscription" },
-];
-
+interface Segment { id: string; name: string; description?: string; conditions: Condition[] }
+interface Estimate {
+  matched: number; scanned: number; optedIn: number; capped: boolean; ordered?: number;
+  sample: { email: string; name: string; city: string }[];
+  byZone?: { name: string; value: number }[]; byUserType?: { name: string; value: number }[];
+}
+/** Saved audiences. Matching runs when a campaign sends; only opted-in people are ever mailed. */
 export default function AudiencesPage() {
   const [segments, setSegments] = useState<Segment[]>([]);
-  const [name, setName] = useState("");
-  const [conditions, setConditions] = useState<Condition[]>([{ field: "userType", op: "eq", value: "CUSTOMER" }]);
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [editing, setEditing] = useState<Segment | null>(null);
+  const [counts, setCounts] = useState<Record<string, Estimate | "loading">>({});
 
-  useEffect(
-    () =>
-      listenCollection<Segment>(
-        "emailSegments",
-        { orderByField: "name", orderDir: "asc", limit: 300 },
-        setSegments,
-      ),
-    [],
-  );
+  useEffect(() => listenCollection<Segment>("emailSegments", { orderByField: "name", orderDir: "asc", limit: 300 }, setSegments), []);
+  const [facets, setFacets] = useState<Facets | null>(null);
+  useEffect(() => { loadCatalog().then(setCatalog).catch(() => {}); loadFacets().then(setFacets).catch(() => {}); }, []);
 
-  const save = async () => {
-    if (!name.trim()) { toast.error("Segment name required."); return; }
+  const estimate = async (s: Segment) => {
+    setCounts((c) => ({ ...c, [s.id]: "loading" }));
     try {
-      await addDoc(collection(db, "emailSegments"), {
-        name: name.trim(),
-        conditions: conditions.map((c) => ({
-          ...c,
-          value: ["minOrders", "maxOrders", "inactiveDays"].includes(c.field) ? Number(c.value) :
-            c.field === "hasActiveSubscription" ? c.value === "true" : c.value,
-        })),
-        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-      });
-      toast.success("Segment saved.");
-      setName(""); setConditions([{ field: "userType", op: "eq", value: "CUSTOMER" }]);
-    } catch { toast.error("Save failed (admin only)."); }
+      const r = await comms<Estimate>("estimateSegment", { conditions: s.conditions });
+      setCounts((c) => ({ ...c, [s.id]: r }));
+    } catch {
+      setCounts((c) => { const n = { ...c }; delete n[s.id]; return n; });
+    }
   };
+
+  const fields = catalog?.segmentFields || [];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Audiences</h2>
-          <p className="text-sm text-muted-foreground">Segments are evaluated when a campaign sends. Marketing still requires an opt-in, even if someone matches.</p>
+          <h2 className="text-lg font-bold tracking-tight">Audiences</h2>
+          <p className="text-sm text-muted-foreground max-w-2xl">
+            Saved groups for campaigns. Everyone in a count has opted in to offers — people who haven't are never included, however well they match.
+          </p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />New segment</Button></DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Create audience segment</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <Input placeholder="e.g. Inactive Kochi Customers" value={name} onChange={(e) => setName(e.target.value)} />
-              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Conditions (all must match)</p>
-              {conditions.map((c, i) => (
-                <div key={i} className="flex gap-2 items-center">
-                  <Select value={c.field} onValueChange={(v) => setConditions(conditions.map((x, j) => j === i ? { ...x, field: v } : x))}>
-                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                    <SelectContent>{FIELDS.map((f) => <SelectItem key={f.v} value={f.v}>{f.label}</SelectItem>)}</SelectContent>
-                  </Select>
-                  {c.field === "userType" ? (
-                    <Select value={c.value} onValueChange={(v) => setConditions(conditions.map((x, j) => j === i ? { ...x, value: v } : x))}>
-                      <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {["CUSTOMER", "VENDOR", "DELIVERY_PARTNER", "HOST"].map((v) => (
-                          <SelectItem key={v} value={v}>{v}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : c.field === "hasActiveSubscription" ? (
-                    <Select value={c.value || "true"} onValueChange={(v) => setConditions(conditions.map((x, j) => j === i ? { ...x, value: v } : x))}>
-                      <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">Yes</SelectItem>
-                        <SelectItem value="false">No</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input className="flex-1" placeholder={c.field === "city" ? "Kochi" : "value"} value={c.value} onChange={(e) => setConditions(conditions.map((x, j) => j === i ? { ...x, value: e.target.value } : x))} />
-                  )}
-                  {conditions.length > 1 && <Button aria-label="Remove condition" size="icon" variant="ghost" onClick={() => setConditions(conditions.filter((_, j) => j !== i))}><X className="h-4 w-4" /></Button>}
-                </div>
-              ))}
-              <Button variant="outline" size="sm" onClick={() => setConditions([...conditions, { field: "city", op: "eq", value: "" }])}>
-                <Plus className="h-3.5 w-3.5 mr-1" />Add condition
-              </Button>
-            </div>
-            <DialogFooter><Button onClick={save}>Save segment</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setEditing({ id: "", name: "", conditions: [{ field: "userType", op: "eq", value: "CUSTOMER" }] })}>
+          <Plus className="h-4 w-4 mr-2" />New audience
+        </Button>
       </div>
 
       {segments.length === 0 ? (
         <Card><CardContent className="py-16 text-center text-muted-foreground">
-          <Users className="h-6 w-6 mx-auto mb-2 opacity-40" />No segments yet.
+          <Users className="h-7 w-7 mx-auto mb-2 opacity-40" />
+          <p className="font-semibold text-foreground">No audiences yet</p>
+          <p className="text-sm mt-1">Start with something like “Customers in Kochi who haven't ordered in 30 days”.</p>
         </CardContent></Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {segments.map((s) => (
-            <Card key={s.id}><CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <span className="font-bold">{s.name}</span>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button aria-label="Delete" size="icon" variant="ghost" className="h-7 w-7"><Trash2 className="h-3.5 w-3.5 text-rose-500" /></Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete {s.name}?</AlertDialogTitle>
-                      <AlertDialogDescription>Draft campaigns that point at this audience will fail their send check.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Keep</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteDoc(doc(db, "emailSegments", s.id))}>Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {(s.conditions || []).map((c, i) => (
-                  <Badge key={i} variant="outline" className="text-[10px] font-mono">{c.field} {c.op} {String(c.value)}</Badge>
-                ))}
-              </div>
-            </CardContent></Card>
-          ))}
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {segments.map((s) => {
+            const est = counts[s.id];
+            return (
+              <Card key={s.id} className="rounded-2xl"><CardContent className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold truncate">{s.name}</p>
+                    {s.description && <p className="text-xs text-muted-foreground truncate">{s.description}</p>}
+                  </div>
+                  <div className="flex shrink-0">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
+                      if (confirm(`Delete "${s.name}"?`)) commsOp("deleteSegment", { id: s.id }, "Audience deleted.");
+                    }}><Trash2 className="h-3.5 w-3.5 text-rose-500" /></Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {(s.conditions || []).map((c, i) => <Badge key={i} variant="outline" className="text-[10px] font-medium">{describe(c, fields, facets)}</Badge>)}
+                </div>
+                <div className="mt-4 flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2">
+                  {est === "loading" ? <span className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />Counting…</span>
+                    : est ? <span className="text-xs"><b className="text-base font-black">{num(est.matched)}</b>{est.capped ? "+" : ""} people can receive this</span>
+                    : <span className="text-xs text-muted-foreground">Size not counted yet</span>}
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => estimate(s)}><RefreshCw className="h-3 w-3 mr-1" />Count</Button>
+                </div>
+              </CardContent></Card>
+            );
+          })}
         </div>
       )}
+
+      {editing && <SegmentDialog segment={editing} fields={fields} onClose={() => setEditing(null)} />}
     </div>
+  );
+}
+
+function SegmentDialog({ segment, fields, onClose }: { segment: Segment; fields: SegmentField[]; onClose: () => void }) {
+  const [name, setName] = useState(segment.name);
+  const [description, setDescription] = useState(segment.description || "");
+  const [conditions, setConditions] = useState<Condition[]>(segment.conditions.map((c) => ({ ...c, op: c.op || "eq" })));
+  const [est, setEst] = useState<Estimate | null>(null);
+  const [counting, setCounting] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Re-count as the conditions change (debounced).
+  useEffect(() => {
+    const h = setTimeout(async () => {
+      setCounting(true);
+      try { setEst(await comms<Estimate>("estimateSegment", { conditions })); } catch { setEst(null); } finally { setCounting(false); }
+    }, 600);
+    return () => clearTimeout(h);
+  }, [JSON.stringify(conditions)]);
+
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>{segment.id ? "Edit audience" : "New audience"}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Lapsed Kochi customers" /></div>
+            <div><Label>Note for your team</Label><Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" /></div>
+          </div>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground pt-1">People who match all of these</p>
+          <ConditionsEditor fields={fields} conditions={conditions} onChange={setConditions} />
+
+          <div className="rounded-xl border bg-muted/30 p-3">
+            {counting && !est ? <p className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" />Counting…</p>
+              : est ? (
+                <>
+                  <p className="text-sm">
+                    <b className="text-lg font-black">{num(est.matched)}{est.capped ? "+" : ""}</b> people match
+                    <span className="text-muted-foreground"> · out of {num(est.optedIn)} opted in{est.capped ? ` (counted the first ${num(est.scanned)})` : ""}</span>
+                    {counting && <Loader2 className="inline h-3 w-3 animate-spin ml-2" />}
+                  </p>
+                  {!!est.byZone?.length && (
+                    <div className="mt-2 space-y-1">
+                      {est.byZone.map((z) => (
+                        <div key={z.name} className="flex items-center gap-2 text-[11px]">
+                          <span className="w-32 truncate text-muted-foreground">{z.name}</span>
+                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary/70" style={{ width: `${Math.max(3, (z.value / Math.max(1, est.matched)) * 100)}%` }} /></div>
+                          <span className="w-10 text-right tabular-nums">{num(z.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {est.ordered !== undefined && est.matched > 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-1">{num(est.ordered)} of them have ordered before.</p>
+                  )}
+                  {est.sample.length > 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-1">For example: {est.sample.map((x) => `${x.name || x.email}${x.city ? ` (${x.city})` : ""}`).join(", ")}</p>
+                  )}
+                </>
+              ) : <p className="text-xs text-muted-foreground">Couldn't count right now.</p>}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button disabled={busy || !name.trim()} onClick={async () => {
+            const r = await commsOp("saveSegment", { id: segment.id || undefined, name, description, conditions }, "Audience saved.", setBusy);
+            if (r) onClose();
+          }}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save audience"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
