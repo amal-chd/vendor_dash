@@ -136,8 +136,8 @@ export default function MessPlans() {
     const rupees = Number(price);
     const duration = Number(days);
     if (!name.trim()) return toast.error("Give the plan a name.");
-    if (!Number.isFinite(rupees) || rupees < 100 || rupees > 50000) {
-      return toast.error("Price must be between ₹100 and ₹50,000 — checkout refuses anything else.");
+    if (!price.trim() || !Number.isFinite(rupees) || rupees < 0 || rupees > 50000) {
+      return toast.error("Price must be between ₹0 and ₹50,000.");
     }
     if (!Number.isFinite(duration) || duration < 1 || duration > 31) {
       return toast.error("Duration must be between 1 and 31 days.");
@@ -312,7 +312,7 @@ export default function MessPlans() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="plan-price">Price (₹)</Label>
-                <Input id="plan-price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
+                <Input id="plan-price" type="number" min="0" max="50000" value={price} onChange={(e) => setPrice(e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="plan-days">Days</Label>

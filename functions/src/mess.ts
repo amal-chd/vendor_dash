@@ -42,7 +42,7 @@ const MAX_PLAN_DAYS = 31;
  * including 0.
  */
 const DEFAULT_FEE_PER_CUSTOMER_PER_DAY_PAISE = 300;
-const MIN_PLAN_PAISE = 10_000; // ₹100 — below this a "plan" is a mistake
+const MIN_PLAN_PAISE = 0; // ₹0 — free / promotional plans allowed
 const MAX_PLAN_PAISE = 5_000_000; // ₹50,000
 
 type Meal = "breakfast" | "lunch" | "dinner";
@@ -264,12 +264,29 @@ export const subscribeToMess = onCall(
       amountPaise: plan.pricePaise,
       startDate: admin.firestore.Timestamp.fromDate(startAt),
       endDate: admin.firestore.Timestamp.fromDate(endAt),
-      status: "pending_payment",
-      paymentStatus: "pending",
+      status: plan.pricePaise === 0 ? "active" : "pending_payment",
+      paymentStatus: plan.pricePaise === 0 ? "paid" : "pending",
       skippedDays: [],
       createdAt: now,
       updatedAt: now,
     });
+
+    if (plan.pricePaise === 0) {
+      await placementRef.set({
+        subscriptionId: subRef.id,
+        razorpayOrderId: null,
+        amountPaise: 0,
+        createdAt: now,
+      });
+      return {
+        ok: true,
+        subscriptionId: subRef.id,
+        razorpayOrderId: null,
+        keyId: null,
+        amountPaise: 0,
+        currency: "INR",
+      };
+    }
 
     const order = await createGatewayOrder(plan.pricePaise, subRef.id, {
       messSubscriptionId: subRef.id,
