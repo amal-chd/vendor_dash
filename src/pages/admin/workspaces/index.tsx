@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   CalendarClock,
   ChefHat,
+  LayoutDashboard,
   CreditCard,
   Crown,
   Download,
@@ -103,6 +104,7 @@ const DonationsPage = lazy(() => import("../DonationsPage"));
 const PlansPage = lazy(() => import("../PlansPage"));
 
 const StayCommandCenter = lazy(() => import("../stay/StayCommandCenter"));
+const MessOverview = lazy(() => import("../mess/MessOverview"));
 const MessKitchens = lazy(() => import("../mess/MessKitchens"));
 const MessPlans = lazy(() => import("../mess/MessPlans"));
 const MessSubscriptions = lazy(() => import("../mess/MessSubscriptions"));
@@ -309,6 +311,7 @@ export function StayWorkspace() {
 
 export function MessWorkspace() {
   const tabs: WorkspaceTab[] = [
+    { key: "overview", label: "Overview", icon: LayoutDashboard, component: t(MessOverview) },
     { key: "kitchens", label: "Kitchens", icon: ChefHat, component: t(MessKitchens) },
     { key: "onboarding", label: "Onboarding", icon: Users, component: t(OnboardingCommandCenter) },
     { key: "plans", label: "Meal plans", icon: Layers, component: t(MessPlans) },
@@ -318,7 +321,7 @@ export function MessWorkspace() {
   return (
     <WorkspaceShell
       title="Kada Mess"
-      description="Home kitchens on monthly meal plans — who is cooking, onboarding pipeline, meal plans, subscriptions, and settlements."
+      description="Home kitchens on monthly meal plans — today's plates, kitchens and their onboarding, plans, subscribers, refunds and weekly settlements."
       icon={ChefHat}
       tabs={tabs}
     />

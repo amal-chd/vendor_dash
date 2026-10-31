@@ -267,13 +267,14 @@ export default function MessDashboardPage() {
             id: d.id,
             periodStart: val.periodStart || "",
             periodEnd: val.periodEnd || "",
-            daysServed: Number(val.daysServed) || 0,
-            planEarningsPaise: paise("planEarningsPaise", "planEarnings"),
-            kadaFeePaise: paise("kadaFeePaise", "kadaFee"),
+            // Field names as generateMessSettlements writes them.
+            daysServed: Number(val.servedDays ?? val.daysServed) || 0,
+            planEarningsPaise: paise("grossPaise", "grossSales"),
+            kadaFeePaise: paise("platformFeePaise", "commissionAmount"),
             netPayoutPaise: paise("netPayoutPaise", "netPayout"),
-            status: val.status || "paid",
-            payoutDate: val.payoutDate,
-            reference: val.reference,
+            status: val.status || "pending",
+            payoutDate: val.paidAt?.toDate?.()?.toISOString?.() ?? val.payoutDate,
+            reference: val.utrNumber ?? val.reference,
           };
         });
         // Sort newest period first
@@ -377,9 +378,12 @@ export default function MessDashboardPage() {
     if (!user) return;
     if (!planName.trim()) return toast.error("Please enter a plan name.");
     const price = Number(planPrice);
-    if (!planPrice.trim() || !Number.isFinite(price) || price < 0) return toast.error("Price must be at least ₹0.");
+    if (!planPrice.trim() || !Number.isFinite(price) || price < 0) return toast.error("Enter a price (₹0 for a free trial).");
     const duration = Number(planDuration);
     if (!duration || duration < 1 || duration > 31) return toast.error("Duration must be between 1 and 31 days.");
+    // Mirrors the server: ₹0 is a free trial of at most 7 days; otherwise ₹100–₹50,000.
+    if (price === 0 && duration > 7) return toast.error("A free trial (₹0) can be at most 7 days.");
+    if (price !== 0 && (price < 100 || price > 50000)) return toast.error("Price must be ₹0 (trial) or ₹100–₹50,000.");
     if (planMeals.length === 0) return toast.error("Select at least one meal.");
 
     setSavingPlan(true);

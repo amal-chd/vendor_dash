@@ -26,19 +26,31 @@ interface MessSettlement {
   coveredDays?: number;
   servedDays?: number;
   skippedDays?: number;
+  holidayDays?: number;
+  generatedBy?: string;
   subscriberCount?: number;
   status?: string;
   utrNumber?: string;
 }
 
 const inr = (n?: number) => `₹${Math.round(n || 0).toLocaleString("en-IN")}`;
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const IST = 5.5 * 3_600_000;
+/** IST calendar date of an instant, "YYYY-MM-DD". */
+const iso = (d: Date) => new Date(d.getTime() + IST).toISOString().slice(0, 10);
+/** Monday 00:00 IST of last week. */
+function lastWeekStart(): Date {
+  const ist = new Date(Date.now() + IST);
+  const dow = (ist.getUTCDay() + 6) % 7;
+  const mondayIst = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() - dow - 7);
+  return new Date(mondayIst - IST);
+}
 
 const TONE: Record<string, string> = {
   pending: "bg-amber-500",
   processing: "bg-blue-600",
   paid: "bg-emerald-600",
   error: "bg-rose-600",
+  void: "bg-slate-400",
 };
 
 /**
@@ -52,12 +64,11 @@ const TONE: Record<string, string> = {
 export default function MessSettlements() {
   const live = useLiveCollection<MessSettlement>("mess_settlements", { orderByField: "createdAt" });
   const [tab, setTab] = useState("pending");
-  const [from, setFrom] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return iso(d);
-  });
-  const [to, setTo] = useState(() => iso(new Date()));
+  // Default to LAST full Mon→Mon week, the same window the Monday cron
+  // settles — so a manual press produces the same settlement, not an
+  // overlapping one (the server now refuses overlaps).
+  const [from, setFrom] = useState(() => iso(lastWeekStart()));
+  const [to, setTo] = useState(() => iso(new Date(lastWeekStart().getTime() + 7 * 86_400_000)));
   const [generating, setGenerating] = useState(false);
   const [payingId, setPayingId] = useState<string | null>(null);
   const [payoutCfg, setPayoutCfg] = useState<PayoutConfig | null>(null);
@@ -66,7 +77,7 @@ export default function MessSettlements() {
     fetchPayoutConfig().then(setPayoutCfg).catch(() => setPayoutCfg(null));
   }, []);
 
-  const pending = useMemo(() => live.rows.filter((s) => s.status !== "paid"), [live.rows]);
+  const pending = useMemo(() => live.rows.filter((s) => s.status !== "paid" && s.status !== "void"), [live.rows]);
   const paid = useMemo(() => live.rows.filter((s) => s.status === "paid"), [live.rows]);
   const rows = tab === "paid" ? paid : tab === "all" ? live.rows : pending;
 
@@ -74,19 +85,39 @@ export default function MessSettlements() {
     setGenerating(true);
     try {
       const fn = httpsCallable(functions, "generateMessSettlements");
-      const res = (await fn({ startDate: from, endDate: to })).data as {
+      // Dates are IST calendar days; the server snaps them to IST midnight.
+      const res = (await fn({ startDate: `${from}T00:00:00+05:30`, endDate: `${to}T00:00:00+05:30` })).data as {
         count: number;
-        skipped?: unknown[];
+        skipped?: Array<{ kitchenName?: string; status?: string; overlapsWith?: string }>;
       };
-      const skipped = res.skipped?.length ?? 0;
+      const skipped = res.skipped ?? [];
+      const overlaps = skipped.filter((x) => x.status === "overlaps");
       toast.success(
         `${res.count} settlement${res.count === 1 ? "" : "s"} generated` +
-          (skipped ? ` · ${skipped} left alone (already paid or in flight)` : ""),
+          (skipped.length - overlaps.length ? ` · ${skipped.length - overlaps.length} left alone (already paid or in flight)` : ""),
       );
+      if (overlaps.length) {
+        toast.warning(
+          `${overlaps.length} kitchen(s) skipped — this period overlaps one already settled ` +
+            `(${overlaps.map((o) => o.kitchenName).join(", ")}). Void the pending one first if it was wrong.`,
+          { duration: 9000 },
+        );
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't generate settlements");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const voidSettlement = async (id: string) => {
+    const reason = window.prompt("Why is this settlement void? (It can then be regenerated for the right period.)");
+    if (!reason?.trim()) return;
+    try {
+      await httpsCallable(functions, "adminMessAction")({ action: "voidSettlement", settlementId: id, reason: reason.trim() });
+      toast.success("Settlement voided.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't void it");
     }
   };
 
@@ -132,6 +163,7 @@ export default function MessSettlements() {
         <span className="text-xs whitespace-nowrap tabular-nums">
           {row.original.servedDays ?? 0} served
           {(row.original.skippedDays ?? 0) > 0 ? ` · ${row.original.skippedDays} skipped` : ""}
+          {(row.original.holidayDays ?? 0) > 0 ? ` · ${row.original.holidayDays} closed` : ""}
         </span>
       ),
     },
@@ -170,8 +202,13 @@ export default function MessSettlements() {
     {
       id: "actions",
       cell: ({ row }) =>
-        row.original.status === "paid" ? null : (
-          <div className="flex justify-end">
+        row.original.status === "paid" || row.original.status === "void" ? null : (
+          <div className="flex justify-end gap-1.5">
+            {(row.original.status ?? "pending") === "pending" && (
+              <Button size="sm" variant="ghost" onClick={() => voidSettlement(row.original.id)}>
+                Void
+              </Button>
+            )}
             <Button
               size="sm"
               onClick={() => pay(row.original.id)}
@@ -189,7 +226,7 @@ export default function MessSettlements() {
     <div className="space-y-5">
       <AdminPageHeader
         title="Mess settlements"
-        description="The kitchen earns its plan value for every day covered in the period; Kada's per-customer-per-day fee is charged only on days actually served."
+        description="Generated automatically every Monday 06:00 IST for the previous week. The kitchen earns its plan value for every day covered (closures excluded); Kada's per-customer-per-day fee is charged only on days actually served."
         icon={Wallet}
         stats={[
           {
