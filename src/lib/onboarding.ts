@@ -340,10 +340,12 @@ export interface DocumentVerification {
 
 export interface OnboardingSnapshot {
   exists: boolean;
+  partnerId?: string;
   state: OnboardingState | null;
   role?: PartnerRole;
   businessStructure?: string | null;
   steps?: Record<string, boolean>;
+  documentNumbers?: Record<string, string>;
   requirements?: StepRequirement[];
   completion?: number;
   missing?: { id: string; label: string; group: string }[];

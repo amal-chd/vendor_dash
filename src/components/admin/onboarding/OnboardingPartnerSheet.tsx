@@ -243,9 +243,8 @@ export function OnboardingPartnerSheet({
   const bankMeta = bankStateMeta(partner.bankState);
   const legalNext = ALLOWED_TRANSITIONS[partner.state] ?? [];
   const canDirectActivate =
-    (partner.state === "ready_for_activation" ||
-      (partner.state === "approved" && blockers.length === 0 && pendingRequirements.length === 0)) &&
-    partner.state !== "active";
+    partner.state === "ready_for_activation" ||
+    (partner.state === "approved" && blockers.length === 0 && pendingRequirements.length === 0);
 
   const reviewStep = async (
     step: Requirement,
@@ -878,7 +877,7 @@ export function OnboardingPartnerSheet({
                       </Fact>
                       <Fact label="Platform Fee">
                         <p className="font-semibold text-emerald-600">
-                          ₹{((partner.raw.feePerCustomerPerDayPaise ?? 300) / 100).toFixed(0)} / customer / day
+                          ₹{((Number(partner.raw.feePerCustomerPerDayPaise) || 300) / 100).toFixed(0)} / customer / day
                         </p>
                       </Fact>
                     </div>

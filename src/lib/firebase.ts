@@ -1,6 +1,10 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 
@@ -15,15 +19,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 
-// Enable Offline Persistence for Advanced POS Resiliency
-enableMultiTabIndexedDbPersistence(db).catch((err) => {
-  if (err.code == 'failed-precondition') {
-    console.warn("Firestore offline persistence failed: Multiple tabs open.");
-  } else if (err.code == 'unimplemented') {
-    console.warn("Firestore offline persistence not supported by browser.");
-  }
+// Enable Offline Persistence for Advanced POS Resiliency with multi-tab support
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
 });
 
 export const storage = getStorage(app);

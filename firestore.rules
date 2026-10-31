@@ -389,7 +389,7 @@ service cloud.firestore {
         allow write: if isAdmin() || (
           request.auth != null && request.auth.uid == kitchenId
           && request.resource.data.get("pricePaise", 0) is int
-          && request.resource.data.get("pricePaise", 0) >= 10000
+          && request.resource.data.get("pricePaise", 0) >= 0
           && request.resource.data.get("pricePaise", 0) <= 5000000
           && request.resource.data.get("durationDays", 0) is int
           && request.resource.data.get("durationDays", 0) >= 1
