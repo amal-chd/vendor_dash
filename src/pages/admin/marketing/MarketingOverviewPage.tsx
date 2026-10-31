@@ -30,6 +30,7 @@ interface EmailHealth {
   webhookSecret: boolean;
   domains: { ok: boolean; restricted?: boolean; inferredVerified?: boolean; domains: { status: string }[] };
   webhookLastAt?: number | null;
+  resendAccount?: { ok: boolean; fallingBack?: boolean };
   reach?: { customers: number; customerProfiles: number; pushReachable: number };
   queue?: { failed24h: number; failed7d?: number };
   switches: { pauseAll: boolean; pauseMarketing: boolean };
@@ -242,8 +243,10 @@ export default function MarketingOverviewPage() {
         <CardContent className="grid gap-x-8 md:grid-cols-2">
           <div>
             <Check
-              state={health?.providerConfigured ? "ok" : "bad"} label="Email provider connected"
-              detail={health?.providerConfigured ? "Bulk sending goes through the provider API." : "Set RESEND_API_KEY — the Gmail fallback can't send campaigns at volume."}
+              state={health?.providerConfigured && health?.resendAccount?.ok !== false ? "ok" : "bad"} label="Email provider connected"
+              detail={health?.resendAccount?.ok === false
+                ? "Resend is refusing the API key. Service email is going through Gmail; campaigns wait until the key is fixed (details on Email → Overview)."
+                : health?.providerConfigured ? "Bulk sending goes through the provider API." : "Set RESEND_API_KEY — the Gmail fallback can't send campaigns at volume."}
               to="/admin/growth?tab=email&section=settings"
             />
             <Check
