@@ -343,8 +343,8 @@ async function firestoreFallback(action: AdminAction, data: Record<string, unkno
     case "resetVendorPassword": {
       const email = str(data.email, 128);
       if (email) {
-        const { sendPasswordResetEmail } = await import("firebase/auth");
-        await sendPasswordResetEmail(auth, email);
+        const { requestPasswordReset } = await import("./passwordReset");
+        await requestPasswordReset(email);
         await audit(action, { restaurantId: data.restaurantId, email, mode: "client_send_email" });
         return { ok: true, mode: "send_email", email, message: `Password reset email dispatched to ${email}.` };
       }

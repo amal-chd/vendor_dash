@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Eye, EyeOff, Loader2, ShieldCheck, Zap, BarChart3, Mail, Phone } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { sendPasswordResetEmail, signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { requestPasswordReset, resetErrorMessage } from "@/lib/passwordReset";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -123,16 +124,16 @@ export default function LoginPage() {
 
   const handleForgotPassword = async () => {
     const trimmed = email.trim();
-    if (!trimmed) {
-      toast.error("Enter your email address first, then click Forgot password.");
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
+      toast.error("Type the email you log in with above, then tap Forgot password.");
       return;
     }
     setResetLoading(true);
     try {
-      await sendPasswordResetEmail(auth, trimmed);
-      toast.success(`Reset link sent to ${trimmed}. Check your inbox.`);
+      await requestPasswordReset(trimmed);
+      toast.success(`If ${trimmed} has a Kada account, a reset link is on its way. It expires in 1 hour — check spam too.`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to send reset email.");
+      toast.error(resetErrorMessage(error));
     } finally {
       setResetLoading(false);
     }
