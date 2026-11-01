@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   CalendarClock,
   ChefHat,
+  UserRound,
   LayoutDashboard,
   CreditCard,
   Crown,
@@ -106,6 +107,9 @@ const PlansPage = lazy(() => import("../PlansPage"));
 const StayCommandCenter = lazy(() => import("../stay/StayCommandCenter"));
 const MessOverview = lazy(() => import("../mess/MessOverview"));
 const MessKitchens = lazy(() => import("../mess/MessKitchens"));
+const MessAnalytics = lazy(() => import("../mess/MessAnalytics"));
+const MessCustomers = lazy(() => import("../mess/MessCustomers"));
+const MessReviews = lazy(() => import("../mess/MessReviews"));
 const MessPlans = lazy(() => import("../mess/MessPlans"));
 const MessSubscriptions = lazy(() => import("../mess/MessSubscriptions"));
 const MessSettlements = lazy(() => import("../mess/MessSettlements"));
@@ -312,10 +316,13 @@ export function StayWorkspace() {
 export function MessWorkspace() {
   const tabs: WorkspaceTab[] = [
     { key: "overview", label: "Overview", icon: LayoutDashboard, component: t(MessOverview) },
+    { key: "analytics", label: "Analytics", icon: BarChart3, component: t(MessAnalytics) },
     { key: "kitchens", label: "Kitchens", icon: ChefHat, component: t(MessKitchens) },
     { key: "onboarding", label: "Onboarding", icon: Users, component: t(OnboardingCommandCenter) },
     { key: "plans", label: "Meal plans", icon: Layers, component: t(MessPlans) },
     { key: "subscriptions", label: "Subscriptions", icon: CalendarCheck, component: t(MessSubscriptions) },
+    { key: "customers", label: "Customers", icon: UserRound, component: t(MessCustomers) },
+    { key: "reviews", label: "Reviews", icon: Star, component: t(MessReviews) },
     { key: "settlements", label: "Settlements", icon: Wallet, component: t(MessSettlements) },
   ];
   return (

@@ -4,6 +4,9 @@ import { AlertTriangle, ChefHat, HandCoins, Hourglass, IndianRupee, LayoutDashbo
 import { useLiveCollection } from "@/hooks/useLiveCollection";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { messAction } from "./messAdmin";
 import { addDays, daysLeft, headcount, inr, kitchenName, todayKey, type MessKitchen, type MessSub } from "./messAdmin";
 
 interface Settlement {
@@ -79,6 +82,8 @@ export default function MessOverview() {
         if (!(k.fcmTokens?.length)) issues.push("no push");
         if (k.messSettings?.acceptingSubscribers === false) issues.push("not accepting");
         if ((k.holidays ?? []).includes(today)) issues.push("closed today");
+        if ((k.ratingCount ?? 0) >= 3 && (k.ratingAvg ?? 5) < 3.5) issues.push(`rated ${(k.ratingAvg ?? 0).toFixed(1)}★`);
+        if (!k.planSummary) issues.push("summary pending");
         if (capUse >= 0.9) issues.push(`${Math.round(capUse * 100)}% full`);
         return { k, active: act.length, hc, fee, issues, capUse };
       })
@@ -101,6 +106,22 @@ export default function MessOverview() {
         title="Mess overview"
         description="Plates cooked today across every kitchen, what Kada earns, and what needs ops."
         icon={LayoutDashboard}
+        actions={
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                const r = await messAction<{ kitchens: number }>("backfillSummaries", {});
+                toast.success(`Recomputed plan summaries and ratings for ${r.kitchens} kitchens.`);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Couldn't recompute");
+              }
+            }}
+          >
+            Recompute summaries
+          </Button>
+        }
         stats={[
           { label: "Live kitchens", value: data.live.length, icon: ChefHat, hint: `${kitchens.rows.length} total` },
           { label: "Active subscribers", value: data.active.length, icon: Users, tone: "text-emerald-600", hint: `+${data.new30} in 30 days` },

@@ -37,6 +37,7 @@ export interface MessSub {
   cancelReason?: string;
   cancelledBy?: string;
   skippedDays?: string[];
+  skippedMeals?: string[];
   holidayDays?: string[];
   bonusDays?: number;
   skipLog?: Array<{ day: string; skip: boolean; by: string; at: number }>;
@@ -74,6 +75,27 @@ export interface MessKitchen {
   messSettings?: { acceptingSubscribers?: boolean; capacity?: Partial<Record<Meal, number>>; skipCutoffHour?: number | null };
   fcmTokens?: string[];
   createdAt?: Timestamp;
+  ratingAvg?: number;
+  ratingCount?: number;
+  ratingBreakdown?: Record<string, number>;
+  planSummary?: { count?: number; fromPaise?: number | null; fromPerDayPaise?: number | null; hasTrial?: boolean; meals?: string[] };
+  mealTimes?: Record<string, { enabled?: boolean; start?: string; end?: string }>;
+  messProfile?: { meals?: string[]; diet?: string[]; fulfilment?: string[] };
+  announcement?: { message?: string; at?: number };
+}
+
+export interface MessReview {
+  id: string;
+  kitchenId?: string;
+  customerUid?: string;
+  customerName?: string;
+  rating?: number;
+  text?: string;
+  tags?: string[];
+  reply?: string;
+  hidden?: boolean;
+  hiddenReason?: string;
+  createdAt?: Timestamp;
 }
 
 const IST = 5.5 * 3_600_000;
@@ -102,11 +124,18 @@ export function eatsOn(s: MessSub, key: string): boolean {
   return !(s.skippedDays ?? []).includes(key) && !(s.holidayDays ?? []).includes(key);
 }
 
+/** The meals a subscriber eats on `key`, single-meal skips removed. */
+export function mealsOn(s: MessSub, key: string): Meal[] {
+  if (!eatsOn(s, key)) return [];
+  const off = new Set(s.skippedMeals ?? []);
+  return MEALS.filter((m) => (s.plan?.meals ?? []).includes(m) && !off.has(`${key}:${m}`));
+}
+
 export function headcount(subs: MessSub[], key: string) {
   const out = { breakfast: 0, lunch: 0, dinner: 0, people: 0, veg: 0 };
   for (const s of subs) {
-    if (!eatsOn(s, key)) continue;
-    const meals = s.plan?.meals ?? [];
+    const meals: string[] = mealsOn(s, key);
+    if (!meals.length) continue;
     let any = false;
     for (const m of MEALS) {
       if (meals.includes(m)) {

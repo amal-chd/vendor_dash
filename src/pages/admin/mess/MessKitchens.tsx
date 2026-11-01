@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
 import { ColumnDef } from "@tanstack/react-table";
 import { Ban, CalendarX2, CheckCircle2, ChefHat, ImageIcon, IndianRupee, Layers, Utensils } from "lucide-react";
-import { messAction } from "./messAdmin";
+import { messAction, type MessKitchen } from "./messAdmin";
+import { MessKitchenSheet } from "./MessKitchenSheet";
 import { KitchenPhotos } from "@/components/mess/KitchenPhotos";
 import { db } from "@/lib/firebase";
 import { useLiveCollection } from "@/hooks/useLiveCollection";
@@ -55,6 +56,7 @@ const inr = (n: number) => `₹${(Math.round(n * 100) / 100).toLocaleString("en-
  */
 export default function MessKitchens() {
   const [photosFor, setPhotosFor] = useState<Kitchen | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [closeFor, setCloseFor] = useState<Kitchen | null>(null);
   const [closeDay, setCloseDay] = useState("");
   const [closeReason, setCloseReason] = useState("");
@@ -140,9 +142,9 @@ export default function MessKitchens() {
       accessorFn: (k) => k.name || k.kitchenName || k.id,
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="font-medium truncate">
+          <button className="font-medium truncate hover:underline text-left" onClick={() => setOpenId(row.original.id)}>
             {row.original.name || row.original.kitchenName || row.original.id}
-          </div>
+          </button>
           <div className="text-[11px] text-muted-foreground truncate">
             {row.original.area || row.original.locality || row.original.city || "—"}
             {row.original.vegOnly ? " · Pure veg" : ""}
@@ -164,6 +166,20 @@ export default function MessKitchens() {
               <Badge variant="outline">closure planned</Badge>
             )}
           </div>
+        );
+      },
+    },
+    {
+      id: "rating",
+      header: "Rating",
+      cell: ({ row }) => {
+        const k = row.original as Kitchen & { ratingAvg?: number; ratingCount?: number };
+        return k.ratingCount ? (
+          <span className={`tabular-nums ${(k.ratingAvg ?? 0) < 3.5 ? "text-rose-600" : ""}`}>
+            {(k.ratingAvg ?? 0).toFixed(1)} ★ <span className="text-[11px] text-muted-foreground">({k.ratingCount})</span>
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">new</span>
         );
       },
     },
@@ -248,6 +264,11 @@ export default function MessKitchens() {
         searchKey="name"
         searchPlaceholder="Search kitchens…"
         exportFilename="mess-kitchens"
+      />
+
+      <MessKitchenSheet
+        kitchen={(kitchens.rows.find((k) => k.id === openId) as unknown as MessKitchen) ?? null}
+        onClose={() => setOpenId(null)}
       />
 
       <Dialog open={!!closeFor} onOpenChange={(o) => !o && setCloseFor(null)}>
