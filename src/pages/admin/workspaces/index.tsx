@@ -57,6 +57,7 @@ import {
   Palette,
   QrCode,
   Bot,
+  Inbox,
 } from "lucide-react";
 import { WorkspaceShell, type WorkspaceTab } from "@/components/admin/core/WorkspaceShell";
 
@@ -124,6 +125,7 @@ const SupportChatsPage = lazy(() => import("../SupportChatsPage"));
 const SupportKnowledgeBasePage = lazy(() => import("../SupportKnowledgeBasePage"));
 const SupportAnalyticsPage = lazy(() => import("../SupportAnalyticsPage"));
 const DemoRequestsPage = lazy(() => import("../DemoRequestsPage"));
+const WebsiteEnquiriesPage = lazy(() => import("../WebsiteEnquiriesPage"));
 
 const FoodReviewsPage = lazy(() => import("../FoodReviewsPage"));
 const StayReviews = lazy(() => import("../stay/StayReviews"));
@@ -373,6 +375,7 @@ export function QualityWorkspace() {
 export function GrowthWorkspace() {
   const tabs: WorkspaceTab[] = [
     { key: "overview", label: "Overview", icon: Activity, component: t(MarketingOverviewPage) },
+    { key: "enquiries", label: "Website enquiries", icon: Inbox, component: t(WebsiteEnquiriesPage) },
     { key: "autopilot", label: "Autopilot", icon: Bot, component: t(AutopilotPage) },
     { key: "planner", label: "Planner", icon: CalendarRange, component: t(MarketingPlannerPage) },
     { key: "audience", label: "Audience & consent", icon: ShieldCheck, component: t(AudienceConsentPage) },
