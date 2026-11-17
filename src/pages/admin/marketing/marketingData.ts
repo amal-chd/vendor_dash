@@ -8,7 +8,7 @@ import { db } from "@/lib/firebase";
  * writes to another channel's data.
  */
 
-export type MarketingSource = "plan" | "email" | "push" | "crm" | "coupon" | "ad";
+export type MarketingSource = "plan" | "email" | "push" | "crm" | "coupon" | "ad" | "social";
 
 export interface MarketingEvent {
   id: string;
@@ -28,6 +28,7 @@ export const SOURCE_META: Record<MarketingSource, { label: string; dot: string; 
   crm: { label: "In-app", dot: "bg-teal-500", chip: "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/20" },
   coupon: { label: "Coupon", dot: "bg-amber-500", chip: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20" },
   ad: { label: "Ad", dot: "bg-rose-500", chip: "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20" },
+  social: { label: "Social", dot: "bg-pink-500", chip: "bg-pink-500/10 text-pink-700 dark:text-pink-300 border-pink-500/20" },
 };
 
 type Stamp = { toDate?: () => Date; toMillis?: () => number; seconds?: number } | number | string | Date | null | undefined;
@@ -107,13 +108,14 @@ const str = (v: unknown, fallback = "") => (typeof v === "string" && v.trim() ? 
 
 /** Every dated marketing activity, across channels, sorted by start. */
 export async function loadMarketingEvents(): Promise<MarketingEvent[]> {
-  const [plans, email, push, crm, promos, ads] = await Promise.all([
+  const [plans, email, push, crm, promos, ads, social] = await Promise.all([
     rows(PLAN_COLLECTION),
     rows("emailCampaigns"),
     rows("notification_campaigns"),
     rows("crm_campaigns"),
     rows("promos"),
     rows("platform_ads"),
+    rows("marketing_social_posts"),
   ]);
   const out: MarketingEvent[] = [];
 
@@ -168,6 +170,14 @@ export async function loadMarketingEvents(): Promise<MarketingEvent[]> {
       id: `ad:${a.id}`, source: "ad", title: `${str(a.title, "Ad")} ends`, start: end,
       status: a.active === false ? "paused" : end.getTime() < Date.now() ? "ended" : "live",
       href: "/admin/growth?tab=ads",
+    });
+  }
+  for (const p of social) {
+    const start = toDate(p.scheduledAt as Stamp) ?? toDate(p.publishedAt as Stamp) ?? toDate(p.createdAt as Stamp);
+    if (!start) continue;
+    out.push({
+      id: `social:${p.id}`, source: "social", title: str(p.title, "Social post"), start,
+      status: str(p.status, "draft"), href: "/admin/growth?tab=social",
     });
   }
   return out.sort((x, y) => x.start.getTime() - y.start.getTime());

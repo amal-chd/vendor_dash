@@ -58,6 +58,7 @@ import {
   QrCode,
   Bot,
   Inbox,
+  Share2,
 } from "lucide-react";
 import { WorkspaceShell, type WorkspaceTab } from "@/components/admin/core/WorkspaceShell";
 
@@ -144,6 +145,7 @@ const AudienceConsentPage = lazy(() => import("../marketing/AudienceConsentPage"
 const LinksQrPage = lazy(() => import("../marketing/LinksQrPage"));
 const BrandKitPage = lazy(() => import("../marketing/BrandKitPage"));
 const AutopilotPage = lazy(() => import("../marketing/AutopilotPage"));
+const SocialStudioPage = lazy(() => import("../marketing/SocialStudioPage"));
 const ChangelogAdminPage = lazy(() => import("../changelog/ChangelogAdminPage"));
 
 const AnalyticsPage = lazy(() => import("../AnalyticsPage"));
@@ -378,6 +380,7 @@ export function GrowthWorkspace() {
     { key: "enquiries", label: "Website enquiries", icon: Inbox, component: t(WebsiteEnquiriesPage) },
     { key: "autopilot", label: "Autopilot", icon: Bot, component: t(AutopilotPage) },
     { key: "planner", label: "Planner", icon: CalendarRange, component: t(MarketingPlannerPage) },
+    { key: "social", label: "Social Studio", icon: Share2, component: t(SocialStudioPage) },
     { key: "audience", label: "Audience & consent", icon: ShieldCheck, component: t(AudienceConsentPage) },
     { key: "email", label: "Email", icon: Mail, component: t(EmailPage) },
     { key: "notifications", label: "Push", icon: Bell, component: t(MobileNotificationsPage) },
