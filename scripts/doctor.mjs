@@ -570,7 +570,7 @@ function handlerBody(s, i) {
 /** Helpers that report their own success AND failure, so awaiting them is safe. */
 // confirmDialog / promptDialog are not writes: they only ever resolve (true /
 // false, text / null), so awaiting one needs no error path of its own.
-const SELF_REPORTING = /\b(runOp|adminActionToast|transitionOrder|runBulkTransition|applyBookingStatus|confirmDialog|promptDialog)\s*\(/;
+const SELF_REPORTING = /\b(runOp|commsOp|adminActionToast|transitionOrder|runBulkTransition|applyBookingStatus|confirmDialog|promptDialog)\s*\(/;
 
 function checkAdminFeedback() {
   const bad = [];

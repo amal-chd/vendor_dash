@@ -46,6 +46,7 @@ export default function BrandKitPage() {
   const [selectedId, setSelectedId] = useState("kadaverse");
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [profileLoadError, setProfileLoadError] = useState("");
   const profiles = useMemo(() => buildBrandProfileMap(savedProfiles, legacyKada), [savedProfiles, legacyKada]);
   const brand = profiles[selectedId];
 
@@ -54,10 +55,17 @@ export default function BrandKitPage() {
       const rows: Record<string, Partial<BrandProfile>> = {};
       snapshot.docs.forEach((item) => { rows[item.id] = item.data() as Partial<BrandProfile>; });
       setSavedProfiles(rows);
-    }, () => toast.error("Couldn't load saved brand profiles."));
+      setProfileLoadError("");
+    }, (error) => {
+      const message = (error as { code?: string }).code === "permission-denied"
+        ? "Your account cannot read marketing brand profiles. Confirm you have a marketing_manager, platform_admin or super_admin role and that Firestore rules are deployed."
+        : "Couldn't load saved brand profiles. Check your connection and try again.";
+      setProfileLoadError(message);
+      toast.error(message);
+    });
     const unsubscribeLegacy = onSnapshot(doc(db, ...BRAND_DOC), (snapshot) => {
       if (snapshot.exists()) setLegacyKada(snapshot.data() as Partial<BrandProfile>);
-    });
+    }, (error) => console.error("[BrandKitPage] legacy communication brand listener failed", error));
     return () => { unsubscribeProfiles(); unsubscribeLegacy(); };
   }, []);
 
@@ -115,10 +123,12 @@ export default function BrandKitPage() {
           <p className="text-sm text-muted-foreground">One editable source for KadaVerse and each product. Social Studio uses the selected profile in its full poster prompts.</p>
           {brand.updatedAt && <p className="mt-1 text-xs text-muted-foreground">Last saved {when(brand.updatedAt)}{brand.updatedBy ? ` by ${brand.updatedBy}` : ""}.</p>}
         </div>
-        <Button size="sm" onClick={save} disabled={saving}>
+        <Button size="sm" onClick={save} disabled={saving || Boolean(profileLoadError)}>
           {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}Save {brand.name}
         </Button>
       </div>
+
+      {profileLoadError && <Card role="alert" className="border-destructive/40 bg-destructive/5"><CardContent className="p-4 text-sm text-destructive">{profileLoadError} Profile saving is disabled until the existing settings are readable, to avoid overwriting them with defaults.</CardContent></Card>}
 
       <Card className="rounded-2xl">
         <CardHeader className="pb-3"><CardTitle className="text-base">Choose a company or product</CardTitle><CardDescription>Each profile has its own audience, tone, visual palette, logo and claim rules. Select the profile you are editing.</CardDescription></CardHeader>
@@ -169,7 +179,7 @@ export default function BrandKitPage() {
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {ASSET_FIELDS.map((field) => (
             <div key={field.key} className="space-y-1.5"><Label>{field.label}</Label><Input value={brand[field.key]} onChange={(event) => update(field.key, event.target.value)} placeholder={field.placeholder} />
-              {field.key === "logoUrl" && /^https:\/\//.test(brand.logoUrl) && <div className="inline-flex rounded-xl border bg-white p-2"><img src={brand.logoUrl} alt={`${brand.name} logo`} className="h-12 w-12 object-contain" /></div>}
+              {field.key === "logoUrl" && /^https:\/\//.test(brand.logoUrl) && <div className="inline-flex rounded-xl border bg-white p-2 dark:bg-slate-50"><img src={brand.logoUrl} alt={`${brand.name} logo`} className="h-12 w-12 object-contain" /></div>}
             </div>
           ))}
         </CardContent>

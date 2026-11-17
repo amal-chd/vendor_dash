@@ -11,6 +11,7 @@ import {
   Upload, WandSparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/admin/core/asyncDialogs";
 import { auth, db, functions, storage } from "@/lib/firebase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,9 +57,9 @@ const platformNames: Record<Platform, string> = {
   instagram: "Instagram", facebook: "Facebook Page", linkedin: "LinkedIn Page",
 };
 const statusStyles: Record<PostStatus, string> = {
-  draft: "bg-slate-100 text-slate-700", scheduled: "bg-blue-100 text-blue-800",
-  publishing: "bg-amber-100 text-amber-900", published: "bg-emerald-100 text-emerald-800",
-  partial: "bg-orange-100 text-orange-900", failed: "bg-rose-100 text-rose-800",
+  draft: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200", scheduled: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200",
+  publishing: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200", published: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+  partial: "bg-orange-100 text-orange-900 dark:bg-orange-950 dark:text-orange-200", failed: "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200",
 };
 
 const blankForm = () => ({
@@ -121,11 +122,17 @@ export default function SocialStudioPage() {
         return post;
       })).then((values) => { setPosts(values); setLoading(false); });
     }, (error) => { toast.error(humanError(error)); setLoading(false); });
-    const unsubMeta = onSnapshot(doc(db, CONNECTIONS, "meta"), (snapshot) => setMeta((snapshot.data() as MetaConnection) ?? {}));
+    const unsubMeta = onSnapshot(doc(db, CONNECTIONS, "meta"), (snapshot) => setMeta((snapshot.data() as MetaConnection) ?? {}), (error) => {
+      setMeta({});
+      toast.error(`Couldn't load Meta publishing status: ${humanError(error)}`);
+    });
     const unsubLinkedIn = onSnapshot(doc(db, CONNECTIONS, "linkedin"), (snapshot) => {
       const value = (snapshot.data() as LinkedInConnection) ?? {};
       setLinkedin(value);
       setLinkedinUrn(value.organizationUrn ?? "");
+    }, (error) => {
+      setLinkedin({});
+      toast.error(`Couldn't load LinkedIn publishing status: ${humanError(error)}`);
     });
     const unsubProfiles = onSnapshot(collection(db, BRAND_PROFILES_COLLECTION), (snapshot) => {
       const rows: Record<string, Partial<BrandProfile>> = {};
@@ -134,7 +141,7 @@ export default function SocialStudioPage() {
     }, (error) => toast.error(`Couldn't load brand profiles: ${humanError(error)}`));
     const unsubLegacyBrand = onSnapshot(doc(db, ...BRAND_DOC), (snapshot) => {
       if (snapshot.exists()) setLegacyKadaBrand(snapshot.data() as Partial<BrandProfile>);
-    });
+    }, (error) => console.error("[SocialStudioPage] legacy communication brand listener failed", error));
     return () => { unsubPosts(); unsubMeta(); unsubLinkedIn(); unsubProfiles(); unsubLegacyBrand(); };
   }, []);
 
@@ -244,7 +251,12 @@ export default function SocialStudioPage() {
 
   const disconnect = async (provider: "meta" | "linkedin") => {
     const name = provider === "meta" ? "Meta (Facebook and Instagram)" : "LinkedIn";
-    if (!window.confirm(`Disconnect ${name}? Scheduled posts for this account will fail until it is reconnected.`)) return;
+    if (!(await confirmDialog({
+      title: `Disconnect ${name}?`,
+      description: "Scheduled posts for this account will fail until it is reconnected.",
+      confirmLabel: "Disconnect account",
+      destructive: true,
+    }))) return;
     try {
       await httpsCallable<{ provider: string }, { ok: boolean }>(functions, "socialDisconnect")({ provider });
       toast.success(`${name} disconnected.`);
@@ -361,7 +373,12 @@ export default function SocialStudioPage() {
   };
 
   const deletePost = async (post: SocialPost) => {
-    if (!window.confirm(`Delete “${post.title}”? This removes the post draft and uploaded creative from the studio.`)) return;
+    if (!(await confirmDialog({
+      title: `Delete “${post.title}”?`,
+      description: "This removes the post draft and uploaded creative from the studio.",
+      confirmLabel: "Delete post",
+      destructive: true,
+    }))) return;
     try {
       const paths = [post.assetPath, ...(post.referenceAssets ?? []).map((item) => item.path)].filter(Boolean) as string[];
       await Promise.all(paths.map((path) => deleteObject(storageRef(storage, path)).catch(() => undefined)));
@@ -376,7 +393,11 @@ export default function SocialStudioPage() {
     const message = ambiguous
       ? "A previous attempt may have reached a social network. Check the selected account first; retrying could create a duplicate. Continue only if you verified the post is not live."
       : "Retry the failed network deliveries now? Successful networks will be skipped.";
-    if (!window.confirm(message)) return;
+    if (!(await confirmDialog({
+      title: ambiguous ? "Check before retrying" : "Retry failed deliveries?",
+      description: message,
+      confirmLabel: ambiguous ? "I checked; retry" : "Retry delivery",
+    }))) return;
     try {
       await httpsCallable<{ postId: string; confirmAmbiguousRetry: boolean }, { ok: boolean; status: string }>(functions, "socialPublishNow")({ postId: post.id, confirmAmbiguousRetry: ambiguous });
       toast.success("Retry request sent.");

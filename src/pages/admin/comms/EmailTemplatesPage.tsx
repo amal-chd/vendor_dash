@@ -21,6 +21,7 @@ import {
   AlertTriangle, CheckCircle2, LayoutTemplate, Braces, FileText, MoreHorizontal, Undo2, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/admin/core/asyncDialogs";
 
 interface Draft { subject: string; preheader?: string; html: string; text?: string; savedAt?: unknown; restoredFrom?: number }
 interface Template {
@@ -228,6 +229,21 @@ function TemplateEditor({ template, onClose, onDuplicate }: { template: Template
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [dirty, setDirty] = useState(false);
   const htmlRef = useRef<HTMLTextAreaElement>(null);
+  const confirmingClose = useRef(false);
+
+  const requestClose = async () => {
+    if (confirmingClose.current) return;
+    if (dirty) {
+      confirmingClose.current = true;
+      try {
+        const discard = await confirmDialog({ title: "Discard unsaved changes?", description: "Your edits in this session will be lost.", confirmLabel: "Discard changes", destructive: true });
+        if (!discard) return;
+      } finally {
+        confirmingClose.current = false;
+      }
+    }
+    onClose();
+  };
 
   useEffect(() => { loadCatalog().then(setCatalog).catch(() => {}); }, []);
 
@@ -286,7 +302,7 @@ function TemplateEditor({ template, onClose, onDuplicate }: { template: Template
   const knownVars = Object.keys(catalog?.sampleVars || {});
 
   return (
-    <Dialog open onOpenChange={(o) => { if (!o && (!dirty || confirm("Discard unsaved changes?"))) onClose(); }}>
+    <Dialog open onOpenChange={(o) => { if (!o) void requestClose(); }}>
       <DialogContent className="max-w-[1280px] w-[96vw] h-[92vh] p-0 gap-0 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b px-5 py-3">
@@ -309,7 +325,7 @@ function TemplateEditor({ template, onClose, onDuplicate }: { template: Template
                   : versions.map((v) => (
                     <DropdownMenuItem key={v.id} className="flex-col items-start gap-0.5"
                       onSelect={async () => {
-                        if (dirty && !confirm("Replace your unsaved changes with this version?")) return;
+                        if (dirty && !(await confirmDialog({ title: "Replace unsaved changes?", description: "The selected published version will be loaded into the draft editor.", confirmLabel: "Load this version", destructive: true }))) return;
                         const r = await commsOp("restoreVersion", { id: template.id, versionId: v.id }, `Version ${v.version} loaded into the draft. Publish to make it live.`);
                         if (r) {
                           const d = await comms<{ template: Template }>("templateDetail", { id: template.id });
@@ -326,27 +342,28 @@ function TemplateEditor({ template, onClose, onDuplicate }: { template: Template
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="More template actions"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={onDuplicate}><Copy className="h-4 w-4 mr-2" />Duplicate</DropdownMenuItem>
                 {template.draft && (
                   <DropdownMenuItem onSelect={async () => {
-                    if (!confirm("Throw away the draft and go back to the live version?")) return;
+                    if (!(await confirmDialog({ title: "Discard this draft?", description: "The editor will return to the currently published version.", confirmLabel: "Discard draft", destructive: true }))) return;
                     if (await commsOp("discardDraft", { id: template.id }, "Draft discarded.")) { setForm({ name: template.name, ...live }); setDirty(false); }
                   }}><Undo2 className="h-4 w-4 mr-2" />Discard draft</DropdownMenuItem>
                 )}
                 {template.status === "archived" ? (
                   <DropdownMenuItem onSelect={() => commsOp("setTemplateStatus", { id: template.id, status: "published" }, "Template restored.")}><ArchiveRestore className="h-4 w-4 mr-2" />Restore</DropdownMenuItem>
                 ) : (
-                  <DropdownMenuItem className="text-rose-600" onSelect={() => {
-                    if (confirm(template.isSystem ? "This is a system email. Archiving it stops it being sent at all. Archive anyway?" : "Archive this template? Emails that use it will be skipped.")) {
-                      commsOp("setTemplateStatus", { id: template.id, status: "archived" }, "Template archived.");
+                  <DropdownMenuItem className="text-rose-600" onSelect={async () => {
+                    const systemRisk = template.isSystem ? "This is a system email. Archiving it stops it from being sent at all." : "Emails that use this template will be skipped.";
+                    if (await confirmDialog({ title: "Archive this template?", description: systemRisk, confirmLabel: "Archive template", destructive: true })) {
+                      await commsOp("setTemplateStatus", { id: template.id, status: "archived" }, "Template archived.");
                     }
                   }}><Archive className="h-4 w-4 mr-2" />Archive</DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" size="icon" onClick={() => { if (!dirty || confirm("Discard unsaved changes?")) onClose(); }}><X className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" aria-label="Close template editor" onClick={() => void requestClose()}><X className="h-4 w-4" /></Button>
           </div>
         </div>
 
@@ -438,7 +455,7 @@ function TemplateEditor({ template, onClose, onDuplicate }: { template: Template
             {/* Inbox row */}
             <div className="mx-4 mt-3 rounded-xl border bg-background px-4 py-3">
               <div className="flex items-center gap-3">
-                <img src="https://www.thekada.in/favicon.png" alt="" className="h-8 w-8 rounded-full border bg-white p-0.5" />
+                <img src="https://www.thekada.in/favicon.png" alt="" className="h-8 w-8 rounded-full border bg-white dark:bg-slate-50 p-0.5" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-bold">The Kada</span><span className="text-[11px] text-muted-foreground">now</span>
@@ -449,7 +466,7 @@ function TemplateEditor({ template, onClose, onDuplicate }: { template: Template
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-auto p-4">
-              <div className={cn("mx-auto rounded-xl border bg-white shadow-sm overflow-hidden transition-all", device === "phone" ? "w-[390px]" : "w-full max-w-[720px]")}>
+              <div className={cn("mx-auto rounded-xl border bg-white dark:bg-white dark:text-black shadow-sm overflow-hidden transition-all", device === "phone" ? "w-[390px]" : "w-full max-w-[720px]")}>
                 {preview ? (
                   <iframe title="Email preview" sandbox="" srcDoc={tab === "text" ? `<pre style="font:13px/1.6 ui-monospace,monospace;white-space:pre-wrap;padding:20px;margin:0">${(preview.text || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!)}</pre>` : preview.html}
                     className="w-full h-[62vh] block border-0" />

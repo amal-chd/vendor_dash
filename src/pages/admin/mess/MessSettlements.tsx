@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { promptDialog } from "@/components/admin/core/asyncDialogs";
 
 interface MessSettlement {
   id: string;
@@ -111,8 +112,18 @@ export default function MessSettlements() {
   };
 
   const voidSettlement = async (id: string) => {
-    const reason = window.prompt("Why is this settlement void? (It can then be regenerated for the right period.)");
-    if (!reason?.trim()) return;
+    const reason = await promptDialog({
+      title: "Why void this settlement?",
+      description: "This settlement can then be regenerated for the correct period. The reason is saved in the audit trail.",
+      label: "Reason",
+      placeholder: "Explain what needs correcting",
+      required: true,
+      multiline: true,
+      confirmLabel: "Void settlement",
+      destructive: true,
+      validate: (value) => value.trim().length >= 5 ? null : "Add at least 5 characters.",
+    });
+    if (!reason) return;
     try {
       await httpsCallable(functions, "adminMessAction")({ action: "voidSettlement", settlementId: id, reason: reason.trim() });
       toast.success("Settlement voided.");

@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Plus, Send, Loader2, Megaphone, Pause, Play, XCircle, Pencil, CalendarClock, AlertTriangle, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/admin/core/asyncDialogs";
 
 interface Stats {
   audience?: number; queued?: number; sent?: number; skipped?: number; failed?: number;
@@ -147,8 +148,13 @@ function CampaignCard({ c, segmentName, templateName, onEdit, onLaunch }: {
             <Button size="sm" variant="outline" onClick={() => commsOp("pauseCampaign", { id: c.id }, "Paused. Nothing more goes out until you resume.")}><Pause className="h-3.5 w-3.5 mr-1.5" />Pause</Button>
           )}
           {[...LIVE, "paused", "draft"].includes(c.status) && (
-            <Button size="sm" variant="ghost" className="text-rose-600" onClick={() => {
-              if (confirm(`Cancel "${c.name}"? Anyone not yet emailed won't be.`)) commsOp("cancelCampaign", { id: c.id }, "Campaign cancelled.");
+            <Button size="sm" variant="ghost" className="text-rose-600" aria-label={`Cancel ${c.name}`} onClick={async () => {
+              if (await confirmDialog({
+                title: `Cancel “${c.name}”?`,
+                description: "Anyone who has not received the email yet will be skipped.",
+                confirmLabel: "Cancel campaign",
+                destructive: true,
+              })) await commsOp("cancelCampaign", { id: c.id }, "Campaign cancelled.");
             }}><XCircle className="h-3.5 w-3.5" /></Button>
           )}
         </div>

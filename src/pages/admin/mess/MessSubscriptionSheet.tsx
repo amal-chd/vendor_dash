@@ -121,7 +121,7 @@ export function MessSubscriptionSheet({ sub, onClose }: { sub: MessSub | null; o
                     const tone = !inPlan || cancelled
                       ? "bg-muted text-muted-foreground"
                       : closed
-                        ? "bg-slate-300 text-slate-700"
+                        ? "bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
                         : skipped
                           ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
                           : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";

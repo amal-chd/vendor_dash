@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fmtTs, kitchenName, messAction, type MessKitchen, type MessReview } from "./messAdmin";
+import { promptDialog } from "@/components/admin/core/asyncDialogs";
 
 /**
  * Every subscriber review, for moderation and for spotting kitchens in
@@ -35,8 +36,17 @@ export default function MessReviews() {
   const answered = visible.filter((r) => r.reply).length;
 
   const toggle = async (r: MessReview) => {
-    const reason = r.hidden ? "" : window.prompt("Why hide this review? The kitchen sees this reason.") ?? "";
-    if (!r.hidden && !reason.trim()) return;
+    const reason = r.hidden ? "" : await promptDialog({
+      title: "Why hide this review?",
+      description: "The kitchen can see this reason, so explain the moderation decision clearly.",
+      label: "Reason",
+      placeholder: "For example: personal information or abusive content",
+      required: true,
+      multiline: true,
+      confirmLabel: "Hide review",
+      validate: (value) => value.trim().length >= 5 ? null : "Add at least 5 characters.",
+    });
+    if (!r.hidden && reason === null) return;
     try {
       await messAction("hideReview", { reviewId: r.id, hidden: !r.hidden, reason: reason.trim() });
       toast.success(r.hidden ? "Review visible again" : "Review hidden");
