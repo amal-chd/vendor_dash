@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
   collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp,
   setDoc, Timestamp, writeBatch,
@@ -7,7 +7,7 @@ import { httpsCallable } from "firebase/functions";
 import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import {
   AlertTriangle, CalendarClock, Check, Copy, ExternalLink, Facebook, ImagePlus, Instagram,
-  Linkedin, Loader2, MessageSquareText, Plus, RefreshCw, Send, Trash2,
+  Download, Linkedin, Loader2, MessageSquareText, Plus, RefreshCw, Send, Trash2,
   Upload, WandSparkles,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,7 +18,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SOCIAL_STARTER_PLAN } from "./socialStudioPlan";
+import { SOCIAL_PROMPT_BOOK } from "./socialStudioPlan";
+import { BRAND_DOC } from "./marketingData";
+import { BRAND_PROFILES_COLLECTION, BRAND_PROFILE_OPTIONS, buildBrandProfileMap, DEFAULT_BRAND_PROFILES_BY_ID, inferBrandProfileId, type BrandProfile } from "./brandProfiles";
+import { getPromptBookImportPlan, parsePromptBookJson, toSocialDraft, type PromptBook } from "./socialStudioImport";
+import { createPosterPrompt } from "./socialStudioPrompt";
 
 const POSTS = "marketing_social_posts";
 const CONNECTIONS = "marketing_social_connections";
@@ -36,7 +40,7 @@ type SocialPost = {
   referenceAssets?: { path: string; name: string; url: string }[];
   destinations?: Partial<Record<Platform, string>>;
   platformResults?: Partial<Record<Platform, PlatformResult>>;
-  status: PostStatus; scheduledAt?: Timestamp | null; planDay?: number;
+  status: PostStatus; scheduledAt?: Timestamp | null; planId?: string; planDay?: number; brandProfileId?: string; dailyPrompt?: string;
   createdAt?: Timestamp; updatedAt?: Timestamp; publishStartedAt?: Timestamp; error?: string;
 };
 type MetaConnection = {
@@ -64,31 +68,20 @@ const blankForm = () => ({
   imagePrompt: "", visualDirection: "", assetPath: "", assetUrl: "", assetName: "",
   referenceAssets: [] as { path: string; name: string; url: string }[],
   destinations: {} as Partial<Record<Platform, string>>,
+  planId: "" as string,
   planDay: undefined as number | undefined,
+  brandProfileId: "kadaverse",
+  dailyPrompt: "",
   scheduleLocal: "",
 });
 type EditorForm = ReturnType<typeof blankForm>;
 
+const STARTER_BOOK = parsePromptBookJson(JSON.stringify(SOCIAL_PROMPT_BOOK));
+const MAX_PROMPT_BOOK_BYTES = 1024 * 1024;
+
 function humanError(error: unknown) {
   const value = error as { message?: string; code?: string };
   return value?.message?.replace(/^Firebase: /, "") || "Something went wrong. Please try again.";
-}
-
-function createImagePrompt(form: EditorForm) {
-  return [
-    "Create one polished KadaVerse social advertising poster from the attached product/logo/reference assets.",
-    "Brand: KadaVerse, a digital product and software studio. Warm off-white #FCFCFA, deep navy #0B1B33, vivid blue #2563EB, pale blue #EFF5FF; refined geometric sans-serif typography, confident negative space, subtle connected-flow/orbit motif only when useful. For a product post, follow its approved product accent and logo; keep the product name, audience and identity distinct, with KadaVerse as the parent studio endorsement.",
-    "Canvas: 1080 × 1350 px, portrait 4:5, social feed safe margins. Use a fresh composition, not a copy of a reference. References guide composition only; do not reproduce other brands, text, logos, statistics or watermarks.",
-    "Use supplied logo and real product screenshots exactly as given. Do not invent features, metrics, testimonials, customers, app screens, prices, URLs or availability. Use only the exact poster copy below; do not add any additional text. If accurate lettering is not possible, leave clear blank areas for final typesetting.",
-    `Audience: ${form.audience || "business owners and founders"}. Campaign goal: ${form.goal || "explain the offer clearly"}. Category: ${form.category || "Brand"}.`,
-    `Visual direction: ${form.visualDirection || "Create a strong single-idea layout with one clear visual hero and generous whitespace."}`,
-    form.imagePrompt ? `Daily visual prompt: ${form.imagePrompt}` : "",
-    "Exact poster wording:",
-    `Headline: “${form.headline || "[Add headline]"}”`,
-    form.support ? `Support: “${form.support}”` : "",
-    form.cta ? `Call to action: “${form.cta}”` : "",
-    "Keep text high contrast, correctly spelled, short, legible on a phone, and inside the safe area. Do not place copy over busy imagery.",
-  ].filter(Boolean).join("\n\n");
 }
 
 function toLocalDate(value?: Timestamp | null) {
@@ -109,6 +102,11 @@ export default function SocialStudioPage() {
   const [editing, setEditing] = useState<EditorForm | null>(null);
   const [linkedinUrn, setLinkedinUrn] = useState("");
   const [filter, setFilter] = useState<"all" | PostStatus>("all");
+  const [savedBrandProfiles, setSavedBrandProfiles] = useState<Record<string, Partial<BrandProfile>>>({});
+  const [legacyKadaBrand, setLegacyKadaBrand] = useState<Partial<BrandProfile>>();
+  const promptBookInput = useRef<HTMLInputElement>(null);
+  const importingBook = useRef(false);
+  const brandProfiles = useMemo(() => buildBrandProfileMap(savedBrandProfiles, legacyKadaBrand), [savedBrandProfiles, legacyKadaBrand]);
 
   useEffect(() => {
     const unsubPosts = onSnapshot(query(collection(db, POSTS), orderBy("updatedAt", "desc")), (snapshot) => {
@@ -129,10 +127,20 @@ export default function SocialStudioPage() {
       setLinkedin(value);
       setLinkedinUrn(value.organizationUrn ?? "");
     });
-    return () => { unsubPosts(); unsubMeta(); unsubLinkedIn(); };
+    const unsubProfiles = onSnapshot(collection(db, BRAND_PROFILES_COLLECTION), (snapshot) => {
+      const rows: Record<string, Partial<BrandProfile>> = {};
+      snapshot.docs.forEach((item) => { rows[item.id] = item.data() as Partial<BrandProfile>; });
+      setSavedBrandProfiles(rows);
+    }, (error) => toast.error(`Couldn't load brand profiles: ${humanError(error)}`));
+    const unsubLegacyBrand = onSnapshot(doc(db, ...BRAND_DOC), (snapshot) => {
+      if (snapshot.exists()) setLegacyKadaBrand(snapshot.data() as Partial<BrandProfile>);
+    });
+    return () => { unsubPosts(); unsubMeta(); unsubLinkedIn(); unsubProfiles(); unsubLegacyBrand(); };
   }, []);
 
-  const templatesImported = useMemo(() => new Set(posts.map((post) => post.planDay).filter((day): day is number => typeof day === "number")), [posts]);
+  const templatesImported = useMemo(() => new Set(posts
+    .filter((post) => (post.planId || "kadaverse-30-day-social-v1") === STARTER_BOOK.id)
+    .map((post) => post.planDay).filter((day): day is number => typeof day === "number")), [posts]);
   const filteredPosts = useMemo(() => filter === "all" ? posts : posts.filter((post) => post.status === filter), [filter, posts]);
   const destinations: Record<Platform, SocialTarget[]> = {
     instagram: meta.instagram ?? [], facebook: meta.facebook ?? [],
@@ -142,9 +150,11 @@ export default function SocialStudioPage() {
   const beginNew = useCallback((day?: number) => {
     const next = blankForm();
     if (day) {
-      const brief = SOCIAL_STARTER_PLAN.find((item) => item.day === day);
+      const brief = STARTER_BOOK.posts.find((item) => item.day === day);
       if (brief) {
+        next.planId = STARTER_BOOK.id;
         next.planDay = brief.day;
+        next.brandProfileId = brief.brandProfileId || "kadaverse";
         next.title = `Day ${String(brief.day).padStart(2, "0")} · ${brief.title}`;
         next.category = brief.category;
         next.audience = brief.audience;
@@ -159,7 +169,7 @@ export default function SocialStudioPage() {
           linkedin: next.caption,
         };
         next.visualDirection = brief.visualDirection;
-        next.imagePrompt = brief.dailyPrompt;
+        next.dailyPrompt = brief.dailyPrompt;
         next.destinations = {
           ...(destinations.instagram[0] ? { instagram: destinations.instagram[0].id } : {}),
           ...(destinations.facebook[0] ? { facebook: destinations.facebook[0].id } : {}),
@@ -170,36 +180,53 @@ export default function SocialStudioPage() {
     setEditing(next);
   }, [destinations.facebook, destinations.instagram, destinations.linkedin]);
 
-  const importPlan = async () => {
+  const importBook = async (book: PromptBook) => {
+    if (loading) {
+      toast.error("Wait for the social calendar to finish loading before importing.");
+      return;
+    }
+    if (importingBook.current) return;
+    importingBook.current = true;
     setLoadingPlan(true);
     try {
-      const remaining = SOCIAL_STARTER_PLAN.filter((brief) => !templatesImported.has(brief.day));
-      for (let i = 0; i < remaining.length; i += 400) {
+      const { pending, skipped } = getPromptBookImportPlan(book, posts);
+      for (let i = 0; i < pending.length; i += 400) {
         const batch = writeBatch(db);
-        remaining.slice(i, i + 400).forEach((brief) => {
+        pending.slice(i, i + 400).forEach((brief) => {
           const ref = doc(collection(db, POSTS));
-          const title = `Day ${String(brief.day).padStart(2, "0")} · ${brief.title}`;
-          const caption = brief.caption + (brief.ctaNote ? `\n\n${brief.ctaNote}` : "");
-          const form: EditorForm = {
-            ...blankForm(), planDay: brief.day, title, category: brief.category, audience: brief.audience,
-            goal: brief.goal, headline: brief.headline, support: brief.support, cta: brief.cta,
-            caption, captions: { instagram: caption, facebook: caption, linkedin: caption },
-            imagePrompt: brief.dailyPrompt, visualDirection: brief.visualDirection,
-          };
           batch.set(ref, {
-            title: form.title, category: form.category, audience: form.audience, goal: form.goal,
-            headline: form.headline, support: form.support, cta: form.cta, caption: form.caption,
-            captions: form.captions, imagePrompt: form.imagePrompt, visualDirection: form.visualDirection,
-            assetPath: "", assetName: "", referenceAssets: [], destinations: {},
-            status: "draft", scheduledAt: null, createdBy: auth.currentUser?.uid ?? "",
-            createdAt: serverTimestamp(), updatedAt: serverTimestamp(), planDay: brief.day,
+            ...toSocialDraft(brief, book.id),
+            createdBy: auth.currentUser?.uid ?? "",
+            createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
           });
         });
         await batch.commit();
       }
-      toast.success(remaining.length ? `${remaining.length} campaign briefs added as drafts.` : "The 30-day plan is already in your studio.");
+      if (pending.length) toast.success(`${pending.length} brief${pending.length === 1 ? "" : "s"} imported as drafts${skipped.length ? ` · ${skipped.length} duplicate${skipped.length === 1 ? "" : "s"} skipped` : ""}.`);
+      else toast.message(`This prompt book is already in the studio (${skipped.length} duplicate${skipped.length === 1 ? "" : "s"} skipped).`);
     } catch (error) { toast.error(humanError(error)); }
-    finally { setLoadingPlan(false); }
+    finally { importingBook.current = false; setLoadingPlan(false); }
+  };
+
+  const importPromptBookFile = async (file: File) => {
+    if (file.size > MAX_PROMPT_BOOK_BYTES) {
+      toast.error("Prompt books must be smaller than 1 MB.");
+      return;
+    }
+    try {
+      const book = parsePromptBookJson(await file.text());
+      await importBook(book);
+    } catch (error) { toast.error(humanError(error)); }
+  };
+
+  const downloadPromptBook = () => {
+    const file = new Blob([JSON.stringify(SOCIAL_PROMPT_BOOK, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(file);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "KadaVerse_30_Day_Social_Prompt_Book.json";
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const connect = async (provider: "meta" | "linkedin") => {
@@ -233,7 +260,7 @@ export default function SocialStudioPage() {
 
   const createPrompt = async () => {
     if (!editing) return;
-    const prompt = createImagePrompt(editing);
+    const prompt = createPosterPrompt({ ...editing, referenceAssetNames: editing.referenceAssets.map((asset) => asset.name) }, brandProfiles[editing.brandProfileId] ?? DEFAULT_BRAND_PROFILES_BY_ID.kadaverse);
     setEditing({ ...editing, imagePrompt: prompt });
   };
 
@@ -292,9 +319,11 @@ export default function SocialStudioPage() {
         title: editing.title.trim(), category: editing.category, audience: editing.audience.trim(), goal: editing.goal.trim(),
         headline: editing.headline.trim(), support: editing.support.trim(), cta: editing.cta.trim(), caption: editing.caption.trim(),
         captions: Object.fromEntries(PLATFORM_KEYS.map((platform) => [platform, (editing.captions[platform] || editing.caption).trim()])),
-        imagePrompt: editing.imagePrompt, visualDirection: editing.visualDirection,
+        imagePrompt: editing.imagePrompt, dailyPrompt: editing.dailyPrompt, visualDirection: editing.visualDirection,
+        brandProfileId: editing.brandProfileId || "kadaverse",
         assetPath: editing.assetPath || "", assetName: editing.assetName || "",
         referenceAssets: editing.referenceAssets.map(({ path, name }) => ({ path, name })), destinations: editing.destinations,
+        ...(editing.planId ? { planId: editing.planId } : {}),
         ...(editing.planDay ? { planDay: editing.planDay } : {}),
         status: mode === "scheduled" ? "scheduled" : mode === "publish" ? "draft" : "draft",
         scheduledAt: mode === "scheduled" ? scheduledAt : null,
@@ -316,6 +345,10 @@ export default function SocialStudioPage() {
     const form = blankForm();
     Object.assign(form, post);
     form.id = post.id;
+    form.planId = post.planId ?? "";
+    form.brandProfileId = inferBrandProfileId(post.title, post.brandProfileId);
+    form.dailyPrompt = post.dailyPrompt ?? (post.imagePrompt?.startsWith("Create one polished") ? "" : post.imagePrompt ?? "");
+    form.imagePrompt = post.dailyPrompt ? post.imagePrompt ?? "" : (post.imagePrompt?.startsWith("Create one polished") ? post.imagePrompt : "");
     form.captions = {
       instagram: post.captions?.instagram ?? post.caption ?? "",
       facebook: post.captions?.facebook ?? post.caption ?? "",
@@ -382,11 +415,14 @@ export default function SocialStudioPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-3"><CardTitle className="text-base">30-day campaign</CardTitle><CardDescription>Import the reviewed KadaVerse plan as editable drafts. Product, service, studio, trust and proof posts stay separated by audience.</CardDescription></CardHeader>
-          <CardContent>
-            <div className="mb-3 flex items-center gap-2 text-sm"><Check className="h-4 w-4 text-emerald-600" />{templatesImported.size}/30 days already in this studio</div>
-            <Button variant="secondary" className="w-full" onClick={importPlan} disabled={loadingPlan || templatesImported.size === 30}>{loadingPlan ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarClock className="mr-2 h-4 w-4" />}{templatesImported.size ? "Import remaining briefs" : "Import 30-day plan"}</Button>
-            <p className="mt-2 text-xs text-muted-foreground">Every brief is a draft. Upload artwork and review copy before anything can publish.</p>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Prompt book</CardTitle><CardDescription>Download the 30-day KadaVerse book or import your own compatible prompt book. Each entry becomes a draft.</CardDescription></CardHeader>
+          <CardContent className="space-y-2">
+            <div className="mb-3 flex items-center gap-2 text-sm"><Check className="h-4 w-4 text-emerald-600" />{templatesImported.size}/{STARTER_BOOK.posts.length} starter briefs already in this studio</div>
+            <Button variant="secondary" className="w-full" onClick={() => void importBook(STARTER_BOOK)} disabled={loading || loadingPlan || templatesImported.size === STARTER_BOOK.posts.length}>{loadingPlan ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarClock className="mr-2 h-4 w-4" />}{templatesImported.size ? "Import remaining starter briefs" : "Import 30-day plan"}</Button>
+            <Button variant="outline" className="w-full" onClick={downloadPromptBook}><Download className="mr-2 h-4 w-4" />Download prompt book JSON</Button>
+            <input ref={promptBookInput} className="sr-only" type="file" accept=".json,application/json" aria-label="Choose prompt book JSON" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importPromptBookFile(file); event.currentTarget.value = ""; }} />
+            <Button variant="outline" className="w-full" onClick={() => promptBookInput.current?.click()} disabled={loading || loadingPlan}><Upload className="mr-2 h-4 w-4" />{loadingPlan ? "Importing prompts…" : "Import prompt book JSON"}</Button>
+            <p className="mt-2 text-xs text-muted-foreground">The importer checks the schema, required copy, unique IDs and days before writing anything. Re-importing a book skips entries already in the calendar. Upload artwork and review drafts before scheduling or publishing.</p>
           </CardContent>
         </Card>
       </div>
@@ -414,6 +450,7 @@ export default function SocialStudioPage() {
         setForm={setEditing}
         saving={saving}
         destinations={destinations}
+        brandProfiles={brandProfiles}
         onClose={() => setEditing(null)}
         onSave={savePost}
         onUpload={uploadAsset}
@@ -437,7 +474,7 @@ function PostCard({ post, onEdit, onDelete, onPublish }: { post: SocialPost; onE
     <CardContent className="flex flex-col gap-4 p-4 md:flex-row md:items-center">
       {post.assetUrl ? <img src={post.assetUrl} alt="Poster preview" className="h-24 w-20 rounded-md border object-cover" /> : <div className="flex h-24 w-20 items-center justify-center rounded-md border bg-muted text-muted-foreground"><ImagePlus className="h-6 w-6" /></div>}
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{post.title}</h3><Badge className={statusStyles[post.status]} variant="secondary">{post.status}</Badge><Badge variant="outline">{post.category}</Badge>{post.planDay && <Badge variant="outline">Day {post.planDay}</Badge>}</div>
+        <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{post.title}</h3><Badge className={statusStyles[post.status]} variant="secondary">{post.status}</Badge><Badge variant="outline">{post.category}</Badge><Badge variant="outline">{DEFAULT_BRAND_PROFILES_BY_ID[post.brandProfileId ?? inferBrandProfileId(post.title)]?.name ?? "KadaVerse"}</Badge>{post.planDay && <Badge variant="outline">Day {post.planDay}</Badge>}</div>
         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{post.headline || post.caption || "No copy added yet."}</p>
         {post.scheduledAt && <p className="mt-1 text-xs text-muted-foreground">Scheduled {post.scheduledAt.toDate().toLocaleString()}</p>}
         <div className="mt-2 flex flex-wrap gap-2">{PLATFORM_KEYS.filter((platform) => post.destinations?.[platform]).map((platform) => { const Icon = networkIcons[platform]; const result = results[platform]; return <span key={platform} className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"><Icon className="h-3 w-3" />{platformNames[platform]}: {result?.status ?? post.status}{result?.message ? ` · ${result.message}` : ""}</span>; })}</div>
@@ -453,19 +490,21 @@ function PostCard({ post, onEdit, onDelete, onPublish }: { post: SocialPost; onE
 }
 
 function EditorDialog({
-  form, setForm, saving, destinations, onClose, onSave, onUpload, onCreatePrompt,
+  form, setForm, saving, destinations, brandProfiles, onClose, onSave, onUpload, onCreatePrompt,
 }: {
   form: EditorForm; setForm: (form: EditorForm) => void; saving: boolean;
+  brandProfiles: Record<string, BrandProfile>;
   destinations: Record<Platform, SocialTarget[]>; onClose: () => void;
   onSave: (mode: "draft" | "scheduled" | "publish") => void;
   onUpload: (file: File, kind: "poster" | "reference") => void; onCreatePrompt: () => void;
 }) {
   const [captionPlatform, setCaptionPlatform] = useState<Platform>("instagram");
+  const brand = brandProfiles[form.brandProfileId] ?? DEFAULT_BRAND_PROFILES_BY_ID.kadaverse;
   const setField = <K extends keyof EditorForm>(key: K, value: EditorForm[K]) => setForm({ ...form, [key]: value });
   const setDestination = (platform: Platform, value: string) => setForm({ ...form, destinations: { ...form.destinations, [platform]: value || undefined } });
   const setCaption = (platform: Platform, value: string) => setForm({ ...form, captions: { ...form.captions, [platform]: value } });
   const copyPrompt = async () => {
-    const value = form.imagePrompt.startsWith("Create one polished KadaVerse") ? form.imagePrompt : createImagePrompt(form);
+    const value = form.imagePrompt || createPosterPrompt({ ...form, referenceAssetNames: form.referenceAssets.map((asset) => asset.name) }, brand);
     try { await navigator.clipboard.writeText(value); toast.success("Poster prompt copied."); }
     catch { setForm({ ...form, imagePrompt: value }); toast.message("Prompt placed in the image prompt field."); }
   };
@@ -478,6 +517,7 @@ function EditorDialog({
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Post title"><Input value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Campaign or creative name" /></Field>
             <Field label="Category"><Input value={form.category} onChange={(e) => setField("category", e.target.value)} placeholder="Product, service, trust, brand…" /></Field>
+            <Field label="Brand profile"><select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={form.brandProfileId} onChange={(e) => setForm({ ...form, brandProfileId: e.target.value, imagePrompt: "" })}>{BRAND_PROFILE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.name} · {option.section}</option>)}</select><span className="block text-xs text-muted-foreground">Using {brand.palette.primary}, {brand.palette.accent} and {brand.font}.</span></Field>
             <Field label="Audience"><Input value={form.audience} onChange={(e) => setField("audience", e.target.value)} placeholder="Who should this reach?" /></Field>
             <Field label="Campaign goal"><Input value={form.goal} onChange={(e) => setField("goal", e.target.value)} placeholder="Awareness, enquiry, app installs…" /></Field>
           </div>
@@ -485,7 +525,8 @@ function EditorDialog({
           <Field label="Poster support copy"><Input value={form.support} onChange={(e) => setField("support", e.target.value)} placeholder="One clear benefit or proof point" /></Field>
           <Field label="Poster call to action"><Input value={form.cta} onChange={(e) => setField("cta", e.target.value)} placeholder="What should the viewer do next?" /></Field>
           <Field label="Visual direction"><Textarea value={form.visualDirection} onChange={(e) => setField("visualDirection", e.target.value)} rows={3} placeholder="Composition, product screen, mood, props and reference cue" /></Field>
-          <Field label="Image-generation prompt"><Textarea value={form.imagePrompt} onChange={(e) => setField("imagePrompt", e.target.value)} rows={7} placeholder="Generate a complete poster prompt from the fields and visual direction" /><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={onCreatePrompt}><WandSparkles className="mr-2 h-4 w-4" />Build full KadaVerse prompt</Button><Button size="sm" variant="outline" onClick={copyPrompt}><Copy className="mr-2 h-4 w-4" />Copy prompt</Button></div></Field>
+          <Field label="Campaign visual prompt"><Textarea value={form.dailyPrompt} onChange={(e) => setField("dailyPrompt", e.target.value)} rows={3} placeholder="Specific scene, prop, composition or screenshot direction for this campaign" /></Field>
+          <Field label="Full image-generation prompt"><Textarea value={form.imagePrompt} onChange={(e) => setField("imagePrompt", e.target.value)} rows={8} placeholder="Build a complete poster prompt from this brand profile and campaign brief" /><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={onCreatePrompt}><WandSparkles className="mr-2 h-4 w-4" />Build full brand prompt</Button><Button size="sm" variant="outline" onClick={copyPrompt}><Copy className="mr-2 h-4 w-4" />Copy prompt</Button></div></Field>
           <div>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><Label>Social caption</Label><div className="flex gap-1">{PLATFORM_KEYS.map((platform) => <Button key={platform} size="sm" variant={captionPlatform === platform ? "default" : "outline"} onClick={() => setCaptionPlatform(platform)}>{platformNames[platform].replace(" Page", "")}</Button>)}</div></div>
             <Textarea value={activeCaption} onChange={(e) => setCaption(captionPlatform, e.target.value)} rows={5} placeholder={`Write a caption for ${platformNames[captionPlatform]}`} />

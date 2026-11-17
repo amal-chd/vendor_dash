@@ -39,10 +39,13 @@ Social Studio is in Admin → Marketing → Social Studio. The app prepares and 
 ## Using the studio
 
 1. Open Social Studio and connect Meta and/or LinkedIn. Approve the requested provider permissions in the provider's consent screen.
-2. Import the KadaVerse 30-day plan. The 30 product, service, studio, trust, and proof briefs are created as drafts; existing plan days are not duplicated.
-3. Open a brief, refine its audience and copy, and build/copy the full KadaVerse image prompt. Add any approved logo, product screenshot or visual reference to the brief.
-4. Generate the finished poster with your preferred image tool. Upload a JPG or PNG no larger than 8 MB, select the connected target account(s), and edit each platform caption.
-5. Save a draft, schedule it in your local time zone, or publish it now. Scheduled posts are picked up once per minute. Check each platform's result before retrying any delivery marked unclear; a manual retry can otherwise create a duplicate if a provider accepted the first request but its response was lost.
+2. In Marketing → Brand Kit, review the KadaVerse and product profiles. Update each profile's audience, voice, claim rules, logo, website, hashtags, font and five brand colours, then save it. The Kada profile also keeps the existing communication-brand record in sync.
+3. In Social Studio, use **Download prompt book JSON** for the importable 30-day file, or **Import prompt book JSON** to load a compatible file. The file must use `schemaVersion: 1`, contain 1–100 posts, and give every post a unique ID and day with the required campaign copy and visual prompt. The importer validates the entire file before writing and creates drafts only. Re-imports skip the same prompt-book ID/day pair; use a new book ID when you intentionally want another campaign using those days.
+4. Open a brief and choose its Brand profile. The full image prompt reads that profile's palette, typography, positioning, voice, logo, hashtags and claim/offer rules. Refine the copy, then add any approved logo, product screenshot or visual reference to the brief.
+5. Generate the finished poster with your preferred image tool. Upload a JPG or PNG no larger than 8 MB, select the connected target account(s), and edit each platform caption.
+6. Save a draft, schedule it in your local time zone, or publish it now. Scheduled posts are picked up once per minute. Check each platform's result before retrying any delivery marked unclear; a manual retry can otherwise create a duplicate if a provider accepted the first request but its response was lost.
+
+The editable profile defaults are starting values. Confirm product features, service availability, brand assets, URLs and campaign-specific offer terms before publishing. Never treat a generated prompt as proof of a marketing claim.
 
 ## Current supported scope
 

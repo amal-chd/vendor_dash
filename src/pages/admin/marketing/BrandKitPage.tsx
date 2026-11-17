@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { useEffect, useMemo, useState } from "react";
+import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,79 +10,75 @@ import { Check, Copy, Loader2, Palette, Save } from "lucide-react";
 import { toast } from "sonner";
 import { when } from "../comms/commsApi";
 import { BRAND_DOC } from "./marketingData";
+import { BRAND_PROFILES_COLLECTION, BRAND_PROFILE_OPTIONS, buildBrandProfileMap, type BrandProfile } from "./brandProfiles";
 
-// Mirrors functions/src/comms/brand.ts and the apps' Kada Blue — the
-// palette is code, so it's shown here to copy, not edited.
-const PALETTE = [
-  { name: "Navy", hex: "#0F1F4F" },
-  { name: "Royal", hex: "#1E3A8A" },
-  { name: "Kada Blue", hex: "#2563EB" },
-  { name: "Azure", hex: "#0284C7" },
-  { name: "Ice", hex: "#E0F2FE" },
-  { name: "Ink", hex: "#0F172A" },
-  { name: "Kada Gold", hex: "#B07D12" },
+const TEXT_FIELDS: { key: keyof BrandProfile; label: string; hint: string; rows?: number }[] = [
+  { key: "description", label: "Profile description", hint: "Short internal description for the marketing team." },
+  { key: "audience", label: "Primary audience", hint: "Who this product or company speaks to.", rows: 2 },
+  { key: "positioning", label: "Positioning", hint: "Who it is for, what it does and why it matters.", rows: 3 },
+  { key: "voice", label: "Voice & tone", hint: "How campaign copy should sound.", rows: 3 },
+  { key: "wordsUse", label: "Words we use", hint: "Comma-separated phrases that fit the brand.", rows: 2 },
+  { key: "wordsAvoid", label: "Words & habits we avoid", hint: "Claims, clichés or habits to keep out of copy.", rows: 2 },
+  { key: "claims", label: "Claims & proof rules", hint: "Facts that need evidence or must not be invented.", rows: 3 },
+  { key: "offerRules", label: "Offer rules", hint: "Terms and conditions the creative must communicate.", rows: 3 },
 ];
 
-interface Brand {
-  positioning: string;
-  voice: string;
-  wordsUse: string;
-  wordsAvoid: string;
-  claims: string;
-  offerRules: string;
-  logoUrl: string;
-  handles: string;
-  hashtags: string;
-  updatedAt?: { toMillis?: () => number };
-  updatedBy?: string;
-}
-
-// A starting point the team edits — nothing is saved until they press Save.
-const STARTER: Brand = {
-  positioning: "The Kada is the local super-app for food delivery, dining, stays and mess — built for our city, fair to the kitchens and riders who power it.",
-  voice: "Warm, local and plain-spoken. Short sentences. Talk like a helpful neighbour, not a bank. Confident, never shouty.",
-  wordsUse: "your neighbourhood, fresh, on the way, local kitchens, fair",
-  wordsAvoid: "ALL CAPS, !!!, 'best in India', 'guaranteed', 'free' (unless it is free), fake urgency ('only 2 left' when it isn't)",
-  claims: "Never publish a number we can't prove — no invented order counts, ratings, delivery times or savings. Every claim needs a source in our own data.",
-  offerRules: "State the full condition next to the headline (minimum order, max discount, expiry, who it's for). Codes in caps. One offer per message.",
-  logoUrl: "https://www.thekada.in/favicon.png",
-  handles: "",
-  hashtags: "#TheKada",
-};
-
-const FIELDS: { key: keyof Brand; label: string; hint: string; rows?: number }[] = [
-  { key: "positioning", label: "Positioning", hint: "One or two sentences: who we're for and why us.", rows: 3 },
-  { key: "voice", label: "Voice & tone", hint: "How every message should sound.", rows: 3 },
-  { key: "wordsUse", label: "Words we use", hint: "Comma-separated.", rows: 2 },
-  { key: "wordsAvoid", label: "Words & habits we avoid", hint: "Comma-separated.", rows: 2 },
-  { key: "claims", label: "Claims rule", hint: "What may be stated as fact, and the proof needed.", rows: 3 },
-  { key: "offerRules", label: "How we write offers", hint: "So customers never feel tricked.", rows: 3 },
+const ASSET_FIELDS: { key: "logoUrl" | "website" | "handles" | "hashtags" | "font"; label: string; placeholder: string }[] = [
+  { key: "logoUrl", label: "Logo URL", placeholder: "https://…" },
+  { key: "website", label: "Website / destination", placeholder: "https://…" },
+  { key: "handles", label: "Social handles", placeholder: "Instagram @… · LinkedIn …" },
+  { key: "hashtags", label: "Preferred hashtags", placeholder: "#Brand #Category" },
+  { key: "font", label: "Typography", placeholder: "Font family or style" },
 ];
 
-/**
- * Brand kit — the one page a marketer, agency or partner reads before
- * writing anything for The Kada. Saved in marketing_settings/brand.
- */
+const COLOR_FIELDS: { key: keyof BrandProfile["palette"]; label: string }[] = [
+  { key: "primary", label: "Primary" },
+  { key: "secondary", label: "Secondary" },
+  { key: "accent", label: "Accent" },
+  { key: "background", label: "Background" },
+  { key: "text", label: "Text" },
+];
+
+/** Shared brand source for Social Studio prompts and the wider Marketing workspace. */
 export default function BrandKitPage() {
-  const [brand, setBrand] = useState<Brand | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [savedProfiles, setSavedProfiles] = useState<Record<string, Partial<BrandProfile>>>({});
+  const [legacyKada, setLegacyKada] = useState<Partial<BrandProfile>>();
+  const [selectedId, setSelectedId] = useState("kadaverse");
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const profiles = useMemo(() => buildBrandProfileMap(savedProfiles, legacyKada), [savedProfiles, legacyKada]);
+  const brand = profiles[selectedId];
 
-  useEffect(() => onSnapshot(doc(db, ...BRAND_DOC), (snap) => {
-    setSaved(snap.exists());
-    setBrand((cur) => cur ?? (snap.exists() ? { ...STARTER, ...(snap.data() as Brand) } : STARTER));
-  }, () => setBrand((cur) => cur ?? STARTER)), []);
+  useEffect(() => {
+    const unsubscribeProfiles = onSnapshot(collection(db, BRAND_PROFILES_COLLECTION), (snapshot) => {
+      const rows: Record<string, Partial<BrandProfile>> = {};
+      snapshot.docs.forEach((item) => { rows[item.id] = item.data() as Partial<BrandProfile>; });
+      setSavedProfiles(rows);
+    }, () => toast.error("Couldn't load saved brand profiles."));
+    const unsubscribeLegacy = onSnapshot(doc(db, ...BRAND_DOC), (snapshot) => {
+      if (snapshot.exists()) setLegacyKada(snapshot.data() as Partial<BrandProfile>);
+    });
+    return () => { unsubscribeProfiles(); unsubscribeLegacy(); };
+  }, []);
 
   const save = async () => {
     if (!brand) return;
+    const invalidColor = COLOR_FIELDS.find((field) => !/^#[0-9a-fA-F]{6}$/.test(brand.palette[field.key]));
+    if (invalidColor) {
+      toast.error(`${invalidColor.label} colour must be a six-digit hex value, such as #2563EB.`);
+      return;
+    }
     setSaving(true);
     try {
-      const { updatedAt: _u, updatedBy: _b, ...rest } = brand;
-      await setDoc(doc(db, ...BRAND_DOC), { ...rest, updatedAt: serverTimestamp(), updatedBy: auth.currentUser?.email || null }, { merge: true });
-      toast.success("Brand kit saved");
+      const { updatedAt: _updatedAt, updatedBy: _updatedBy, ...rest } = brand;
+      const payload = { ...rest, updatedAt: serverTimestamp(), updatedBy: auth.currentUser?.email || null };
+      await setDoc(doc(db, BRAND_PROFILES_COLLECTION, brand.id), payload, { merge: true });
+      // Keep the existing communication-brand record in sync for The Kada's
+      // email/SMS templates that still read marketing_settings/brand.
+      if (brand.id === "the-kada") await setDoc(doc(db, ...BRAND_DOC), payload, { merge: true });
+      toast.success(`${brand.name} profile saved`);
     } catch {
-      toast.error("Couldn't save the brand kit. Check your admin access and try again.");
+      toast.error("Couldn't save this brand profile. Check your marketing admin access and try again.");
     } finally {
       setSaving(false);
     }
@@ -92,87 +88,90 @@ export default function BrandKitPage() {
     try {
       await navigator.clipboard.writeText(hex);
       setCopied(hex);
-      setTimeout(() => setCopied((c) => (c === hex ? null : c)), 1500);
-    } catch {
-      toast.error("Couldn't copy.");
-    }
+      setTimeout(() => setCopied((value) => value === hex ? null : value), 1500);
+    } catch { toast.error("Couldn't copy the colour value."); }
   };
 
-  if (!brand) {
-    return <div className="flex items-center justify-center py-24 text-muted-foreground gap-2"><Loader2 className="h-4 w-4 animate-spin" />Loading brand kit…</div>;
-  }
-  const set = (k: keyof Brand, v: string) => setBrand({ ...brand, [k]: v });
+  const update = (key: keyof BrandProfile, value: string) => {
+    setSavedProfiles((current) => ({
+      ...current,
+      [selectedId]: { ...brand, ...current[selectedId], [key]: value },
+    }));
+  };
+  const updateColor = (key: keyof BrandProfile["palette"], value: string) => {
+    setSavedProfiles((current) => ({
+      ...current,
+      [selectedId]: { ...brand, ...current[selectedId], palette: { ...brand.palette, [key]: value } },
+    }));
+  };
+
+  if (!brand) return <div className="flex items-center justify-center gap-2 py-24 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading brand kit…</div>;
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-64 flex-1">
           <h2 className="text-lg font-bold tracking-tight">Brand kit</h2>
-          <p className="text-sm text-muted-foreground">
-            How The Kada looks and sounds — read it before writing any campaign.
-            {saved && brand.updatedAt ? ` Last saved ${when(brand.updatedAt)}${brand.updatedBy ? ` by ${brand.updatedBy}` : ""}.` : " Not saved yet — edit the starter text and save."}
-          </p>
+          <p className="text-sm text-muted-foreground">One editable source for KadaVerse and each product. Social Studio uses the selected profile in its full poster prompts.</p>
+          {brand.updatedAt && <p className="mt-1 text-xs text-muted-foreground">Last saved {when(brand.updatedAt)}{brand.updatedBy ? ` by ${brand.updatedBy}` : ""}.</p>}
         </div>
         <Button size="sm" onClick={save} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}Save brand kit
+          {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}Save {brand.name}
         </Button>
       </div>
 
       <Card className="rounded-2xl">
-        <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Palette className="h-4 w-4" />Colours & type</CardTitle></CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-base">Choose a company or product</CardTitle><CardDescription>Each profile has its own audience, tone, visual palette, logo and claim rules. Select the profile you are editing.</CardDescription></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
-            {PALETTE.map((c) => (
-              <button key={c.hex} type="button" onClick={() => copyHex(c.hex)}
-                className="rounded-xl border overflow-hidden text-left hover:shadow-sm transition-shadow">
-                <div className="h-14" style={{ background: c.hex }} />
-                <div className="p-2">
-                  <p className="text-xs font-semibold">{c.name}</p>
-                  <p className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
-                    {c.hex}{copied === c.hex ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-                  </p>
-                </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {BRAND_PROFILE_OPTIONS.map((option) => (
+              <button key={option.id} type="button" onClick={() => setSelectedId(option.id)} className={`rounded-xl border p-3 text-left transition-colors ${selectedId === option.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50"}`}>
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{option.section}</span>
+                <span className="mt-1 block font-semibold">{option.name}</span>
+                <span className="mt-1 block line-clamp-2 text-xs text-muted-foreground">{profiles[option.id].description}</span>
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Type: <span className="font-semibold">Plus Jakarta Sans</span> everywhere — apps, web and email. Gradients run navy → royal → Kada Blue → azure.
-          </p>
+          <div className="rounded-xl border bg-muted/20 p-3 text-sm"><span className="font-semibold">{brand.name}</span><span className="text-muted-foreground"> · {brand.audience}</span></div>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl">
+        <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base"><Palette className="h-4 w-4" />Colours & type</CardTitle><CardDescription>These are included in image prompts. Colour values accept six-digit hex codes.</CardDescription></CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+            {COLOR_FIELDS.map((field) => {
+              const hex = brand.palette[field.key];
+              return <div key={field.key} className="overflow-hidden rounded-xl border">
+                <div className="h-14" style={{ background: /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : "#ffffff" }} />
+                <div className="space-y-1 p-2">
+                  <Label className="text-xs font-semibold">{field.label}</Label>
+                  <div className="flex gap-1"><Input aria-label={`${brand.name} ${field.label} colour`} value={hex} onChange={(event) => updateColor(field.key, event.target.value)} className="h-8 px-2 font-mono text-xs" /><Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label={`Copy ${field.label} colour`} onClick={() => copyHex(hex)}>{copied === hex ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}</Button></div>
+                </div>
+              </div>;
+            })}
+          </div>
+          <div className="max-w-xl space-y-1.5"><Label>Typography</Label><Input value={brand.font} onChange={(event) => update("font", event.target.value)} placeholder="Font family or visual style" /></div>
         </CardContent>
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        {FIELDS.map((f) => (
-          <Card key={f.key} className="rounded-2xl">
-            <CardContent className="p-5 space-y-1.5">
-              <Label className="text-sm font-semibold">{f.label}</Label>
-              <p className="text-xs text-muted-foreground">{f.hint}</p>
-              <Textarea rows={f.rows ?? 3} value={(brand[f.key] as string) ?? ""} onChange={(e) => set(f.key, e.target.value)} />
-            </CardContent>
-          </Card>
+        {TEXT_FIELDS.map((field) => (
+          <Card key={field.key} className="rounded-2xl"><CardContent className="space-y-1.5 p-5">
+            <Label className="text-sm font-semibold">{field.label}</Label><p className="text-xs text-muted-foreground">{field.hint}</p>
+            <Textarea rows={field.rows ?? 2} value={String(brand[field.key] ?? "")} onChange={(event) => update(field.key, event.target.value)} />
+          </CardContent></Card>
         ))}
       </div>
 
       <Card className="rounded-2xl">
-        <CardHeader className="pb-2"><CardTitle className="text-base">Assets & handles</CardTitle></CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label>Logo URL</Label>
-            <Input value={brand.logoUrl} onChange={(e) => set("logoUrl", e.target.value)} />
-            {/^https:\/\//.test(brand.logoUrl) && (
-              <div className="mt-2 inline-flex rounded-xl border bg-white p-3">
-                <img src={brand.logoUrl} alt="The Kada logo" className="h-12 w-12 object-contain" />
-              </div>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label>Social handles</Label>
-            <Textarea rows={3} value={brand.handles} onChange={(e) => set("handles", e.target.value)} placeholder="Instagram @…  ·  YouTube @…" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Hashtags</Label>
-            <Textarea rows={3} value={brand.hashtags} onChange={(e) => set("hashtags", e.target.value)} />
-          </div>
+        <CardHeader className="pb-2"><CardTitle className="text-base">Assets & publishing details</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {ASSET_FIELDS.map((field) => (
+            <div key={field.key} className="space-y-1.5"><Label>{field.label}</Label><Input value={brand[field.key]} onChange={(event) => update(field.key, event.target.value)} placeholder={field.placeholder} />
+              {field.key === "logoUrl" && /^https:\/\//.test(brand.logoUrl) && <div className="inline-flex rounded-xl border bg-white p-2"><img src={brand.logoUrl} alt={`${brand.name} logo`} className="h-12 w-12 object-contain" /></div>}
+            </div>
+          ))}
         </CardContent>
       </Card>
     </div>
