@@ -2,17 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Bike, Users } from "lucide-react";
+import { loadLeaflet } from "@/lib/leaflet";
 
 /**
  * Live dispatch map for the admin console — plots online delivery riders and
  * active-delivery customer drops on an OpenStreetMap canvas (Leaflet, loaded
- * from CDN so no build dependency / API key is required). Rider positions come
- * from `delivery_users/{uid}.location`, customer drops from each active order's
- * `deliveryAddress`.
+ * on demand). Rider positions come from `delivery_users/{uid}.location`,
+ * customer drops from each active order's `deliveryAddress`.
  */
-
-const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 
 const ACTIVE_STAGES = [
   "offered",
@@ -23,32 +20,6 @@ const ACTIVE_STAGES = [
   "on_the_way",
   "reached",
 ];
-
-function loadLeaflet(): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const w = window as any;
-    if (w.L) return resolve(w.L);
-    if (!document.querySelector(`link[href="${LEAFLET_CSS}"]`)) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = LEAFLET_CSS;
-      document.head.appendChild(link);
-    }
-    const existing = document.querySelector(`script[src="${LEAFLET_JS}"]`) as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener("load", () => resolve(w.L));
-      existing.addEventListener("error", reject);
-      if (w.L) resolve(w.L);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = LEAFLET_JS;
-    script.async = true;
-    script.onload = () => resolve(w.L);
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-}
 
 interface RiderPin {
   id: string;

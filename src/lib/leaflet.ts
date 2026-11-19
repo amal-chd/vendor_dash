@@ -52,18 +52,35 @@ export function loadLeaflet(): Promise<any> {
   if (pending) return pending;
 
   pending = (async () => {
-    let lastError: unknown;
-    for (const source of SOURCES) {
-      try {
-        injectCss(source.css);
-        return await injectScript(source.js);
-      } catch (e) {
-        lastError = e;
+    try {
+      // 1. Primary: load local bundled Leaflet via dynamic import.
+      // This is code-split into a separate chunk (vendor-leaflet) and avoids any
+      // external CDN failure, CSP block, ad-blocker or offline outage.
+      const [leafletModule] = await Promise.all([
+        import("leaflet"),
+        import("leaflet/dist/leaflet.css"),
+      ]);
+      const L = (leafletModule as any).default || leafletModule;
+      w.L = L;
+      return L;
+    } catch (importErr) {
+      console.warn("[leaflet] Bundled import failed, falling back to CDN:", importErr);
+      // 2. Fallback: try external CDNs if dynamic import fails
+      let lastError: unknown = importErr;
+      for (const source of SOURCES) {
+        try {
+          injectCss(source.css);
+          const L = await injectScript(source.js);
+          w.L = L;
+          return L;
+        } catch (e) {
+          lastError = e;
+        }
       }
+      // Let the next caller retry rather than caching the failure forever.
+      pending = null;
+      throw lastError instanceof Error ? lastError : new Error("Could not load the map library.");
     }
-    // Let the next caller retry rather than caching the failure forever.
-    pending = null;
-    throw lastError instanceof Error ? lastError : new Error("Could not load the map library.");
   })();
 
   return pending;
