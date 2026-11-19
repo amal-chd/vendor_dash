@@ -3,9 +3,10 @@ import { useAuth } from './useAuth';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { PLANS, Plan, Capability } from '@/constants/plans';
+import { isAdminEmail } from '@/lib/auth-flow';
 
 export function useSubscription() {
-  const { user, restaurantId } = useAuth();
+  const { user, restaurantId, isAdmin, isImpersonating } = useAuth();
   const [subscription, setSubscription] = useState<{
     plan: Plan;
     status: string;
@@ -32,6 +33,8 @@ export function useSubscription() {
       setLoading(false);
       return;
     }
+
+    const isAdminOrImpersonating = isAdmin || isImpersonating || isAdminEmail(user.email);
 
     // Outlet sub-accounts inherit subscription from the parent restaurant —
     // read the effective restaurant doc, never `user.uid` directly.
@@ -79,24 +82,49 @@ export function useSubscription() {
 
         setSubscription({
           plan: userPlan,
-          status,
+          status: isAdminOrImpersonating ? 'active' : status,
           endDate: endDateStr,
-          daysLeft,
-          isExpired,
+          daysLeft: isAdminOrImpersonating ? (daysLeft ?? 999) : daysLeft,
+          isExpired: isAdminOrImpersonating ? false : isExpired,
           billingModel: data.billingModel === 'subscription' ? 'subscription' : 'commission',
           cancelAtPeriodEnd: data.subscriptionCancelAtPeriodEnd === true,
+        });
+      } else if (isAdminOrImpersonating) {
+        // Fallback for admins when viewing an account without explicit restaurant subscription doc
+        setSubscription({
+          plan: PLANS[PLANS.length - 1], // Full enterprise / top tier capabilities
+          status: 'active',
+          endDate: null,
+          daysLeft: 999,
+          isExpired: false,
+          billingModel: 'commission',
+          cancelAtPeriodEnd: false,
         });
       }
       setLoading(false);
     }, (err) => {
       console.error('Error fetching subscription:', err);
+      if (isAdminOrImpersonating) {
+        setSubscription({
+          plan: PLANS[PLANS.length - 1],
+          status: 'active',
+          endDate: null,
+          daysLeft: 999,
+          isExpired: false,
+          billingModel: 'commission',
+          cancelAtPeriodEnd: false,
+        });
+      }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user, restaurantId]);
+  }, [user, restaurantId, isAdmin, isImpersonating]);
 
   const hasCapability = (capability: Capability) => {
+    if (isAdmin || isImpersonating || isAdminEmail(user?.email)) {
+      return true;
+    }
     return subscription.plan.capabilities.includes(capability);
   };
 

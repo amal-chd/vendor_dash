@@ -626,8 +626,9 @@ export default function TenantsHub() {
   // value alone.
   const handleImpersonate = useCallback((r: Restaurant) => {
     sessionStorage.setItem("kada_impersonate_id", r.id);
+    localStorage.setItem("kada_impersonate_id", r.id);
     toast.success(`Impersonating ${r.name} — you will see their dashboard`);
-    navigate("/dashboard");
+    navigate(`/dashboard?impersonate=${encodeURIComponent(r.id)}`);
   }, [navigate]);
 
   // ── Delete (soft) ──────────────────────────────────────────────────────────

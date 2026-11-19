@@ -26,7 +26,7 @@ import {
 import { Link } from 'react-router-dom';
 
 export function OutletSwitcher({ className }: { className?: string }) {
-  const { outlets, restaurantId, setRestaurantId, isStaffOutlet, primaryOutletId } = useAuth();
+  const { outlets, restaurantId, setRestaurantId, isStaffOutlet, primaryOutletId, isImpersonating, isAdmin } = useAuth();
   const { plan, loading } = useSubscription();
   const [open, setOpen] = useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
@@ -45,7 +45,7 @@ export function OutletSwitcher({ className }: { className?: string }) {
   const isGlobal = restaurantId === 'global';
   const selectedOutlet = outlets.find((o) => o.id === restaurantId);
   const label = isGlobal ? 'All Outlets' : (selectedOutlet?.name || 'Select a location to manage');
-  const isLocked = plan?.id === 'starter';
+  const isLocked = !isImpersonating && !isAdmin && plan?.id === 'starter';
 
   if (isLocked) {
     return (

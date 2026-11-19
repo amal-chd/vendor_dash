@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { collection, doc, onSnapshot, query, where, getDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where, getDoc, getDocs, limit } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { ensureUserSession, heartbeatUserSession } from "@/lib/sessions";
+import { isAdminEmail } from "@/lib/auth-flow";
 
 export interface OutletInfo {
   id: string;
@@ -43,6 +44,13 @@ interface AuthContextType {
   businessType: "restaurant" | "mess";
   isMess: boolean;
   messData: any | null;
+
+  // Admin & Impersonation
+  isAdmin: boolean;
+  isImpersonating: boolean;
+  impersonatedRestaurantId: string | null;
+  startImpersonating: (id: string) => void;
+  stopImpersonating: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -60,6 +68,11 @@ const AuthContext = createContext<AuthContextType>({
   businessType: "restaurant",
   isMess: false,
   messData: null,
+  isAdmin: false,
+  isImpersonating: false,
+  impersonatedRestaurantId: null,
+  startImpersonating: () => {},
+  stopImpersonating: () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -79,6 +92,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [teamRole, setTeamRole] = useState<string | null>(null);
   const [primaryOutletId, setPrimaryOutletId] = useState<string | null>(null);
   const [billingAccountId, setBillingAccountId] = useState<string | null>(null);
+
+  // Admin & Impersonation state
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  const [impersonatedRestaurantId, setImpersonatedRestaurantId] = useState<string | null>(null);
   
   // Available outlets for switching
   const [outlets, setOutlets] = useState<OutletInfo[]>([]);
@@ -87,9 +105,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Wrapper to save preference to localStorage
   const setRestaurantId = (id: string) => {
     setRestaurantIdState(id);
-    if (user) {
-      localStorage.setItem(`kada_active_outlet_${user.uid}`, id);
+    const key = isImpersonating && impersonatedRestaurantId
+      ? `kada_active_outlet_${impersonatedRestaurantId}`
+      : (user ? `kada_active_outlet_${user.uid}` : null);
+    if (key) {
+      localStorage.setItem(key, id);
     }
+  };
+
+  const startImpersonating = (id: string) => {
+    sessionStorage.setItem("kada_impersonate_id", id);
+    localStorage.setItem("kada_impersonate_id", id);
+    setIsImpersonating(true);
+    setImpersonatedRestaurantId(id);
+    window.location.reload();
+  };
+
+  const stopImpersonating = () => {
+    sessionStorage.removeItem("kada_impersonate_id");
+    localStorage.removeItem("kada_impersonate_id");
+    setIsImpersonating(false);
+    setImpersonatedRestaurantId(null);
+    if (window.location.search.includes("impersonate")) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    window.location.href = "/admin/vendors";
   };
 
   useEffect(() => {
@@ -104,6 +144,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setOutlets([]);
         setPrimaryOutletData(null);
         setPrimaryOutletId(null);
+        setIsAdmin(false);
+        setIsImpersonating(false);
+        setImpersonatedRestaurantId(null);
         setLoading(false);
       } else {
         // Fallback to clear loading state if onSnapshot hangs
@@ -116,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // 1. Detect if signed-in user is a staff outlet, team member, or owner
+  // 1. Detect if signed-in user is a staff outlet, team member, owner, or admin impersonator
   useEffect(() => {
     if (!user) return;
     
@@ -124,6 +167,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let unsubRest = () => {};
 
     user.getIdTokenResult().then((token) => {
+      const userIsAdmin = isAdminEmail(user.email) || token.claims.platformAdmin === true || !!token.claims.adminRole;
+      setIsAdmin(userIsAdmin);
+
       if (token.claims.staff === true && token.claims.restaurantId && token.claims.staffDocId) {
         // --- TEAM MEMBER FLOW ---
         const rId = token.claims.restaurantId as string;
@@ -149,11 +195,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(false);
         });
       } else {
-        // --- OWNER OR GENERIC OUTLET FLOW ---
+        // --- OWNER OR ADMIN IMPERSONATION FLOW ---
         setIsTeamMember(false);
         setTeamRole(null);
         
-        const ref = doc(db, 'restaurants', user.uid);
+        // Check for admin impersonation
+        let impersonateId: string | null = null;
+        if (userIsAdmin) {
+          const urlParam = new URLSearchParams(window.location.search).get("impersonate");
+          const stored = sessionStorage.getItem("kada_impersonate_id") || localStorage.getItem("kada_impersonate_id");
+          impersonateId = urlParam || stored;
+          if (impersonateId) {
+            sessionStorage.setItem("kada_impersonate_id", impersonateId);
+            localStorage.setItem("kada_impersonate_id", impersonateId);
+            setIsImpersonating(true);
+            setImpersonatedRestaurantId(impersonateId);
+          }
+        }
+
+        const targetId = impersonateId || user.uid;
+        const ref = doc(db, 'restaurants', targetId);
+
         unsubRest = onSnapshot(ref, (snap) => {
           if (snap.exists() && snap.data()?.name) {
             const data = snap.data();
@@ -165,7 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsStaffOutlet(outlet);
             
             const primaryData = {
-              id: user.uid,
+              id: targetId,
               name: data?.name || 'Main Branch',
               isActive: data?.isActive !== false,
               isOutlet: outlet,
@@ -175,44 +237,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setPrimaryOutletData(primaryData);
             
             if (outlet && parentId) {
-              setPrimaryOutletId(user.uid);
-              setRestaurantIdState(user.uid);
+              setPrimaryOutletId(targetId);
+              setRestaurantIdState(targetId);
               setBillingAccountId(parentId);
             } else {
-              setPrimaryOutletId(user.uid);
-              setBillingAccountId(user.uid);
+              setPrimaryOutletId(targetId);
+              setBillingAccountId(targetId);
               setRestaurantIdState((prev) => {
                 if (prev) return prev;
-                const saved = localStorage.getItem(`kada_active_outlet_${user.uid}`);
-                return saved || user.uid;
+                const saved = localStorage.getItem(`kada_active_outlet_${targetId}`);
+                return saved || targetId;
               });
             }
             setLoading(false);
           } else {
             // Check if this is a Mess Kitchen account
-            getDoc(doc(db, "mess_kitchens", user.uid)).then((messSnap) => {
+            getDoc(doc(db, "mess_kitchens", targetId)).then((messSnap) => {
               if (messSnap.exists()) {
                 const mData = messSnap.data();
                 setBusinessType("mess");
                 setMessData(mData);
                 setIsStaffOutlet(false);
-                setPrimaryOutletId(user.uid);
-                setBillingAccountId(user.uid);
-                setRestaurantIdState(user.uid);
+                setPrimaryOutletId(targetId);
+                setBillingAccountId(targetId);
+                setRestaurantIdState(targetId);
                 setPrimaryOutletData({
-                  id: user.uid,
+                  id: targetId,
                   name: mData?.name || "Mess Kitchen",
                   isActive: true,
                   isOutlet: false,
                   district: mData?.area,
                 });
                 setLoading(false);
+              } else if (userIsAdmin && !impersonateId) {
+                // If admin entered /dashboard without choosing a vendor, auto-impersonate the first available restaurant
+                getDocs(query(collection(db, "restaurants"), limit(1))).then((querySnap) => {
+                  if (!querySnap.empty) {
+                    const firstDoc = querySnap.docs[0];
+                    const firstData = firstDoc.data();
+                    const firstId = firstDoc.id;
+                    sessionStorage.setItem("kada_impersonate_id", firstId);
+                    localStorage.setItem("kada_impersonate_id", firstId);
+                    setIsImpersonating(true);
+                    setImpersonatedRestaurantId(firstId);
+                    setBusinessType("restaurant");
+                    setPrimaryOutletId(firstId);
+                    setBillingAccountId(firstData.parentId || firstId);
+                    setRestaurantIdState(firstId);
+                    setPrimaryOutletData({
+                      id: firstId,
+                      name: firstData.name || "Main Branch",
+                      isActive: firstData.isActive !== false,
+                      isOutlet: firstData.isOutlet === true,
+                      district: firstData.district,
+                    });
+                  } else {
+                    setBusinessType("restaurant");
+                    setPrimaryOutletId(targetId);
+                    setBillingAccountId(targetId);
+                    setRestaurantIdState((prev) => prev || targetId);
+                  }
+                  setLoading(false);
+                }).catch(() => {
+                  setBusinessType("restaurant");
+                  setPrimaryOutletId(targetId);
+                  setBillingAccountId(targetId);
+                  setRestaurantIdState((prev) => prev || targetId);
+                  setLoading(false);
+                });
               } else {
                 // Fallback restaurant
                 setBusinessType("restaurant");
-                setPrimaryOutletId(user.uid);
-                setBillingAccountId(user.uid);
-                setRestaurantIdState((prev) => prev || user.uid);
+                setPrimaryOutletId(targetId);
+                setBillingAccountId(targetId);
+                setRestaurantIdState((prev) => prev || targetId);
                 setLoading(false);
               }
             }).catch(() => {
@@ -221,9 +319,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }, () => {
           // Fallback
-          setPrimaryOutletId(user.uid);
-          setBillingAccountId(user.uid);
-          setRestaurantIdState((prev) => prev || user.uid);
+          setPrimaryOutletId(targetId);
+          setBillingAccountId(targetId);
+          setRestaurantIdState((prev) => prev || targetId);
           setLoading(false);
         });
       }
@@ -235,12 +333,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [user]);
 
-  // 2. If user is an Owner, fetch all their child outlets
+  // 2. If user is an Owner or Admin impersonating, fetch all child outlets
   useEffect(() => {
-    if (!user || isStaffOutlet || !primaryOutletData) return;
+    const effectiveOwnerId = isImpersonating ? impersonatedRestaurantId : user?.uid;
+    if (!user || isStaffOutlet || !primaryOutletData || !effectiveOwnerId) return;
     
     // Fetch all child outlets from the officially managed subcollection
-    const q = query(collection(db, 'restaurants', user.uid, 'outlets'));
+    const q = query(collection(db, 'restaurants', effectiveOwnerId, 'outlets'));
     const unsub = onSnapshot(q, (snap) => {
       const children = snap.docs
         .filter(d => !d.data().isDeleted)
@@ -251,7 +350,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: data.name || 'Unnamed Outlet',
             isActive: data.isActive !== false,
             isOutlet: true,
-            parentId: user.uid,
+            parentId: effectiveOwnerId,
             district: data.district
           } as OutletInfo;
         });
@@ -260,12 +359,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Failed to fetch outlets:", error);
     });
     return unsub;
-  }, [user, isStaffOutlet]);
+  }, [user, isStaffOutlet, isImpersonating, impersonatedRestaurantId, primaryOutletData]);
 
   // Session heartbeat
   useEffect(() => {
-    // Only send heartbeat if it's a valid single restaurant ID (not global)
-    if (!user || !restaurantId || restaurantId === 'global') return;
+    // Only send heartbeat if it's a valid single restaurant ID (not global) and NOT admin impersonating
+    if (!user || !restaurantId || restaurantId === 'global' || isImpersonating) return;
     let alive = true;
     let t: number | undefined;
 
@@ -285,7 +384,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       alive = false;
       if (t) window.clearInterval(t);
     };
-  }, [user, restaurantId]);
+  }, [user, restaurantId, isImpersonating]);
 
   // Construct final available outlets list and deduplicate by ID to prevent duplicate names/entries
   const rawOutlets = primaryOutletData ? [primaryOutletData, ...outlets] : outlets;
@@ -306,7 +405,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user, 
       loading, 
       restaurantId, 
-      activeRestaurantId: restaurantId === 'global' ? (primaryOutletId || user?.uid || null) : restaurantId,
+      activeRestaurantId: restaurantId === 'global' ? (primaryOutletId || (isImpersonating ? impersonatedRestaurantId : user?.uid) || null) : restaurantId,
       isStaffOutlet,
       isTeamMember,
       teamRole,
@@ -316,7 +415,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       billingAccountId,
       businessType,
       isMess: businessType === "mess",
-      messData
+      messData,
+      isAdmin,
+      isImpersonating,
+      impersonatedRestaurantId,
+      startImpersonating,
+      stopImpersonating
     }}>
       {children}
     </AuthContext.Provider>

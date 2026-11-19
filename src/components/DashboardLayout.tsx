@@ -13,7 +13,7 @@ import { StandardHeader } from "./StandardHeader";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { auth } from "@/lib/firebase";
-import { signOutWeb } from "@/lib/auth-flow";
+import { signOutWeb, isAdminEmail } from "@/lib/auth-flow";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "@/hooks/useNotifications";
 import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -318,7 +318,19 @@ export default function DashboardLayout() {
   const { hasCapability, plan } = useSubscription();
   // Always use restaurantId (not user.uid) so outlet sub-accounts read the
   // parent restaurant document and get the correct subscription status.
-  const { user, restaurantId, primaryOutletId, isStaffOutlet, billingAccountId, teamRole, isMess } = useAuth();
+  const {
+    user,
+    restaurantId,
+    primaryOutletId,
+    isStaffOutlet,
+    billingAccountId,
+    teamRole,
+    isMess,
+    isAdmin,
+    isImpersonating,
+    impersonatedRestaurantId,
+    stopImpersonating,
+  } = useAuth();
   const [restaurantData, setRestaurantData] = useState<any>(null);
   const [dataError, setDataError] = useState(false);
   const [isRenewalOpen, setIsRenewalOpen] = useState(false);
@@ -342,30 +354,29 @@ export default function DashboardLayout() {
     return () => unsub();
   }, []);
 
-
-
   useEffect(() => {
     if (!user) return;
     
     // If we are in 'global' view, we check the primary account's subscription.
     // Outlets always check their parent's billing account to ensure all branches
     // stay synced to the same subscription plan.
-    const activeId = billingAccountId || user.uid;
+    const activeId = billingAccountId || restaurantId || (isImpersonating ? impersonatedRestaurantId : user.uid);
+    if (!activeId) return;
 
     const unsub = onSnapshot(doc(db, "restaurants", activeId), (snap) => {
       if (snap.exists()) {
         setRestaurantData(snap.data());
         setDataError(false);
       } else {
-        setDataError(true);
+        setDataError(!isImpersonating && !isAdmin && !isAdminEmail(user?.email));
       }
     }, (error) => {
       console.error("DashboardLayout sub check failed:", error);
-      setDataError(true);
+      setDataError(!isImpersonating && !isAdmin && !isAdminEmail(user?.email));
     });
 
     return () => unsub();
-  }, [user, restaurantId, primaryOutletId]);
+  }, [user, restaurantId, primaryOutletId, billingAccountId, isImpersonating, impersonatedRestaurantId, isAdmin]);
 
   const isActive = (path: string) => {
     if (path === "/dashboard") return location.pathname === "/dashboard";
@@ -390,6 +401,11 @@ export default function DashboardLayout() {
   }, [location.pathname, teamRole, navigate]);
 
   const checkSubscription = () => {
+    // Platform administrators and impersonated vendor sessions are NEVER blocked by subscription paywall
+    if (isAdmin || isImpersonating || isAdminEmail(user?.email)) {
+      return { status: 'active', daysLeft: 999 };
+    }
+
     if (dataError) return { status: 'blocked', daysLeft: 0 };
     // Default to 'pending' (not 'active') while the Firestore snapshot is still
     // loading — prevents blocked/expired accounts from briefly accessing the dashboard.
@@ -662,6 +678,38 @@ export default function DashboardLayout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+        {/* Admin Impersonation Notice Bar */}
+        {isImpersonating && (
+          <div className="bg-amber-500 text-amber-950 px-4 py-2 text-xs font-bold flex items-center justify-between border-b border-amber-600/30 z-[100] shadow-sm shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-950 animate-pulse" />
+              <span>
+                Impersonation Mode: Viewing as <strong className="font-extrabold">{restaurantData?.name || impersonatedRestaurantId}</strong>
+              </span>
+              {restaurantData?.subscriptionStatus && restaurantData.subscriptionStatus !== 'active' && (
+                <span className="ml-2 bg-amber-950/20 text-amber-950 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider">
+                  Vendor Plan: {restaurantData.subscriptionStatus}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/admin/vendors"
+                className="px-2.5 py-1 rounded-md bg-amber-950/10 hover:bg-amber-950/20 text-amber-950 font-bold transition-colors"
+              >
+                All Vendors
+              </Link>
+              <button
+                onClick={stopImpersonating}
+                type="button"
+                className="px-3 py-1 rounded-md bg-amber-950 hover:bg-amber-900 text-amber-100 font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                Exit Impersonation
+              </button>
+            </div>
+          </div>
+        )}
+
         <StandardHeader
           logo={
             <button

@@ -324,8 +324,9 @@ export default function Vendor360() {
   const handleImpersonate = () => {
     if (!id || !r) return;
     sessionStorage.setItem("kada_impersonate_id", id);
+    localStorage.setItem("kada_impersonate_id", id);
     toast.success(`Impersonating ${r.name || "vendor"} — viewing their dashboard`);
-    window.open("/dashboard", "_blank");
+    window.open(`/dashboard?impersonate=${encodeURIComponent(id)}`, "_blank");
   };
 
   const handleToggleSuspend = async () => {
