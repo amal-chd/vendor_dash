@@ -607,15 +607,18 @@ function AdminLayoutContent() {
             <Link
               to="/admin"
               className="flex items-center gap-2.5 group min-w-0"
+              aria-label="Kada Verse Control Center"
             >
-              <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0 shadow-sm">
-                <span className="text-[8px] font-black text-primary-foreground leading-none">
-                  KD
-                </span>
+              <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
+                <img
+                  src="/logo.png"
+                  alt="Kada Verse"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div className="flex flex-col leading-none group-data-[collapsible=icon]:hidden overflow-hidden text-left">
                 <span className="text-sm font-bold tracking-tight text-foreground truncate">
-                  Kada
+                  Kada Verse
                 </span>
                 <span className="text-[10px] text-muted-foreground font-medium">
                   Control Center
