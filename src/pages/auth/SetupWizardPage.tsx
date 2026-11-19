@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { signOutWeb } from "@/lib/auth-flow";
+import { AiMenuImportDialog } from "@/components/dashboard/AiMenuImportDialog";
 import {
   onboardingClient,
   messOnboardingClient,
@@ -934,6 +935,7 @@ export default function SetupWizardPage() {
           open
           client={client}
           editable={isEditable}
+          restaurantId={user?.uid || client?.uid || ""}
           onClose={() => setActiveModal(null)}
           onSuccess={() => {
             setActiveModal(null);
@@ -2588,12 +2590,14 @@ function MenuSetupModal({
   open,
   client,
   editable,
+  restaurantId,
   onClose,
   onSuccess,
 }: {
   open: boolean;
   client: any;
   editable: boolean;
+  restaurantId?: string;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -2604,6 +2608,9 @@ function MenuSetupModal({
   const [category, setCategory] = useState("Main Course");
   const [isVeg, setIsVeg] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [aiImportOpen, setAiImportOpen] = useState(false);
+
+  const effectiveRestaurantId = restaurantId || client?.uid || "";
 
   useEffect(() => {
     client.hasMenuItems().then((res: boolean) => {
@@ -2642,117 +2649,191 @@ function MenuSetupModal({
     }
   };
 
+  const handleAiImportSuccess = async (count: number) => {
+    try {
+      await client.setStep("menu", true);
+      toast.success(`Imported ${count} dishes with AI and completed menu step!`);
+      onSuccess();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to complete menu step.");
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Menu Setup</DialogTitle>
-          <DialogDescription>
-            Confirm at least one starter dish so your digital catalog can be created.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open && !aiImportOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              Menu Setup
+            </DialogTitle>
+            <DialogDescription>
+              Add dishes or import your full printed menu using AI to complete this step.
+            </DialogDescription>
+          </DialogHeader>
 
-        {checking ? (
-          <div className="py-8 text-center space-y-2">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto" />
-            <p className="text-xs text-slate-500">Checking your menu catalog…</p>
-          </div>
-        ) : hasItems ? (
-          <div className="py-4 space-y-4">
-            <div className="rounded-2xl bg-emerald-50 p-4 border border-emerald-200 text-emerald-900 flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-              <div>
-                <p className="text-sm font-bold">Menu items already exist</p>
-                <p className="text-xs opacity-90">Your digital catalog is configured with dishes.</p>
-              </div>
+          {checking ? (
+            <div className="py-8 text-center space-y-2">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto" />
+              <p className="text-xs text-slate-500">Checking your menu catalog…</p>
             </div>
-
-            <DialogFooter>
-              <Button onClick={handleSeedStandard} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                Confirm & Complete Step
-              </Button>
-            </DialogFooter>
-          </div>
-        ) : (
-          <form onSubmit={handleAddDish} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">Signature Dish Name *</Label>
-              <Input
-                value={dishName}
-                onChange={(e) => setDishName(e.target.value)}
-                placeholder="e.g. Chicken Biryani / Paneer Butter Masala"
-                disabled={!editable}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-700">Price (₹) *</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  disabled={!editable}
-                  required
-                />
+          ) : hasItems ? (
+            <div className="py-4 space-y-4">
+              <div className="rounded-2xl bg-emerald-50 p-4 border border-emerald-200 text-emerald-900 flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-bold">Menu items already exist</p>
+                  <p className="text-xs opacity-90">Your digital catalog is configured with dishes.</p>
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-700">Category</Label>
-                <Input
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  placeholder="e.g. Main Course"
-                  disabled={!editable}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 pt-1">
-              <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
-                <input
-                  type="radio"
-                  name="diet"
-                  checked={isVeg}
-                  onChange={() => setIsVeg(true)}
-                  disabled={!editable}
-                />
-                Veg 🟢
-              </label>
-              <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
-                <input
-                  type="radio"
-                  name="diet"
-                  checked={!isVeg}
-                  onChange={() => setIsVeg(false)}
-                  disabled={!editable}
-                />
-                Non-Veg 🔴
-              </label>
-            </div>
-
-            <DialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={saving}
-                onClick={handleSeedStandard}
-                className="text-xs font-semibold"
-              >
-                Skip & Add Full Menu Later
-              </Button>
-              {editable && (
-                <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Dish"}
+              <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAiImportOpen(true)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 text-xs font-semibold"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                  Import More with AI
                 </Button>
-              )}
-            </DialogFooter>
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
+                <Button onClick={handleSeedStandard} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                  Confirm & Complete Step
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              {/* AI Menu Import Option */}
+              <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        Import with AI
+                      </h4>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                        Recommended
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                      Upload a photo or PDF of your printed menu, or describe your items. AI extracts all items, categories, and prices automatically.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => setAiImportOpen(true)}
+                  disabled={!editable}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-md shadow-blue-600/20 flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Scan or Upload Menu with AI
+                </Button>
+              </div>
+
+              <div className="relative flex items-center justify-center py-1">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+                </div>
+                <span className="relative bg-white dark:bg-slate-950 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  Or enter starter dish manually
+                </span>
+              </div>
+
+              <form onSubmit={handleAddDish} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-slate-700">Signature Dish Name *</Label>
+                  <Input
+                    value={dishName}
+                    onChange={(e) => setDishName(e.target.value)}
+                    placeholder="e.g. Chicken Biryani / Paneer Butter Masala"
+                    disabled={!editable}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700">Price (₹) *</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      disabled={!editable}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700">Category</Label>
+                    <Input
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      placeholder="e.g. Main Course"
+                      disabled={!editable}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 pt-1">
+                  <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                    <input
+                      type="radio"
+                      name="diet"
+                      checked={isVeg}
+                      onChange={() => setIsVeg(true)}
+                      disabled={!editable}
+                    />
+                    Veg 🟢
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                    <input
+                      type="radio"
+                      name="diet"
+                      checked={!isVeg}
+                      onChange={() => setIsVeg(false)}
+                      disabled={!editable}
+                    />
+                    Non-Veg 🔴
+                  </label>
+                </div>
+
+                <DialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={handleSeedStandard}
+                    className="text-xs font-semibold"
+                  >
+                    Skip & Add Full Menu Later
+                  </Button>
+                  {editable && (
+                    <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Dish"}
+                    </Button>
+                  )}
+                </DialogFooter>
+              </form>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {effectiveRestaurantId && (
+        <AiMenuImportDialog
+          open={aiImportOpen}
+          onOpenChange={setAiImportOpen}
+          restaurantId={effectiveRestaurantId}
+          onImportSuccess={handleAiImportSuccess}
+        />
+      )}
+    </>
   );
 }
 

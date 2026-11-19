@@ -47,6 +47,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   restaurantId: string;
+  onImportSuccess?: (count: number) => void;
 }
 
 // What each server review flag means to a vendor. Price flags clear as soon
@@ -104,7 +105,7 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-export function AiMenuImportDialog({ open, onOpenChange, restaurantId }: Props) {
+export function AiMenuImportDialog({ open, onOpenChange, restaurantId, onImportSuccess }: Props) {
   const { symbol } = useCurrency();
   const [file, setFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -281,6 +282,7 @@ export function AiMenuImportDialog({ open, onOpenChange, restaurantId }: Props) 
       toast.success(
         `Imported ${toImport.length} dish${toImport.length === 1 ? "" : "es"} to your menu`,
       );
+      onImportSuccess?.(toImport.length);
       onOpenChange(false);
     } catch (e: any) {
       console.error("Bulk import failed:", e);
