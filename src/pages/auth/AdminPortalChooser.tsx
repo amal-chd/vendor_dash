@@ -1,21 +1,17 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { 
-  Building2, 
   Store, 
   LayoutDashboard, 
   ArrowRight, 
   ShieldCheck, 
   Sparkles, 
-  ExternalLink,
   ChevronRight,
-  LogOut,
-  Hotel
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { signOutWeb } from "@/lib/auth-flow";
-import { getHostAdminUrl, getCompanyAdminUrl } from "@/lib/urls";
 
 export default function AdminPortalChooser() {
   const { user } = useAuth();
@@ -61,7 +57,7 @@ export default function AdminPortalChooser() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 flex flex-col justify-center">
+      <main className="flex-1 max-w-2xl mx-auto w-full px-6 py-12 flex flex-col justify-center">
         <div className="text-center space-y-3 mb-10">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -89,19 +85,19 @@ export default function AdminPortalChooser() {
           </motion.p>
         </div>
 
-        {/* Portals Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Card 1: Kada Dine (Platform Admin) */}
+        {/* Portal Card */}
+        <div className="w-full">
+          {/* Card: Kada Dine (Platform Admin) */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
             whileHover={{ y: -4 }}
-            className="p-7 rounded-3xl bg-slate-900/90 border border-blue-500/30 hover:border-blue-500/60 shadow-xl shadow-blue-500/5 transition-all flex flex-col justify-between group relative overflow-hidden"
+            className="p-7 sm:p-8 rounded-3xl bg-slate-900/90 border border-blue-500/30 hover:border-blue-500/60 shadow-xl shadow-blue-500/5 transition-all flex flex-col justify-between group relative overflow-hidden"
           >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all pointer-events-none" />
+            <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all pointer-events-none" />
             
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-inner">
                   <Store className="w-6 h-6" />
@@ -112,31 +108,31 @@ export default function AdminPortalChooser() {
               </div>
 
               <div>
-                <h3 className="text-xl font-black text-white group-hover:text-blue-300 transition-colors flex items-center gap-2">
+                <h3 className="text-2xl font-black text-white group-hover:text-blue-300 transition-colors flex items-center gap-2">
                   Kada Dine Platform
                 </h3>
-                <p className="text-slate-400 text-xs sm:text-sm mt-1.5 leading-relaxed">
+                <p className="text-slate-400 text-sm mt-1.5 leading-relaxed">
                   The complete operations control center for onboarded restaurants, food menus, delivery fleet, live orders, catalog QC & finance settlements.
                 </p>
               </div>
 
-              <div className="space-y-2 pt-2 border-t border-white/[0.08]">
+              <div className="space-y-2.5 pt-3 border-t border-white/[0.08]">
                 <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Features included:</div>
-                <ul className="text-xs text-slate-400 space-y-1.5">
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                <ul className="text-xs sm:text-sm text-slate-400 space-y-2">
+                  <li className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
                     Multi-restaurant Directory & Verification
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                  <li className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
                     Live Orders Dispatch, Incidents & KDS
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                  <li className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
                     Delivery Fleet, Rider 360 & Zone Surge
                   </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                  <li className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
                     Catalog Quality Control, Finance & Payouts
                   </li>
                 </ul>
@@ -145,129 +141,9 @@ export default function AdminPortalChooser() {
 
             <Button
               onClick={() => navigate("/admin")}
-              className="mt-6 w-full h-12 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 group-hover:gap-3 transition-all"
+              className="mt-8 w-full h-12 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 group-hover:gap-3 transition-all"
             >
               Enter Kada Dine Admin <ArrowRight className="w-4 h-4" />
-            </Button>
-          </motion.div>
-
-          {/* Card 2: Kada Host (Stays Admin) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            whileHover={{ y: -4 }}
-            className="p-7 rounded-3xl bg-slate-900/90 border border-indigo-500/30 hover:border-indigo-500/60 shadow-xl shadow-indigo-500/5 transition-all flex flex-col justify-between group relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all pointer-events-none" />
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-inner">
-                  <Hotel className="w-6 h-6" />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  Host Super Admin
-                </span>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-black text-white group-hover:text-indigo-300 transition-colors flex items-center gap-2">
-                  Kada Host & Stays
-                </h3>
-                <p className="text-slate-400 text-xs sm:text-sm mt-1.5 leading-relaxed">
-                  The centralized hospitality administration suite for hotel & resort listings, booking calendars, host verifications, and guest support leads.
-                </p>
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-white/[0.08]">
-                <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Features included:</div>
-                <ul className="text-xs text-slate-400 space-y-1.5">
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                    Hotels & Resorts Directory Management
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                    Live Guest Bookings & Room Allocations
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                    Support & Onboarding Leads Pipeline
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
-                    Host Revenue Settlements & Seeder Tools
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <Button
-              onClick={() => { window.location.href = getHostAdminUrl("/admin"); }}
-              className="mt-6 w-full h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-sm shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 group-hover:gap-3 transition-all"
-            >
-              Enter Kada Host Admin <ExternalLink className="w-4 h-4" />
-            </Button>
-          </motion.div>
-
-          {/* Card 3: The Kada (Company HQ Admin) */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            whileHover={{ y: -4 }}
-            className="p-7 rounded-3xl bg-slate-900/90 border border-emerald-500/30 hover:border-emerald-500/60 shadow-xl shadow-emerald-500/5 transition-all flex flex-col justify-between group relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all pointer-events-none" />
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner">
-                  <Building2 className="w-6 h-6" />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Company HQ Admin
-                </span>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-black text-white group-hover:text-emerald-300 transition-colors flex items-center gap-2">
-                  The Kada Digital Ventures
-                </h3>
-                <p className="text-slate-400 text-xs sm:text-sm mt-1.5 leading-relaxed">
-                  The central company management portal for internal teams, candidates, client CRM, enterprise proposals, regional franchise partners & system architecture.
-                </p>
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-white/[0.08]">
-                <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Features included:</div>
-                <ul className="text-xs text-slate-400 space-y-1.5">
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Internal Team Directory & Org Hierarchy
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Client CRM, Leads & Proposal Contracts
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Internship Portal & Applications Manager
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Franchise Hub, SLA Tickets & RBAC Roles
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <Button
-              onClick={() => { window.location.href = getCompanyAdminUrl("/"); }}
-              className="mt-6 w-full h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 group-hover:gap-3 transition-all"
-            >
-              Enter The Kada Admin <ExternalLink className="w-4 h-4" />
             </Button>
           </motion.div>
         </div>
@@ -276,8 +152,8 @@ export default function AdminPortalChooser() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mt-8 p-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4"
+          transition={{ delay: 0.25 }}
+          className="mt-6 p-4 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4"
         >
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-slate-300">
@@ -293,7 +169,7 @@ export default function AdminPortalChooser() {
             variant="outline"
             size="sm"
             onClick={() => navigate("/dashboard")}
-            className="border-white/20 text-white hover:bg-white/10 rounded-xl gap-2 text-xs font-bold"
+            className="border-white/20 text-white hover:bg-white/10 rounded-xl gap-2 text-xs font-bold shrink-0"
           >
             Enter Restaurant View <ChevronRight className="w-3.5 h-3.5" />
           </Button>
