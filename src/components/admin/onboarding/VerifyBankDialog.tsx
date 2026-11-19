@@ -214,7 +214,7 @@ export function VerifyBankDialog({
             onChange={(e) => setNote(e.target.value)}
             placeholder={
               mode === "verify"
-                ? "e.g. Cross-verified with cancelled cheque copy"
+                ? "e.g. Verified with bank account confirmation"
                 : "e.g. IFSC code invalid or account holder name mismatch"
             }
           />

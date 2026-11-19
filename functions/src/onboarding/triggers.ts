@@ -38,9 +38,6 @@ async function onboardingBankWatch(
   const to = after?.bank?.verificationState ?? BANK_STATES.NOT_ADDED;
   if (from === to) return;
   try {
-    if ((to === BANK_STATES.FAILED || to === BANK_STATES.ACTION_REQUIRED) && after?.onboardingChecks?.bankProofNeeded !== true) {
-      await ref.set({ onboardingChecks: { bankProofNeeded: true } }, { merge: true });
-    }
     if (to === BANK_STATES.VERIFIED) await runAutoProgress(role, ref.id, "bank-verified");
   } catch (e) {
     logger.warn(`onboardingBankWatch failed for ${role}/${ref.id}`, e);

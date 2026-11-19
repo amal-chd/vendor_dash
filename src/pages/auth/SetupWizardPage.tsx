@@ -887,13 +887,12 @@ export default function SetupWizardPage() {
         />
       )}
 
-      {/* 5. Document Modals: PAN, FSSAI, GST Certificate, Owner ID, Bank Proof, Kitchen Photos, Weekly Menu */}
+      {/* 5. Document Modals: PAN, FSSAI, GST Certificate, Owner ID, Kitchen Photos, Weekly Menu */}
       {[
         "pan",
         "fssai",
         "gst_certificate",
         "owner_identity",
-        "bank_proof",
         "kitchen_photos",
         "weekly_menu",
       ].includes(activeModal || "") && (
@@ -2462,13 +2461,7 @@ function BankAccountModal({
         vpa: vpa.trim() || undefined,
       });
 
-      if (res.bankProofNeeded) {
-        toast.info(
-          "Bank details recorded! A cancelled cheque/passbook photo is required to verify this account."
-        );
-      } else {
-        toast.success("Bank details saved! Automated verification in progress.");
-      }
+      toast.success("Bank details saved successfully!");
       onSuccess();
     } catch (err: any) {
       toast.error(err?.message || "Failed to submit bank details.");
@@ -2495,7 +2488,7 @@ function BankAccountModal({
             <Input
               value={holder}
               onChange={(e) => setHolder(e.target.value)}
-              placeholder="As registered in passbook/cheque"
+              placeholder="As registered with your bank"
               disabled={!editable}
               required
             />

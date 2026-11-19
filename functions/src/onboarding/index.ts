@@ -149,7 +149,7 @@ export const getOnboardingState = onCall(async (request) => {
     checks: {
       documents: data.onboardingChecks?.documents ?? {},
       review: data.onboardingChecks?.review ?? null,
-      bankProofNeeded: data.onboardingChecks?.bankProofNeeded === true,
+      bankProofNeeded: false,
       identityCheckNeeded: data.onboardingChecks?.identityCheckNeeded === true,
     },
     // The partner's own extracted document numbers, to show on their resumed form.
@@ -374,13 +374,13 @@ export const submitBankDetails = onCall(async (request) => {
     pennyDrop = { started: false, reason: "Verification could not be started automatically." };
   }
 
-  await ref.set({ onboardingChecks: { bankProofNeeded: !pennyDrop.started } }, { merge: true });
+  await ref.set({ onboardingChecks: { bankProofNeeded: false } }, { merge: true });
   await runAutoProgress(role, canonicalPartnerId, "bank").catch(() => {});
 
   return {
     state: record.verificationState,
     accountMasked: publicBank.accountMasked,
-    bankProofNeeded: !pennyDrop.started,
+    bankProofNeeded: false,
     nameMatch: record.nameMatch ?? null,
     flags,
     validationStarted: pennyDrop.started,

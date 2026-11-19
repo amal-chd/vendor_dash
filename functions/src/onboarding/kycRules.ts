@@ -229,7 +229,6 @@ export const DEFAULT_REQUIREMENTS: Record<PartnerRole, StepRequirement[]> = {
     GST_CERTIFICATE,
     OWNER_IDENTITY_IF_NEEDED,
     BANK_ACCOUNT,
-    BANK_PROOF_IF_NEEDED,
     { id: "menu", label: "Menu", group: "operations", stage: "setup", mandatory: true,
       hint: "Add a few dishes, or snap your printed menu and we'll type it in." },
     AGREEMENT_STEP,
@@ -252,7 +251,6 @@ export const DEFAULT_REQUIREMENTS: Record<PartnerRole, StepRequirement[]> = {
       requiresDocument: true, tracksExpiry: true, autoVerify: true, condition: "motorised_vehicle" },
     { id: "emergency_contact", label: "Emergency contact", group: "identity", stage: "business", mandatory: true },
     { ...BANK_ACCOUNT, hint: "Where your earnings go. We verify it automatically." },
-    BANK_PROOF_IF_NEEDED,
     { id: "upi", label: "UPI ID", group: "banking", stage: "bank", mandatory: false },
     // Riders don't type an address: one tap resolves their zone from GPS.
     { id: "map_location", label: "Delivery area", group: "location", stage: "setup", mandatory: true,
@@ -274,7 +272,6 @@ export const DEFAULT_REQUIREMENTS: Record<PartnerRole, StepRequirement[]> = {
     FSSAI("serves_food"),
     OWNER_IDENTITY_IF_NEEDED,
     BANK_ACCOUNT,
-    BANK_PROOF_IF_NEEDED,
     AGREEMENT_STEP,
   ],
 
@@ -296,7 +293,6 @@ export const DEFAULT_REQUIREMENTS: Record<PartnerRole, StepRequirement[]> = {
     GST_CERTIFICATE,
     OWNER_IDENTITY_IF_NEEDED,
     BANK_ACCOUNT,
-    BANK_PROOF_IF_NEEDED,
     { id: "weekly_menu", label: "Weekly menu", group: "operations", stage: "setup", mandatory: true, requiresDocument: true,
       hint: "A photo or PDF of this week's menu." },
     { ...AGREEMENT_STEP, label: "Partner agreement, including Kada's per-customer daily fee" },
@@ -364,7 +360,7 @@ function conditionHolds(req: StepRequirement, ctx: ApplicantContext): boolean {
     case "accepts_payouts":
       return ctx.acceptsPayouts !== false;
     case "bank_proof_needed":
-      return ctx.bankProofNeeded === true;
+      return false;
     case "identity_check_needed":
       return ctx.identityCheckNeeded === true;
     default:
@@ -456,7 +452,7 @@ export function applicantContextOf(
     vehicleType: data.vehicleType as string | undefined,
     servesFood: data.servesFood as boolean | undefined,
     acceptsPayouts: data.acceptsPayouts as boolean | undefined,
-    bankProofNeeded: checks.bankProofNeeded === true,
+    bankProofNeeded: false,
     identityCheckNeeded: checks.identityCheckNeeded === true,
   };
 }
