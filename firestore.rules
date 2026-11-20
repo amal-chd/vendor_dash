@@ -295,9 +295,6 @@ service cloud.firestore {
 
     function ownerCanCreateRestaurant(restaurantId) {
       return isRestaurantOwner(restaurantId) &&
-        // One login is one partner type: a mess kitchen can't also open a
-        // restaurant under the same id (mess_kitchens refuses the reverse).
-        !exists(/databases/$(database)/documents/mess_kitchens/$(restaurantId)) &&
         seedsNoEngineOwnedFields() &&
         !request.resource.data.keys().hasAny([
           "transactions",
@@ -364,7 +361,6 @@ service cloud.firestore {
         || resource.data.get("onboarding", {}).get("state", "") == "active";
       allow create: if request.auth != null
         && request.auth.uid == kitchenId
-        && !exists(/databases/$(database)/documents/restaurants/$(kitchenId))
         && seedsNoEngineOwnedFields()
         && !request.resource.data.keys().hasAny(messProtectedFields());
       allow update: if isAdmin() || (

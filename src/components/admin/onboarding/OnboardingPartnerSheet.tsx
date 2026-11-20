@@ -72,6 +72,7 @@ import { VerifyBankDialog } from "@/components/admin/onboarding/VerifyBankDialog
 import { VendorContactDialog } from "@/components/admin/vendors/VendorContactDialog";
 import { ZoneBadge } from "@/components/admin/zones/ZoneScopeBar";
 import { ResetPasswordDialog } from "@/components/admin/vendors/ResetPasswordDialog";
+import { LocationMapView } from "@/components/common/LocationMapView";
 import { Link } from "react-router-dom";
 
 /** Readable names for fields the document reader extracts. */
@@ -898,11 +899,12 @@ export function OnboardingPartnerSheet({
                   </div>
                 )}
 
-                {/* Service Zone Assignment */}
+                {/* Service Zone Assignment & Interactive Location Map */}
                 <div className="rounded-xl border border-border/70 p-4 space-y-3 bg-muted/20">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-primary" />
                         Service Zone & Geography
                       </h4>
                       <div className="mt-1 flex items-center gap-1.5">
@@ -918,6 +920,23 @@ export function OnboardingPartnerSheet({
                       {partner.zoneId ? "Reassign Zone" : "Assign Zone"}
                     </Button>
                   </div>
+
+                  <LocationMapView
+                    lat={(partner.raw?.location as any)?.lat}
+                    lng={(partner.raw?.location as any)?.lng}
+                    title={partner.name}
+                    address={String(partner.raw?.address || partner.raw?.city || "")}
+                    zoneName={partner.zoneName}
+                    height={180}
+                  />
+
+                  {partner.raw?.address && (
+                    <div className="text-xs space-y-0.5 pt-1">
+                      <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Store Entrance / Street</span>
+                      <p className="text-foreground">{String(partner.raw.address)}</p>
+                    </div>
+                  )}
+
                   <p className="text-xs text-muted-foreground">
                     Zone assignment determines which customers can order from this store and which riders will receive order fulfillment jobs.
                   </p>
@@ -1282,6 +1301,8 @@ export function OnboardingPartnerSheet({
           name: partner.name,
           zoneId: partner.zoneId,
           zoneName: partner.zoneName,
+          location: (partner.raw?.location as any) || null,
+          address: String(partner.raw?.address || partner.raw?.city || ""),
         }}
       />
 

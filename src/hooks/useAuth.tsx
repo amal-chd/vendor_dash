@@ -44,6 +44,11 @@ interface AuthContextType {
   businessType: "restaurant" | "mess";
   isMess: boolean;
   messData: any | null;
+  hasRestaurant: boolean;
+  hasMess: boolean;
+  hasBoth: boolean;
+  activeMode: "restaurant" | "mess";
+  switchMode: (mode: "restaurant" | "mess") => void;
 
   // Admin & Impersonation
   isAdmin: boolean;
@@ -68,6 +73,11 @@ const AuthContext = createContext<AuthContextType>({
   businessType: "restaurant",
   isMess: false,
   messData: null,
+  hasRestaurant: false,
+  hasMess: false,
+  hasBoth: false,
+  activeMode: "restaurant",
+  switchMode: () => {},
   isAdmin: false,
   isImpersonating: false,
   impersonatedRestaurantId: null,
@@ -79,7 +89,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // Business type
+  // Business type & Dual Mode
+  const [rawRestData, setRawRestData] = useState<any | null>(null);
+  const [rawMessData, setRawMessData] = useState<any | null>(null);
+  const [hasRestaurant, setHasRestaurant] = useState(false);
+  const [hasMess, setHasMess] = useState(false);
+  const [activeMode, setActiveModeState] = useState<"restaurant" | "mess">(() => {
+    const saved = localStorage.getItem("kada_active_mode");
+    return saved === "mess" ? "mess" : "restaurant";
+  });
   const [businessType, setBusinessType] = useState<"restaurant" | "mess">("restaurant");
   const [messData, setMessData] = useState<any | null>(null);
   
@@ -101,6 +119,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Available outlets for switching
   const [outlets, setOutlets] = useState<OutletInfo[]>([]);
   const [primaryOutletData, setPrimaryOutletData] = useState<OutletInfo | null>(null);
+
+  const switchMode = (mode: "restaurant" | "mess") => {
+    setActiveModeState(mode);
+    setBusinessType(mode);
+    localStorage.setItem("kada_active_mode", mode);
+  };
 
   // Wrapper to save preference to localStorage
   const setRestaurantId = (id: string) => {
@@ -144,6 +168,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setOutlets([]);
         setPrimaryOutletData(null);
         setPrimaryOutletId(null);
+        setHasRestaurant(false);
+        setHasMess(false);
+        setRawRestData(null);
+        setRawMessData(null);
         setIsAdmin(false);
         setIsImpersonating(false);
         setImpersonatedRestaurantId(null);
@@ -165,6 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     let unsubStaff = () => {};
     let unsubRest = () => {};
+    let unsubMess = () => {};
 
     user.getIdTokenResult().then((token) => {
       const userIsAdmin = isAdminEmail(user.email) || token.claims.platformAdmin === true || !!token.claims.adminRole;
@@ -176,8 +205,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const sId = token.claims.staffDocId as string;
         
         setIsTeamMember(true);
-        // Team members can't switch outlets either, but they operate on the restaurant ID they were invited to
         setIsStaffOutlet(true); 
+        setHasRestaurant(true);
+        setHasMess(false);
+        setActiveModeState("restaurant");
+        setBusinessType("restaurant");
         
         setPrimaryOutletId(rId);
         setRestaurantIdState(rId);
@@ -214,115 +246,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const targetId = impersonateId || user.uid;
-        const ref = doc(db, 'restaurants', targetId);
+        const restRef = doc(db, 'restaurants', targetId);
+        const messRef = doc(db, 'mess_kitchens', targetId);
 
-        unsubRest = onSnapshot(ref, (snap) => {
-          if (snap.exists() && snap.data()?.name) {
-            const data = snap.data();
-            const outlet = data?.isOutlet === true;
-            const parentId = typeof data?.parentId === 'string' ? data.parentId.trim() : '';
-            
-            setBusinessType("restaurant");
-            setMessData(null);
-            setIsStaffOutlet(outlet);
-            
-            const primaryData = {
-              id: targetId,
-              name: data?.name || 'Main Branch',
-              isActive: data?.isActive !== false,
-              isOutlet: outlet,
-              parentId: parentId || undefined,
-              district: data?.district
-            };
-            setPrimaryOutletData(primaryData);
-            
-            if (outlet && parentId) {
-              setPrimaryOutletId(targetId);
-              setRestaurantIdState(targetId);
-              setBillingAccountId(parentId);
-            } else {
-              setPrimaryOutletId(targetId);
-              setBillingAccountId(targetId);
-              setRestaurantIdState((prev) => {
-                if (prev) return prev;
-                const saved = localStorage.getItem(`kada_active_outlet_${targetId}`);
-                return saved || targetId;
-              });
-            }
-            setLoading(false);
+        let restSnapData: any = null;
+        let messSnapData: any = null;
+        let restChecked = false;
+        let messChecked = false;
+
+        const syncProfileState = () => {
+          const hasR = !!(restSnapData && (restSnapData.name || restSnapData.email || restSnapData.createdAt));
+          const hasM = !!(messSnapData && (messSnapData.name || messSnapData.email || messSnapData.createdAt || messSnapData.area));
+
+          setHasRestaurant(hasR);
+          setHasMess(hasM);
+
+          const savedMode = localStorage.getItem("kada_active_mode");
+          let currentMode: "restaurant" | "mess" = "restaurant";
+          if (hasR && hasM) {
+            currentMode = (savedMode === "mess" || savedMode === "restaurant") ? savedMode : "restaurant";
+          } else if (hasM && !hasR) {
+            currentMode = "mess";
           } else {
-            // Check if this is a Mess Kitchen account
-            getDoc(doc(db, "mess_kitchens", targetId)).then((messSnap) => {
-              if (messSnap.exists()) {
-                const mData = messSnap.data();
-                setBusinessType("mess");
-                setMessData(mData);
-                setIsStaffOutlet(false);
-                setPrimaryOutletId(targetId);
-                setBillingAccountId(targetId);
-                setRestaurantIdState(targetId);
-                setPrimaryOutletData({
-                  id: targetId,
-                  name: mData?.name || "Mess Kitchen",
-                  isActive: true,
-                  isOutlet: false,
-                  district: mData?.area,
-                });
-                setLoading(false);
-              } else if (userIsAdmin && !impersonateId) {
-                // If admin entered /dashboard without choosing a vendor, auto-impersonate the first available restaurant
-                getDocs(query(collection(db, "restaurants"), limit(1))).then((querySnap) => {
-                  if (!querySnap.empty) {
-                    const firstDoc = querySnap.docs[0];
-                    const firstData = firstDoc.data();
-                    const firstId = firstDoc.id;
-                    sessionStorage.setItem("kada_impersonate_id", firstId);
-                    localStorage.setItem("kada_impersonate_id", firstId);
-                    setIsImpersonating(true);
-                    setImpersonatedRestaurantId(firstId);
-                    setBusinessType("restaurant");
-                    setPrimaryOutletId(firstId);
-                    setBillingAccountId(firstData.parentId || firstId);
-                    setRestaurantIdState(firstId);
-                    setPrimaryOutletData({
-                      id: firstId,
-                      name: firstData.name || "Main Branch",
-                      isActive: firstData.isActive !== false,
-                      isOutlet: firstData.isOutlet === true,
-                      district: firstData.district,
-                    });
-                  } else {
-                    setBusinessType("restaurant");
-                    setPrimaryOutletId(targetId);
-                    setBillingAccountId(targetId);
-                    setRestaurantIdState((prev) => prev || targetId);
-                  }
-                  setLoading(false);
-                }).catch(() => {
-                  setBusinessType("restaurant");
-                  setPrimaryOutletId(targetId);
-                  setBillingAccountId(targetId);
-                  setRestaurantIdState((prev) => prev || targetId);
-                  setLoading(false);
-                });
-              } else {
-                // Fallback restaurant
-                setBusinessType("restaurant");
-                setPrimaryOutletId(targetId);
-                setBillingAccountId(targetId);
-                setRestaurantIdState((prev) => prev || targetId);
-                setLoading(false);
-              }
-            }).catch(() => {
-              setLoading(false);
-            });
+            currentMode = "restaurant";
           }
+
+          setActiveModeState(currentMode);
+          setBusinessType(currentMode);
+
+          if (restChecked && messChecked) {
+            if (!hasR && !hasM && userIsAdmin && !impersonateId) {
+              // Admin without personal shop, auto-impersonate first restaurant
+              getDocs(query(collection(db, "restaurants"), limit(1))).then((querySnap) => {
+                if (!querySnap.empty) {
+                  const firstDoc = querySnap.docs[0];
+                  const firstData = firstDoc.data();
+                  const firstId = firstDoc.id;
+                  sessionStorage.setItem("kada_impersonate_id", firstId);
+                  localStorage.setItem("kada_impersonate_id", firstId);
+                  setIsImpersonating(true);
+                  setImpersonatedRestaurantId(firstId);
+                  setRawRestData(firstData);
+                  setHasRestaurant(true);
+                }
+                setLoading(false);
+              }).catch(() => setLoading(false));
+            } else {
+              setLoading(false);
+            }
+          }
+        };
+
+        unsubRest = onSnapshot(restRef, (snap) => {
+          restChecked = true;
+          if (snap.exists()) {
+            restSnapData = snap.data();
+            setRawRestData(snap.data());
+          } else {
+            restSnapData = null;
+            setRawRestData(null);
+          }
+          syncProfileState();
         }, () => {
-          // Fallback
-          setPrimaryOutletId(targetId);
-          setBillingAccountId(targetId);
-          setRestaurantIdState((prev) => prev || targetId);
-          setLoading(false);
+          restChecked = true;
+          syncProfileState();
+        });
+
+        unsubMess = onSnapshot(messRef, (snap) => {
+          messChecked = true;
+          if (snap.exists()) {
+            messSnapData = snap.data();
+            setRawMessData(snap.data());
+          } else {
+            messSnapData = null;
+            setRawMessData(null);
+          }
+          syncProfileState();
+        }, () => {
+          messChecked = true;
+          syncProfileState();
         });
       }
     });
@@ -330,8 +332,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       unsubStaff();
       unsubRest();
+      unsubMess();
     };
   }, [user]);
+
+  // Synchronize active context (primaryOutletData, restaurantId, billingAccountId) whenever activeMode or data changes
+  const effectiveTargetId = isImpersonating && impersonatedRestaurantId ? impersonatedRestaurantId : user?.uid;
+
+  useEffect(() => {
+    if (!effectiveTargetId || isTeamMember) return;
+
+    if (activeMode === "mess" && rawMessData) {
+      setMessData(rawMessData);
+      setIsStaffOutlet(false);
+      setPrimaryOutletId(effectiveTargetId);
+      setBillingAccountId(effectiveTargetId);
+      setRestaurantIdState(effectiveTargetId);
+      setPrimaryOutletData({
+        id: effectiveTargetId,
+        name: rawMessData?.name || "Mess Kitchen",
+        isActive: true,
+        isOutlet: false,
+        district: rawMessData?.area,
+      });
+    } else if (rawRestData && rawRestData.name) {
+      const outlet = rawRestData?.isOutlet === true;
+      const parentId = typeof rawRestData?.parentId === 'string' ? rawRestData.parentId.trim() : '';
+      
+      setIsStaffOutlet(outlet);
+      const primaryData = {
+        id: effectiveTargetId,
+        name: rawRestData?.name || 'Main Branch',
+        isActive: rawRestData?.isActive !== false,
+        isOutlet: outlet,
+        parentId: parentId || undefined,
+        district: rawRestData?.district,
+      };
+      setPrimaryOutletData(primaryData);
+      
+      if (outlet && parentId) {
+        setPrimaryOutletId(effectiveTargetId);
+        setRestaurantIdState(effectiveTargetId);
+        setBillingAccountId(parentId);
+      } else {
+        setPrimaryOutletId(effectiveTargetId);
+        setBillingAccountId(effectiveTargetId);
+        setRestaurantIdState((prev) => {
+          if (prev) return prev;
+          const saved = localStorage.getItem(`kada_active_outlet_${effectiveTargetId}`);
+          return saved || effectiveTargetId;
+        });
+      }
+    } else {
+      setPrimaryOutletId(effectiveTargetId);
+      setBillingAccountId(effectiveTargetId);
+      setRestaurantIdState((prev) => prev || effectiveTargetId);
+    }
+  }, [activeMode, rawMessData, rawRestData, effectiveTargetId, isTeamMember]);
 
   // 2. If user is an Owner or Admin impersonating, fetch all child outlets
   useEffect(() => {
@@ -414,8 +471,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       primaryOutletId,
       billingAccountId,
       businessType,
-      isMess: businessType === "mess",
+      isMess: activeMode === "mess",
       messData,
+      hasRestaurant,
+      hasMess,
+      hasBoth: hasRestaurant && hasMess,
+      activeMode,
+      switchMode,
       isAdmin,
       isImpersonating,
       impersonatedRestaurantId,

@@ -22,6 +22,7 @@ import { StatCards } from "@/components/admin/StatCards";
 import { ChevronLeft, ChevronRight, ClipboardList, Loader2, Pencil, Plus, Target, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { CalendarDatePicker } from "@/components/common";
 import {
   PLAN_CHANNELS, PLAN_COLLECTION, PLAN_GOALS, PLAN_STATUSES, SOURCE_META, inr, loadMarketingEvents, toDate, utmSlug,
   type MarketingEvent, type MarketingPlan, type MarketingSource, type PlanStatus,
@@ -394,14 +395,18 @@ export default function MarketingPlannerPage() {
                 <Label>Target</Label>
                 <Input type="number" inputMode="numeric" value={d.target} onChange={(e) => setD({ target: e.target.value })} placeholder="300" />
               </div>
-              <div className="space-y-1.5">
-                <Label>Start</Label>
-                <Input type="date" value={d.startAt} onChange={(e) => setD({ startAt: e.target.value })} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>End</Label>
-                <Input type="date" value={d.endAt} onChange={(e) => setD({ endAt: e.target.value })} />
-              </div>
+              <CalendarDatePicker
+                label="Start"
+                value={d.startAt}
+                onChange={(val) => setD({ startAt: val })}
+                buttonClassName="h-10"
+              />
+              <CalendarDatePicker
+                label="End"
+                value={d.endAt}
+                onChange={(val) => setD({ endAt: val })}
+                buttonClassName="h-10"
+              />
               <div className="space-y-1.5">
                 <Label>Budget (₹)</Label>
                 <Input type="number" inputMode="numeric" value={d.budget} onChange={(e) => setD({ budget: e.target.value })} placeholder="Discounts + ad spend" />

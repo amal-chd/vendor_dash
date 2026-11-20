@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { CalendarDatePicker } from "@/components/common";
 
 interface Kitchen {
   id: string;
@@ -292,13 +293,12 @@ export default function MessKitchens() {
                 ))}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label>Day</Label>
-                <Input type="date" value={closeDay} onChange={(e) => setCloseDay(e.target.value)} />
+              <div>
+                <CalendarDatePicker label="Day" value={closeDay} onChange={setCloseDay} buttonClassName="h-10" />
               </div>
               <div className="space-y-1">
                 <Label>Reason</Label>
-                <Input value={closeReason} onChange={(e) => setCloseReason(e.target.value)} placeholder="Onam, gas shortage…" />
+                <Input value={closeReason} onChange={(e) => setCloseReason(e.target.value)} placeholder="Onam, gas shortage…" className="h-10" />
               </div>
             </div>
           </div>

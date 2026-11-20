@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { listenCollection } from "@/hooks/useLiveCollection";
 import { addDays, daysLeft, fmtDay, headcount, inr, kitchenName, todayKey, type MessKitchen, type MessReview, type MessSub } from "./messAdmin";
+import { LocationMapView } from "@/components/common/LocationMapView";
+import { MapPin } from "lucide-react";
 
 const WEEK = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
@@ -97,6 +99,50 @@ export function MessKitchenSheet({ kitchen, onClose }: { kitchen: MessKitchen | 
                     const line = m ? [m.breakfast, m.lunch, m.dinner].filter((x) => x && String(x).trim()).join(" / ") : "";
                     return <Row key={d} k={d.slice(0, 3)} v={line || "—"} />;
                   })}
+                </div>
+              </section>
+
+              {/* Kitchen Location & Live Map */}
+              <section className="rounded-xl border p-3.5 space-y-3 bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-medium">
+                    <MapPin className="h-4 w-4 text-blue-600" />
+                    <span>Kitchen Location & Delivery Zone</span>
+                  </div>
+                  {k.zoneName ? (
+                    <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/30">
+                      Zone: {k.zoneName}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs">
+                      Self-Delivery / Unzoned
+                    </Badge>
+                  )}
+                </div>
+
+                <LocationMapView
+                  lat={k.location?.lat}
+                  lng={k.location?.lng}
+                  title={kitchenName(k)}
+                  address={k.address || [k.area, k.locality, k.city].filter(Boolean).join(", ")}
+                  zoneName={k.zoneName}
+                  height={200}
+                />
+
+                <div className="grid sm:grid-cols-2 gap-2 text-xs pt-1">
+                  <Row k="Address" v={k.address || "—"} />
+                  <Row k="Area / Locality" v={[k.area, k.locality].filter(Boolean).join(" · ") || "—"} />
+                  <Row k="City / District" v={[k.city, k.district, k.state].filter(Boolean).join(", ") || "—"} />
+                  <Row k="Pincode" v={k.pincode || "—"} />
+                  <Row
+                    k="Coordinates"
+                    v={
+                      k.location?.lat && k.location?.lng
+                        ? `${k.location.lat.toFixed(5)}, ${k.location.lng.toFixed(5)}`
+                        : "Not pinned"
+                    }
+                  />
+                  <Row k="Service Zone" v={k.zoneName ? `${k.zoneName}` : "Coverage review / Self-managed"} />
                 </div>
               </section>
 

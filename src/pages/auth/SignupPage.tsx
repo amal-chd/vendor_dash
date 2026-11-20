@@ -14,8 +14,7 @@ import {
   resolvePostAuthPath,
   signInWithGoogleWeb,
   signInWithAppleWeb,
-  setSignupIntent,
-  getSignupIntent,
+  clearSignupIntent,
 } from "@/lib/auth-flow";
 import { cn } from "@/lib/utils";
 
@@ -41,9 +40,6 @@ const PERKS = [
 ];
 
 export default function SignupPage() {
-  const [searchParams] = useSearchParams();
-  const initialType = searchParams.get("type") === "mess" ? "mess" : (getSignupIntent() || "restaurant");
-  const [accountType, setAccountType] = useState<"restaurant" | "mess">(initialType);
   const [restaurantName, setRestaurantName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -57,8 +53,8 @@ export default function SignupPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setSignupIntent(accountType);
-  }, [accountType]);
+    clearSignupIntent();
+  }, []);
 
   // ── Auth redirect if already logged in ──────────────────────
   useEffect(() => {
@@ -247,67 +243,21 @@ export default function SignupPage() {
             </span>
           </a>
 
-          <div className="mb-4">
+          <div className="mb-6">
             <h2 className="text-[1.75rem] font-black tracking-tight text-slate-950 leading-tight">
               Create your account
             </h2>
             <p className="mt-1 text-[14px] text-slate-500 font-medium">
-              {accountType === "mess"
-                ? "Start your self-serve mess kitchen onboarding for meal plans"
-                : "Start your self-serve restaurant onboarding setup"}
+              Operate a Restaurant, a Mess Kitchen, or Both under one roof. You can choose right after signing up.
             </p>
-          </div>
-
-          {/* Business Type Selector (Dine vs Mess) */}
-          <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 rounded-2xl mb-4 border border-slate-200/60">
-            <button
-              type="button"
-              onClick={() => {
-                setAccountType("restaurant");
-                setSignupIntent("restaurant");
-              }}
-              className={cn(
-                "py-2 px-3 rounded-xl text-xs font-black transition-all flex flex-col items-center gap-0.5",
-                accountType === "restaurant"
-                  ? "bg-white text-blue-600 shadow-sm border border-slate-200/80"
-                  : "text-slate-500 hover:text-slate-900"
-              )}
-            >
-              <div className="flex items-center gap-1.5">
-                <Store className="w-3.5 h-3.5" />
-                <span>Kada Dine</span>
-              </div>
-              <span className="text-[10px] font-medium text-slate-400">Restaurant / Cafe / QSR</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAccountType("mess");
-                setSignupIntent("mess");
-              }}
-              className={cn(
-                "py-2 px-3 rounded-xl text-xs font-black transition-all flex flex-col items-center gap-0.5",
-                accountType === "mess"
-                  ? "bg-white text-emerald-600 shadow-sm border border-slate-200/80"
-                  : "text-slate-500 hover:text-slate-900"
-              )}
-            >
-              <div className="flex items-center gap-1.5">
-                <ChefHat className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Kada Mess</span>
-              </div>
-              <span className="text-[10px] font-medium text-slate-400">Meal Plans / Tiffin</span>
-            </button>
           </div>
 
           <SocialAuthButtons
             loading={loading}
             onGoogle={() => {
-              setSignupIntent(accountType);
               void handleGoogleSignup();
             }}
             onApple={() => {
-              setSignupIntent(accountType);
               void handleAppleSignup();
             }}
             emphasis="join"

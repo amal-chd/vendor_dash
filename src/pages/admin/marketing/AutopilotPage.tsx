@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { CalendarDatePicker } from "@/components/common";
 
 interface Override { skip?: boolean; date?: string; offerCode?: string; daysBefore?: number }
 interface Settings {
@@ -250,8 +251,18 @@ export default function AutopilotPage() {
                     <p className="text-xs text-muted-foreground mt-0.5">“{o.subject}” · {o.why}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       {o.approx && (
-                        <Input type="date" className="h-7 w-36 text-xs" defaultValue={ov.date || ""} aria-label="Confirmed date"
-                          onBlur={(e) => e.target.value !== (ov.date || "") && setOverride(o.key, { date: e.target.value })} />
+                        <div className="w-40">
+                          <CalendarDatePicker
+                            value={ov.date || o.date || ""}
+                            onChange={(newDate) => {
+                              if (newDate && newDate !== ov.date) {
+                                setOverride(o.key, { date: newDate });
+                              }
+                            }}
+                            placeholder="Confirm date"
+                            buttonClassName="h-7 text-xs py-0"
+                          />
+                        </div>
                       )}
                       <Input className="h-7 w-32 text-xs uppercase" placeholder="Promo code" defaultValue={ov.offerCode || ""} aria-label="Promo code"
                         onBlur={(e) => e.target.value.toUpperCase() !== (ov.offerCode || "") && setOverride(o.key, { offerCode: e.target.value.toUpperCase() })} />

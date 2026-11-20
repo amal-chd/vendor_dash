@@ -785,6 +785,8 @@ export default function OnboardingCommandCenter() {
             name: assignZonePartner.name,
             zoneId: assignZonePartner.zoneId,
             zoneName: assignZonePartner.zoneName,
+            location: (assignZonePartner.raw?.location as any) || null,
+            address: String(assignZonePartner.raw?.address || assignZonePartner.raw?.city || ""),
           }}
         />
       )}

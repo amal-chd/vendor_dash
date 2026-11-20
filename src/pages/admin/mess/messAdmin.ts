@@ -63,6 +63,13 @@ export interface MessKitchen {
   area?: string;
   locality?: string;
   address?: string;
+  city?: string;
+  district?: string;
+  state?: string;
+  pincode?: string;
+  location?: { lat: number; lng: number };
+  zoneId?: string | null;
+  zoneName?: string | null;
   phone?: string;
   ownerName?: string;
   isBlocked?: boolean;

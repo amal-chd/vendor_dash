@@ -104,88 +104,9 @@ export async function getMessKitchenProfile(uid: string) {
   }
 }
 
-export async function resolvePostAuthPath(user: User) {
-  if (isAdminEmail(user.email)) return "/portal-select";
-  try {
-    const token = await user.getIdTokenResult();
-    // Platform admins pick which console to open (admin, vendor dashboard, stay).
-    if (token.claims.platformAdmin === true) return "/portal-select";
-    if (token.claims.staff === true) return "/dashboard";
-  } catch {
-    /* ignore */
-  }
-
-  const intent = getSignupIntent();
-
-  // 1. If explicit mess intent is set, check or create mess kitchen profile
-  if (intent === "mess") {
-    const messProfile = await getMessKitchenProfile(user.uid);
-    if (!messProfile) {
-      const now = new Date();
-      await setDoc(doc(db, "mess_kitchens", user.uid), {
-        name: user.displayName || "My Mess Kitchen",
-        ownerName: user.displayName || "Kitchen Owner",
-        ownerId: user.uid,
-        phone: user.phoneNumber || "",
-        email: user.email || "",
-        address: "",
-        mealsServed: ["lunch", "dinner"],
-        dietType: "both",
-        fulfilmentModes: ["delivery"],
-        messProfile: {
-          meals: ["lunch", "dinner"],
-          diet: ["veg", "nonveg"],
-          fulfilment: ["delivery"],
-        },
-        createdAt: now.toISOString(),
-        updatedAt: now.toISOString(),
-        onboardingVersion: "mess_web_v1",
-      });
-      clearSignupIntent();
-      return "/setup?type=mess";
-    }
-
-    clearSignupIntent();
-    const obState = (messProfile as any)?.onboarding?.state;
-    if (!obState || ["started", "incomplete", "action_required"].includes(obState)) {
-      return "/setup?type=mess";
-    }
-    return "/mess/dashboard";
-  }
-  
-  // 2. Check existing restaurant profile
-  const profile = await getRestaurantProfile(user.uid);
-  if (profile) {
-    // Existing restaurant profile: check centralized onboarding engine state
-    const obState = (profile as any)?.onboarding?.state;
-    if (obState) {
-      if (["started", "incomplete", "action_required"].includes(obState)) {
-        return "/setup";
-      }
-      return "/dashboard";
-    }
-
-    // Legacy fallback
-    if (!(profile as any).onboardingComplete) {
-      return "/setup";
-    }
-
-    return "/dashboard";
-  }
-
-  // 3. Not a restaurant — check if user is an existing mess kitchen
-  const messProfile = await getMessKitchenProfile(user.uid);
-  if (messProfile) {
-    const obState = (messProfile as any)?.onboarding?.state;
-    if (!obState || ["started", "incomplete", "action_required"].includes(obState)) {
-      return "/setup?type=mess";
-    }
-    return "/mess/dashboard";
-  }
-
-  // 4. Brand new user without intent: create default restaurant profile
+export async function createDefaultRestaurantProfile(user: User, customName?: string) {
   const newProfile = {
-    name: user.displayName || 'New Restaurant',
+    name: customName || user.displayName || 'New Restaurant',
     email: user.email || '',
     subscriptionStatus: 'pending',
     subscriptionType: 'starter',
@@ -203,18 +124,114 @@ export async function resolvePostAuthPath(user: User) {
       { name: "GST", type: "compound", rate: 5, enabled: true, inclusive: false }
     ]
   };
+  const now = new Date();
+  await setDoc(doc(db, "restaurants", user.uid), {
+    ...newProfile,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  }, { merge: true });
+}
+
+export async function createDefaultMessKitchenProfile(user: User, customName?: string) {
+  const now = new Date();
+  await setDoc(doc(db, "mess_kitchens", user.uid), {
+    name: customName || user.displayName || "My Mess Kitchen",
+    ownerName: user.displayName || "Kitchen Owner",
+    ownerId: user.uid,
+    phone: user.phoneNumber || "",
+    email: user.email || "",
+    address: "",
+    mealsServed: ["lunch", "dinner"],
+    dietType: "both",
+    fulfilmentModes: ["delivery"],
+    messProfile: {
+      meals: ["lunch", "dinner"],
+      diet: ["veg", "nonveg"],
+      fulfilment: ["delivery"],
+    },
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    onboardingVersion: "mess_web_v1",
+  }, { merge: true });
+}
+
+export async function createBothProfiles(user: User, customName?: string) {
+  await Promise.all([
+    createDefaultRestaurantProfile(user, customName),
+    createDefaultMessKitchenProfile(user, customName),
+  ]);
+}
+
+export async function resolvePostAuthPath(user: User) {
+  if (isAdminEmail(user.email)) return "/portal-select";
   try {
-    const now = new Date();
-    await setDoc(doc(db, "restaurants", user.uid), {
-      ...newProfile,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-    });
-  } catch (e) {
-    console.error("Failed to auto-create profile:", e);
+    const token = await user.getIdTokenResult();
+    // Platform admins pick which console to open (admin, vendor dashboard, stay).
+    if (token.claims.platformAdmin === true) return "/portal-select";
+    if (token.claims.staff === true) return "/dashboard";
+  } catch {
+    /* ignore */
   }
-  // New user → send to setup wizard
-  return "/setup";
+
+  // Check both profiles in parallel
+  const [profile, messProfile] = await Promise.all([
+    getRestaurantProfile(user.uid),
+    getMessKitchenProfile(user.uid)
+  ]);
+
+  const hasRestaurant = Boolean(profile && profile.name);
+  const hasMess = Boolean(messProfile && (messProfile as any).name);
+
+  // If user has neither profile created yet, prompt them to choose
+  if (!hasRestaurant && !hasMess) {
+    return "/select-type";
+  }
+
+  // If user operates BOTH on the same account
+  if (hasRestaurant && hasMess) {
+    const preferredMode = localStorage.getItem("kada_active_mode");
+    if (preferredMode === "mess") {
+      const obState = (messProfile as any)?.onboarding?.state;
+      if (!obState || ["started", "incomplete", "action_required"].includes(obState)) {
+        return "/setup?type=mess";
+      }
+      return "/mess/dashboard";
+    } else {
+      const obState = (profile as any)?.onboarding?.state;
+      if (obState && ["started", "incomplete", "action_required"].includes(obState)) {
+        return "/setup";
+      }
+      return "/dashboard";
+    }
+  }
+
+  // Only mess profile exists
+  if (hasMess) {
+    const obState = (messProfile as any)?.onboarding?.state;
+    if (!obState || ["started", "incomplete", "action_required"].includes(obState)) {
+      return "/setup?type=mess";
+    }
+    return "/mess/dashboard";
+  }
+
+  // Only restaurant profile exists
+  if (profile) {
+    const obState = (profile as any)?.onboarding?.state;
+    if (obState) {
+      if (["started", "incomplete", "action_required"].includes(obState)) {
+        return "/setup";
+      }
+      return "/dashboard";
+    }
+
+    if (!(profile as any).onboardingComplete) {
+      return "/setup";
+    }
+
+    return "/dashboard";
+  }
+
+  return "/select-type";
 }
 
 export async function signOutWeb(user?: User | null) {

@@ -12,6 +12,7 @@ import { db } from "@/lib/firebase";
 import { listenCollection } from "@/hooks/useLiveCollection";
 import { CustomerBrandLockup } from "@/components/admin/customer/CustomerBrandLockup";
 import { toast } from "sonner";
+import { CalendarDatePicker } from "@/components/common";
 import { Loader2, Ticket, Plus, Pencil, Trash2, BadgePercent, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatCards } from "@/components/admin/StatCards";
@@ -368,12 +369,11 @@ export default function PromosPage() {
             />
           </div>
           <div className="grid grid-cols-2 gap-4 items-end">
-            <div className="space-y-2">
-              <Label className="text-xs font-medium">Expires (optional)</Label>
-              <Input
-                type="date"
+            <div>
+              <CalendarDatePicker
+                label="Expires (optional)"
                 value={form.expiresAt}
-                onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
+                onChange={(val) => setForm({ ...form, expiresAt: val })}
               />
             </div>
             <div className="flex items-center justify-between p-3 border border-border/50 rounded-xl">

@@ -440,12 +440,13 @@ export const resolveOnboardingZone = onCall(async (request) => {
     { merge: true },
   );
 
-  // Only a real containing zone satisfies the mandatory zone gate. Outside
-  // coverage leaves the step open, so activation stays blocked until an
-  // admin either extends the zone or records an explicit override.
+  // Setting valid coordinates always completes the map_location step.
+  await setStepComplete(role, canonicalPartnerId, "map_location", true, uid).catch(() => {});
+
+  // Only a real containing zone satisfies the automated zone gate. Outside
+  // coverage leaves zone_assignment open for ops review / manual assignment.
   if (zoneId && zone) {
     await setStepComplete(role, canonicalPartnerId, "zone_assignment", true, uid).catch(() => {});
-    await setStepComplete(role, canonicalPartnerId, "map_location", true, uid).catch(() => {});
   }
 
   return {

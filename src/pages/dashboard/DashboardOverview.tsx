@@ -48,10 +48,10 @@ export default function DashboardOverview() {
   const [dateRange, setDateRange] = useState<"today" | "yesterday" | "week">("today");
   const [totalTablesCount, setTotalTablesCount] = useState(12);
   const [stats, setStats] = useState([
-    { label: "Revenue Today", value: format(0), change: "0%", up: true, icon: TrendingUp, subtitle: "vs yesterday" },
-    { label: "New Orders", value: "0", change: "Live", up: true, icon: ShoppingCart, subtitle: "waiting" },
-    { label: "Occupied Tables", value: "0/12", change: "0%", up: true, icon: Users, subtitle: "dine-in" },
-    { label: "Avg. Time", value: "14m", change: "-2.4m", up: true, icon: Clock, subtitle: "target: 15 mins" },
+    { label: "Revenue Today", value: format(0), change: "0 orders", up: true, icon: TrendingUp, subtitle: "today" },
+    { label: "Orders", value: "0", change: "0 placed", up: true, icon: ShoppingCart, subtitle: "placed today" },
+    { label: "Tables Used", value: "0/12", change: "0%", up: true, icon: Users, subtitle: "dine-in active" },
+    { label: "Avg. Prep Time", value: "—", change: "Queue clear", up: true, icon: Clock, subtitle: "avg prep time" },
   ]);
   const [initialLoading, setInitialLoading] = useState(true);
 
@@ -162,25 +162,97 @@ export default function DashboardOverview() {
 
     setOrders(rangeOrders.slice(0, 8));
 
-    const rangeRev = rangeOrders
-      .filter(o => o.status.toLowerCase() === 'completed')
-      .reduce((sum, o) => sum + (o.total || 0), 0);
+    // Exclude cancelled / rejected / failed orders from revenue calculations
+    const isExcludedOrder = (status?: string) => {
+      const s = (status || "").toLowerCase().trim();
+      return ["cancelled", "canceled", "rejected", "failed"].includes(s);
+    };
+
+    const validRangeOrders = rangeOrders.filter(o => !isExcludedOrder(o.status));
+    const rangeRev = validRangeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+
+    // Calculate previous period revenue for genuine comparison
+    const yesterdayRange = getDateRange("yesterday");
+    const yStartMs = yesterdayRange.start.getTime();
+    const yEndMs = yesterdayRange.end.getTime();
+    const yesterdayOrders = allOrders.filter(o => {
+      if (!o.timestamp || isExcludedOrder(o.status)) return false;
+      const oDate = o.timestamp instanceof Timestamp ? o.timestamp.toDate() : new Date(o.timestamp as any);
+      const oMs = oDate.getTime();
+      return oMs >= yStartMs && oMs <= yEndMs;
+    });
+    const yesterdayRev = yesterdayOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+
+    let revChange = `${validRangeOrders.length} orders`;
+    let revUp = true;
+    let revSub = rangeLabel;
+    if (dateRange === "today") {
+      if (yesterdayRev > 0) {
+        const pct = Math.round(((rangeRev - yesterdayRev) / yesterdayRev) * 100);
+        revChange = `${pct >= 0 ? "+" : ""}${pct}%`;
+        revUp = pct >= 0;
+        revSub = "vs yesterday";
+      } else {
+        revChange = `${validRangeOrders.length} orders`;
+        revUp = validRangeOrders.length > 0;
+        revSub = "today";
+      }
+    } else if (dateRange === "yesterday") {
+      revChange = `${validRangeOrders.length} orders`;
+      revUp = validRangeOrders.length > 0;
+      revSub = "yesterday";
+    }
+
     const activeTablesCount = new Set(
       rangeOrders
-        .filter(o => !['completed', 'cancelled'].includes(o.status.toLowerCase()))
+        .filter(o => !['completed', 'cancelled', 'canceled', 'rejected'].includes((o.status || '').toLowerCase().trim()))
         .map(o => o.table)
+        .filter(Boolean)
     ).size;
+
     const kitchenQueueCount = rangeOrders
-      .filter(o => ['new', 'preparing'].includes(o.status.toLowerCase()))
+      .filter(o => ['new', 'preparing', 'ready'].includes((o.status || '').toLowerCase().trim()))
       .length;
+
+    // Calculate actual Kitchen Prep Time from completed/ready orders
+    const ordersWithPrep = allOrders.filter(o => {
+      if (isExcludedOrder(o.status)) return false;
+      const start = o.acceptedAt || o.timestamp;
+      const end = o.readyAt || o.completedAt;
+      return !!(start && end);
+    });
+
+    let avgPrepValue = "—";
+    let avgPrepChange = "Queue clear";
+    let avgPrepUp = true;
+    let avgPrepSub = "avg prep time";
+
+    if (ordersWithPrep.length > 0) {
+      const totalMinutes = ordersWithPrep.reduce((sum, o) => {
+        const start = (o.acceptedAt || o.timestamp) instanceof Timestamp ? (o.acceptedAt || o.timestamp).toDate() : new Date(o.acceptedAt || o.timestamp);
+        const end = (o.readyAt || o.completedAt) instanceof Timestamp ? (o.readyAt || o.completedAt).toDate() : new Date(o.readyAt || o.completedAt);
+        const diff = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+        return sum + diff;
+      }, 0);
+      const avgMins = Math.round(totalMinutes / ordersWithPrep.length);
+      avgPrepValue = `${avgMins}m`;
+      avgPrepChange = avgMins <= 20 ? "On pace" : "Busy";
+      avgPrepUp = avgMins <= 20;
+      avgPrepSub = "avg order prep";
+    } else if (kitchenQueueCount > 0) {
+      avgPrepValue = `${kitchenQueueCount} live`;
+      avgPrepChange = "In kitchen";
+      avgPrepUp = true;
+      avgPrepSub = "cooking now";
+    }
 
     const revLabel = dateRange === "today" ? "Revenue Today" : dateRange === "yesterday" ? "Revenue Yesterday" : "Revenue (Week)";
 
-    setStats(prev => [
-      { label: revLabel, value: format(rangeRev), change: `${rangeOrders.length} orders`, up: rangeRev > 0, icon: TrendingUp, subtitle: rangeLabel },
-      { label: "Orders", value: rangeOrders.length.toString(), change: kitchenQueueCount > 0 ? `${kitchenQueueCount} live` : "—", up: true, icon: ShoppingCart, subtitle: dateRange === "today" ? "placed today" : rangeLabel },
-      { label: "Tables Used", value: `${activeTablesCount}/${totalTablesCount}`, change: `${Math.round((activeTablesCount / totalTablesCount) * 100)}%`, up: true, icon: Users, subtitle: "dine-in" },
-      prev[3],
+    setStats([
+      { label: revLabel, value: format(rangeRev), change: revChange, up: revUp, icon: TrendingUp, subtitle: revSub },
+      { label: "Orders", value: validRangeOrders.length.toString(), change: kitchenQueueCount > 0 ? `${kitchenQueueCount} live` : `${validRangeOrders.length} placed`, up: true, icon: ShoppingCart, subtitle: dateRange === "today" ? "placed today" : rangeLabel },
+      { label: "Tables Used", value: `${activeTablesCount}/${totalTablesCount}`, change: `${Math.round((activeTablesCount / totalTablesCount) * 100)}%`, up: true, icon: Users, subtitle: "dine-in active" },
+      { label: "Avg. Prep Time", value: avgPrepValue, change: avgPrepChange, up: avgPrepUp, icon: Clock, subtitle: avgPrepSub },
     ]);
 
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -192,7 +264,7 @@ export default function DashboardOverview() {
     });
 
     allOrders.forEach(o => {
-      if (!o.timestamp) return;
+      if (!o.timestamp || isExcludedOrder(o.status)) return;
       const oDate = o.timestamp instanceof Timestamp ? o.timestamp.toDate() : new Date(o.timestamp as any);
       const dayIdx = chartData.findIndex(d =>
         d.date.getDate() === oDate.getDate() && d.date.getMonth() === oDate.getMonth()
@@ -206,7 +278,7 @@ export default function DashboardOverview() {
 
     const itemCounts: Record<string, { count: number; revenue: number }> = {};
     rangeOrders
-      .filter(o => !['cancelled'].includes(o.status?.toLowerCase?.() ?? ''))
+      .filter(o => !isExcludedOrder(o.status))
       .forEach(o => {
         o.items?.forEach(item => {
           if (!itemCounts[item.name]) itemCounts[item.name] = { count: 0, revenue: 0 };
@@ -215,29 +287,19 @@ export default function DashboardOverview() {
         });
       });
 
+    const totalItemsSold = Object.values(itemCounts).reduce((s, x) => s + x.count, 0) || 1;
+
     const sortedItems = Object.entries(itemCounts)
       .map(([name, data]) => ({
         name, orders: data.count,
         revenue: format(data.revenue),
-        trend: "+12%", icon: "🍽️", color: "bg-primary"
+        trend: `${Math.round((data.count / totalItemsSold) * 100)}% share`, icon: "🍽️", color: "bg-primary"
       }))
       .sort((a, b) => b.orders - a.orders)
       .slice(0, 5);
 
     setPopularItems(sortedItems);
   }, [dateRange, allOrders, totalTablesCount]);
-
-  useEffect(() => {
-    setStats((prev) => [
-      prev[0], prev[1], prev[2],
-      {
-        label: "Stock Alerts", value: inventoryAlerts.length.toString(),
-        change: inventoryAlerts.length > 0 ? "Restock" : "All clear",
-        up: inventoryAlerts.length === 0, icon: AlertTriangle,
-        subtitle: inventoryAlerts.length > 0 ? "items low" : "inventory ok"
-      },
-    ]);
-  }, [inventoryAlerts.length]);
 
   const todayStr = new Date().toLocaleDateString(locale, {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'

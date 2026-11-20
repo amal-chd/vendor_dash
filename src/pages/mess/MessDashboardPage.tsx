@@ -118,7 +118,7 @@ export interface WeeklyMenuItem {
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"] as const;
 
 export default function MessDashboardPage() {
-  const { user, isMess } = useAuth();
+  const { user, isMess, hasBoth, switchMode } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"today" | "subscribers" | "plans" | "menu" | "money" | "settings">("today");
 
@@ -506,6 +506,20 @@ export default function MessDashboardPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
+            {hasBoth && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  switchMode("restaurant");
+                  navigate("/dashboard");
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs font-bold text-emerald-400 hover:text-white hover:bg-emerald-500/20 transition-colors"
+              >
+                <Store className="w-3.5 h-3.5" />
+                <span>Switch to Restaurant</span>
+              </Button>
+            )}
             <Link
               to="/setup?type=mess"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/5 transition-colors"

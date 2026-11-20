@@ -257,7 +257,10 @@ export const onSupportMessageCreated = onDocumentCreated(
     const thread = await loadOrCreateThread(threadRef, threadId);
     if (!thread) return;
 
-    const plan = planForUserMessage(thread.status);
+    const plan = planForUserMessage(thread.status, {
+      resolvedAt: thread.resolvedAt,
+      awaitingCsat: thread.awaitingCsat,
+    });
     const waiting = plan.kind === "ai" && plan.waitingForHuman;
     await threadRef.update({
       lastMessage: messagePreview(msg),
@@ -267,12 +270,23 @@ export const onSupportMessageCreated = onDocumentCreated(
       // A person is (or is about to be) reading this chat.
       ...(plan.kind === "human" || waiting ? { unreadForAdmin: FV.increment(1) } : {}),
       ...(plan.kind === "ai" && plan.reopen
-        ? { status: "bot", awaitingCsat: false, pendingAction: FV.delete() }
+        ? {
+            status: "bot",
+            awaitingCsat: false,
+            resolvedAt: FV.delete(),
+            assignedAgentUid: FV.delete(),
+            assignedAgentName: FV.delete(),
+            pendingAction: FV.delete(),
+          }
         : {}),
     });
     if (plan.kind === "human") return;
     if (plan.reopen) {
       thread.status = "bot";
+      thread.awaitingCsat = false;
+      thread.resolvedAt = undefined;
+      thread.assignedAgentUid = undefined;
+      thread.assignedAgentName = undefined;
       thread.pendingAction = undefined;
     }
 

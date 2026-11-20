@@ -17,6 +17,7 @@ import { db } from "@/lib/firebase";
 import { listenCollection } from "@/hooks/useLiveCollection";
 import { CustomerBrandLockup } from "@/components/admin/customer/CustomerBrandLockup";
 import { toast } from "sonner";
+import { CalendarDatePicker } from "@/components/common";
 import {
   Eye,
   Image as ImageIcon,
@@ -550,12 +551,11 @@ export default function AdsPage() {
                 onChange={(e) => setForm({ ...form, priority: Number(e.target.value) })}
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-medium">Ends (optional)</Label>
-              <Input
-                type="date"
+            <div>
+              <CalendarDatePicker
+                label="Ends (optional)"
                 value={form.endAt}
-                onChange={(e) => setForm({ ...form, endAt: e.target.value })}
+                onChange={(val) => setForm({ ...form, endAt: val })}
               />
             </div>
             <div className="flex items-center justify-between p-3 border border-border/50 rounded-xl">

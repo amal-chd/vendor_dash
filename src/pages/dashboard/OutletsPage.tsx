@@ -31,6 +31,7 @@ import "react-phone-number-input/style.css";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Link } from "react-router-dom";
 import { Lock } from "lucide-react";
+import { OpeningHoursClockPicker } from "@/components/common";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,11 +54,16 @@ interface Outlet {
 
 export default function OutletsPage() {
   const { toast } = useToast();
-  const { user, activeRestaurantId, isStaffOutlet, restaurantId } = useAuth();
+  const { user, activeRestaurantId, isStaffOutlet, primaryOutletId, isImpersonating, impersonatedRestaurantId, isMess } = useAuth();
   const geo = useGeoData();
   const { plan } = useSubscription();
-  const uid = activeRestaurantId;
-  const isOutletView = isStaffOutlet || (activeRestaurantId && restaurantId && activeRestaurantId !== restaurantId);
+
+  // Outlets belong to the parent restaurant account (never a branch outlet UID)
+  const ownerId = (isImpersonating && impersonatedRestaurantId) 
+    ? impersonatedRestaurantId 
+    : (primaryOutletId || user?.uid || activeRestaurantId);
+  const uid = ownerId;
+  const isOutletView = isStaffOutlet;
 
   const [outlets, setOutlets]         = useState<Outlet[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -70,6 +76,7 @@ export default function OutletsPage() {
   const [fname, setFname]             = useState("");
   const [femail, setFemail]           = useState("");
   const [fpassword, setFpassword]     = useState("");
+  const [createAccount, setCreateAccount] = useState(false);
   const [fphone, setFphone]           = useState("");
   const [faddr, setFaddr]             = useState("");
   const [fstate, setFstate]           = useState("");
@@ -112,6 +119,7 @@ export default function OutletsPage() {
     setFname("");
     setFemail("");
     setFpassword("");
+    setCreateAccount(false);
     setFphone("");
     setFaddr("");
     setFstate("");
@@ -125,8 +133,9 @@ export default function OutletsPage() {
   function openEdit(o: Outlet) {
     setEditOutlet(o);
     setFname(o.name || "");
-    setFemail(o.email || "");
-    setFpassword(""); // We don't show password on edit currently
+    setFemail(o.email || o.outletEmail || "");
+    setFpassword(""); // We don't show password on edit
+    setCreateAccount(Boolean(o.outletUid || o.outletEmail));
     setFphone(o.phone || "");
     setFaddr(o.address || "");
     setFstate(o.state || "");
@@ -147,11 +156,9 @@ export default function OutletsPage() {
       return;
     }
 
-    // Strict validation mapping to onboarding needs
+    // Basic required details
     if (
       !fname.trim() ||
-      !femail.trim() ||
-      (!editOutlet && !fpassword.trim()) ||
       !fphone.trim() ||
       !faddr.trim() ||
       !fstate ||
@@ -161,11 +168,12 @@ export default function OutletsPage() {
     ) {
       toast({
         title: "Validation Error",
-        description: "All onboarding details are required for outlet creation.",
+        description: "Please complete Outlet Name, Manager, Phone, Address, State, City, and Opening Hours.",
         variant: "destructive",
       });
       return;
     }
+
     if (fphone && !isValidPhoneNumber(fphone)) {
       toast({
         title: "Invalid Phone Number",
@@ -175,21 +183,44 @@ export default function OutletsPage() {
       return;
     }
 
+    // Account creation validation
+    if (createAccount) {
+      if (!femail.trim()) {
+        toast({
+          title: "Email Required",
+          description: "A login email is required when 'Create login account' is enabled.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!editOutlet && (!fpassword.trim() || fpassword.length < 6)) {
+        toast({
+          title: "Password Required",
+          description: "Password must be at least 6 characters.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (user?.email && femail.trim().toLowerCase() === user.email.toLowerCase()) {
+        toast({
+          title: "Email Already In Use",
+          description: "The outlet login email cannot be the same as your primary account email. Please use a unique email or disable 'Create login account'.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setSaving(true);
     try {
-      // 1. Retrieve parent configurations to sync active subscription status
-      const parentSnap = await getDoc(doc(db, "restaurants", uid));
-      const parentData = parentSnap.exists() ? parentSnap.data() : {};
-
-      const baseData = {
+      const baseData: Record<string, any> = {
         name: fname.trim(),
-        email: femail.trim(),
-        supportEmail: femail.trim(),
+        email: femail.trim() || null,
         phone: fphone.trim(),
         address: faddr.trim(),
         state: fstate,
         district: fdistrict,
-        countryCode: fcountryCode,
+        countryCode: fcountryCode || "IN",
         hours: fhours.trim(),
         managerName: fmanager.trim(),
         updatedAt: serverTimestamp(),
@@ -198,11 +229,14 @@ export default function OutletsPage() {
       if (editOutlet) {
         const outletId = editOutlet.id;
 
-        if (fpassword.trim() || femail.trim() !== (editOutlet.email || '')) {
-          const createAccount = httpsCallable(functions, "createOutletAccount");
+        // If credentials are being assigned or modified via Auth
+        if (createAccount && (fpassword.trim() || femail.trim() !== (editOutlet.email || editOutlet.outletEmail || ''))) {
+          const createAccountFn = httpsCallable(functions, "createOutletAccount");
           
-          await createAccount({
+          await createAccountFn({
             outletId,
+            parentId: uid,
+            restaurantId: uid,
             email: femail.trim(),
             password: fpassword.trim() ? fpassword : undefined,
             name: fname.trim(),
@@ -212,38 +246,72 @@ export default function OutletsPage() {
             district: fdistrict,
             countryCode: fcountryCode,
             hours: fhours.trim(),
-            managerName: fmanager.trim()
+            managerName: fmanager.trim(),
           });
         } else {
-          // Subcollection sync
+          // Direct subcollection & root sync
           await updateDoc(doc(db, "restaurants", uid, "outlets", outletId), baseData);
-          // Root collection sync
-          await updateDoc(doc(db, "restaurants", outletId), baseData);
+          if (editOutlet.outletUid) {
+            await updateDoc(doc(db, "restaurants", outletId), baseData).catch(() => {});
+          }
+          if (isMess) {
+            await updateDoc(doc(db, "mess_kitchens", uid, "outlets", outletId), baseData).catch(() => {});
+          }
         }
 
         toast({ title: "Outlet updated successfully" });
       } else {
-        const createAccount = httpsCallable(functions, "createOutletAccount");
-        
-        await createAccount({
-          email: femail.trim(),
-          password: fpassword,
-          name: fname.trim(),
-          phone: fphone.trim(),
-          address: faddr.trim(),
-          state: fstate,
-          district: fdistrict,
-          countryCode: fcountryCode,
-          hours: fhours.trim(),
-          managerName: fmanager.trim(),
-          createAccount: true
-        });
+        // New Outlet Creation
+        if (createAccount) {
+          const createAccountFn = httpsCallable(functions, "createOutletAccount");
+          
+          await createAccountFn({
+            parentId: uid,
+            restaurantId: uid,
+            email: femail.trim(),
+            password: fpassword,
+            name: fname.trim(),
+            phone: fphone.trim(),
+            address: faddr.trim(),
+            state: fstate,
+            district: fdistrict,
+            countryCode: fcountryCode,
+            hours: fhours.trim(),
+            managerName: fmanager.trim(),
+            createAccount: true
+          });
 
-        toast({ title: "Outlet created successfully" });
+          toast({ title: "Outlet and login account created successfully" });
+        } else {
+          // Direct Firestore creation: no external Cloud Function dependency needed!
+          const newDocRef = doc(collection(db, "restaurants", uid, "outlets"));
+          const newId = newDocRef.id;
+
+          const newOutletData = {
+            ...baseData,
+            id: newId,
+            outletUid: "",
+            outletEmail: "",
+            isActive: true,
+            createdAt: serverTimestamp(),
+          };
+
+          await setDoc(newDocRef, newOutletData);
+          if (isMess) {
+            await setDoc(doc(db, "mess_kitchens", uid, "outlets", newId), newOutletData).catch(() => {});
+          }
+
+          toast({ title: "Outlet created successfully" });
+        }
       }
       setFormOpen(false);
-    } catch (e) {
-      toast({ title: "Error", description: String(e), variant: "destructive" });
+    } catch (e: any) {
+      console.error("[OutletsPage] Save outlet error:", e);
+      let errMsg = e?.message || String(e);
+      if (errMsg.includes("already-exists") || errMsg.includes("already in use") || errMsg.includes("email-already-exists")) {
+        errMsg = `The email ${femail} is already in use by another account. Please use a unique email for this branch login, or disable 'Create login account'.`;
+      }
+      toast({ title: "Error Saving Outlet", description: errMsg, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -298,7 +366,7 @@ export default function OutletsPage() {
   // Validation helper
   const formIsValid = Boolean(
     fname.trim() &&
-    femail.trim() &&
+    (!createAccount || femail.trim()) &&
     fphone.trim() &&
     faddr.trim() &&
     fstate &&
@@ -472,23 +540,12 @@ export default function OutletsPage() {
                 autoFocus
               />
               <FormField
-                label="Support Email (Login ID)"
-                value={femail}
-                onChange={setFemail}
-                placeholder="e.g. info@branch.com"
-                type="email"
+                label="Manager Name"
+                value={fmanager}
+                onChange={setFmanager}
+                placeholder="Full name"
               />
             </div>
-            
-            {!editOutlet && (
-              <FormField
-                label="Login Password"
-                value={fpassword}
-                onChange={setFpassword}
-                placeholder="Create a password for this outlet"
-                type="password"
-              />
-            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5 [&_.PhoneInputInput]:h-10 [&_.PhoneInputInput]:rounded-xl [&_.PhoneInputInput]:bg-background [&_.PhoneInputInput]:border [&_.PhoneInputInput]:border-input [&_.PhoneInputInput]:px-3 [&_.PhoneInputInput]:text-sm [&_.PhoneInputInput]:focus-visible:outline-none [&_.PhoneInputInput]:focus-visible:ring-2 [&_.PhoneInputInput]:focus-visible:ring-ring [&_.PhoneInputInput]:focus-visible:ring-offset-2">
@@ -503,10 +560,11 @@ export default function OutletsPage() {
                 />
               </div>
               <FormField
-                label="Manager Name"
-                value={fmanager}
-                onChange={setFmanager}
-                placeholder="Full name"
+                label="Contact Email (Optional)"
+                value={femail}
+                onChange={setFemail}
+                placeholder="e.g. info@branch.com"
+                type="email"
               />
             </div>
 
@@ -516,6 +574,46 @@ export default function OutletsPage() {
               onChange={setFaddr}
               placeholder="Floor, building, street name…"
             />
+
+            {/* Separate Login Credentials Toggle */}
+            <div className="rounded-2xl border border-border/40 p-4 bg-muted/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-foreground">Separate Login Account</p>
+                  <p className="text-xs text-muted-foreground">
+                    Allow this branch to log in to the vendor portal with its own email & password.
+                  </p>
+                </div>
+                <Switch
+                  checked={createAccount}
+                  onCheckedChange={setCreateAccount}
+                />
+              </div>
+
+              {createAccount && (
+                <div className="pt-2 space-y-3 border-t border-border/30">
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      label="Login Email *"
+                      value={femail}
+                      onChange={setFemail}
+                      placeholder="branch.login@restaurant.com"
+                      type="email"
+                    />
+                    <FormField
+                      label="Login Password *"
+                      value={fpassword}
+                      onChange={setFpassword}
+                      placeholder={editOutlet ? "Leave blank to keep current" : "Min 6 characters"}
+                      type="password"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    ⚠️ Must be a unique email (not your main owner account email).
+                  </p>
+                </div>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 space-y-1.5">
@@ -597,11 +695,11 @@ export default function OutletsPage() {
               </div>
             </div>
 
-            <FormField
+            <OpeningHoursClockPicker
               label="Opening Hours"
               value={fhours}
               onChange={setFhours}
-              placeholder="e.g. 9:00 AM – 11:00 PM"
+              required
             />
 
             <Button

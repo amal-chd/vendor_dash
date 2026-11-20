@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { promptDialog } from "@/components/admin/core/asyncDialogs";
+import { CalendarDatePicker } from "@/components/common";
 
 interface MessSettlement {
   id: string;
@@ -255,19 +256,23 @@ export default function MessSettlements() {
         ]}
         actions={
           <div className="flex items-end gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="mess-from" className="text-[11px]">
-                From
-              </Label>
-              <Input id="mess-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-[150px]" />
+            <div className="w-[160px]">
+              <CalendarDatePicker
+                label="From"
+                value={from}
+                onChange={setFrom}
+                buttonClassName="h-9 rounded-lg text-xs"
+              />
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="mess-to" className="text-[11px]">
-                To
-              </Label>
-              <Input id="mess-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-[150px]" />
+            <div className="w-[160px]">
+              <CalendarDatePicker
+                label="To"
+                value={to}
+                onChange={setTo}
+                buttonClassName="h-9 rounded-lg text-xs"
+              />
             </div>
-            <Button onClick={generate} disabled={generating}>
+            <Button onClick={generate} disabled={generating} className="h-9">
               {generating ? "Generating…" : "Generate"}
             </Button>
           </div>

@@ -5,6 +5,7 @@ import {
   ShoppingBag, DollarSign, Percent, Receipt, Users, Loader2,
   FileText, LayoutGrid, Tag, CreditCard, Clock, Search, Grid3X3,
   Star, Zap, AlertTriangle, X, ChevronLeft, ChevronRight, Download,
+  Smartphone,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import { toast } from "sonner";
 import { FeatureGate } from "@/components/FeatureGate";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { CalendarDatePicker } from "@/components/common";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -46,7 +48,8 @@ interface FirestoreOrder {
   discount?: number | string; total?: number | string; status?: string;
   paymentMethod?: string; payment?: string;
   timestamp?: Timestamp | { toDate: () => Date } | string | number;
-  type?: string; channel?: string;
+  type?: string; channel?: string; orderSource?: string; source?: string;
+  orderType?: string;
 }
 
 interface RestaurantProfile {
@@ -56,9 +59,14 @@ interface RestaurantProfile {
 interface DailyPoint {
   label: string; date: string; net: number; gross: number;
   orders: number; units: number; discount: number; tax: number; receipts: number;
+  kadaAppRevenue: number; kadaAppOrders: number;
+  posRevenue: number; posOrders: number;
 }
 
-interface HourlyPoint { hour: string; net: number; orders: number; }
+interface HourlyPoint {
+  hour: string; net: number; orders: number;
+  kadaAppRevenue: number; kadaAppOrders: number;
+}
 interface HeatmapCell { hour: number; dow: number; orders: number; }
 
 interface Agg {
@@ -75,14 +83,32 @@ interface Agg {
   staffPerf: Array<{ name: string; orders: number; revenue: number }>;
   tableMix: Array<{ table: string; net: number; orders: number; aov: number }>;
   dayPartMix: Array<{ slot: string; revenue: number; orders: number; pct: number }>;
+  kadaAppRevenue: number;
+  kadaAppOrders: number;
+  posRevenue: number;
+  posOrders: number;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function isCompletedStatus(s: unknown) { return ["completed","done","delivered","paid"].includes((s??"").toString().toLowerCase()); }
-function isCancelledStatus(s: unknown) { return ["cancelled","canceled","void","voided"].includes((s??"").toString().toLowerCase()); }
-function isPreparingStatus(s: unknown) { return ["preparing","in progress","in_progress","cooking"].includes((s??"").toString().toLowerCase()); }
-function isReadyStatus(s: unknown) { return ["ready","ready to serve","ready_to_serve"].includes((s??"").toString().toLowerCase()); }
+export function isKadaCustomerAppOrder(o: FirestoreOrder): boolean {
+  const src = (o.orderSource ?? o.source ?? "").toString().toLowerCase().trim();
+  const ch = (o.channel ?? "").toString().toLowerCase().trim();
+  const type = (o.type ?? o.orderType ?? "").toString().toLowerCase().trim();
+  if (src === "delivery_app" || src === "web_app" || src === "customer_app" || src === "web_delivery") {
+    return true;
+  }
+  if (src === "pos" || src === "qr_menu" || src === "qr") {
+    return false;
+  }
+  return ch === "delivery" || type === "delivery";
+}
+
+function isCompletedStatus(s: unknown) { return ["completed","done","delivered","paid"].includes((s??"").toString().toLowerCase().trim()); }
+function isCancelledStatus(s: unknown) { return ["cancelled","canceled","void","voided","rejected","failed"].includes((s??"").toString().toLowerCase().trim()); }
+function isPreparingStatus(s: unknown) { return ["preparing","in progress","in_progress","cooking","accepted"].includes((s??"").toString().toLowerCase().trim()); }
+function isReadyStatus(s: unknown) { return ["ready","ready to serve","ready_to_serve","ready_for_pickup","out_for_delivery"].includes((s??"").toString().toLowerCase().trim()); }
+function isRevenueOrder(s: unknown) { return !isCancelledStatus(s); }
 
 function asDate(ts: unknown): Date {
   if (!ts) return new Date(0);
@@ -144,72 +170,100 @@ const DAY_PART_COLORS: Record<string,string> = {
 // ─── Aggregation ───────────────────────────────────────────────────────────────
 
 function aggregateOrders(orders: FirestoreOrder[]): Agg {
+  const revenueOrders = orders.filter(o=>isRevenueOrder(o.status));
   const completed = orders.filter(o=>isCompletedStatus(o.status));
   const cancelled = orders.filter(o=>isCancelledStatus(o.status));
   const preparing = orders.filter(o=>isPreparingStatus(o.status));
   const ready     = orders.filter(o=>isReadyStatus(o.status));
 
   let gross=0,tax=0,discount=0,net=0,receipts=0;
-  completed.forEach(o=>{
+  let kadaAppRevenue=0,kadaAppOrders=0,posRevenue=0,posOrders=0;
+
+  revenueOrders.forEach(o=>{
     const oDisc=orderDiscount(o),oTax=orderTax(o),oSub=orderSubtotal(o);
     const oGross=oSub+oDisc,oNet=oGross-oDisc;
-    gross+=oGross; discount+=oDisc; tax+=oTax; net+=oNet; receipts+=oNet+oTax;
+    const oTot=oNet+oTax;
+    gross+=oGross; discount+=oDisc; tax+=oTax; net+=oNet; receipts+=oTot;
+    if (isKadaCustomerAppOrder(o)) {
+      kadaAppRevenue += oTot;
+      kadaAppOrders += 1;
+    } else {
+      posRevenue += oTot;
+      posOrders += 1;
+    }
   });
 
-  const ordersCount=completed.length;
+  const ordersCount=revenueOrders.length;
   const aov=ordersCount>0?receipts/ordersCount:0;
-  const units=completed.reduce((acc,o)=>{
+  const units=revenueOrders.reduce((acc,o)=>{
     return acc+(Array.isArray(o.items)?o.items:[]).reduce((s,it)=>s+parseQty(it?.quantity??it?.qty),0);
   },0);
 
   // Peak hour
   const hourCounts: Record<number,number>={};
-  completed.forEach(o=>{ const h=asDate(o.timestamp).getHours(); hourCounts[h]=(hourCounts[h]||0)+1; });
+  revenueOrders.forEach(o=>{ const h=asDate(o.timestamp).getHours(); hourCounts[h]=(hourCounts[h]||0)+1; });
   const peakEntry=Object.entries(hourCounts).sort((a,b)=>Number(b[1])-Number(a[1]))[0];
   const peakHour=peakEntry?parseInt(peakEntry[0],10):null;
 
   // Daily trend
   const dayMap=new Map<string,DailyPoint>();
-  completed.forEach(o=>{
+  revenueOrders.forEach(o=>{
     const d=asDate(o.timestamp),key=toIsoDate(d);
-    const v:DailyPoint=dayMap.get(key)??{date:key,label:key.slice(5),net:0,gross:0,orders:0,units:0,discount:0,tax:0,receipts:0};
+    const v:DailyPoint=dayMap.get(key)??{
+      date:key,label:key.slice(5),net:0,gross:0,orders:0,units:0,discount:0,tax:0,receipts:0,
+      kadaAppRevenue:0,kadaAppOrders:0,posRevenue:0,posOrders:0,
+    };
     const oDisc=orderDiscount(o),oTax=orderTax(o),oGross=orderSubtotal(o)+oDisc,oNet=oGross-oDisc;
-    v.gross+=oGross; v.discount+=oDisc; v.tax+=oTax; v.net+=oNet; v.receipts+=oNet+oTax; v.orders+=1;
+    const oTot=oNet+oTax;
+    v.gross+=oGross; v.discount+=oDisc; v.tax+=oTax; v.net+=oNet; v.receipts+=oTot; v.orders+=1;
     v.units+=(Array.isArray(o.items)?o.items:[]).reduce((s,it)=>s+parseQty(it?.quantity??it?.qty),0);
+    if (isKadaCustomerAppOrder(o)) {
+      v.kadaAppRevenue += oTot;
+      v.kadaAppOrders += 1;
+    } else {
+      v.posRevenue += oTot;
+      v.posOrders += 1;
+    }
     dayMap.set(key,v);
   });
   const daily=Array.from(dayMap.values()).sort((a,b)=>a.date.localeCompare(b.date));
 
   // Hourly
-  const hourlyMap=new Map<number,{net:number;orders:number}>();
-  completed.forEach(o=>{
+  const hourlyMap=new Map<number,{net:number;orders:number;kadaAppRevenue:number;kadaAppOrders:number}>();
+  revenueOrders.forEach(o=>{
     const h=asDate(o.timestamp).getHours();
-    const v=hourlyMap.get(h)??{net:0,orders:0};
-    v.net+=orderSubtotal(o); v.orders+=1; hourlyMap.set(h,v);
+    const v=hourlyMap.get(h)??{net:0,orders:0,kadaAppRevenue:0,kadaAppOrders:0};
+    const oTot=orderTotal(o);
+    v.net+=orderSubtotal(o); v.orders+=1;
+    if (isKadaCustomerAppOrder(o)) {
+      v.kadaAppRevenue += oTot;
+      v.kadaAppOrders += 1;
+    }
+    hourlyMap.set(h,v);
   });
   const hourly:HourlyPoint[]=Array.from({length:24},(_,h)=>{
-    const v=hourlyMap.get(h)??{net:0,orders:0};
-    return {hour:`${String(h).padStart(2,"0")}:00`,net:v.net,orders:v.orders};
+    const v=hourlyMap.get(h)??{net:0,orders:0,kadaAppRevenue:0,kadaAppOrders:0};
+    return {hour:`${String(h).padStart(2,"0")}:00`,net:v.net,orders:v.orders,kadaAppRevenue:v.kadaAppRevenue,kadaAppOrders:v.kadaAppOrders};
   });
 
   // Heatmap
   const heatmapMap=new Map<string,number>();
-  orders.forEach(o=>{ const d=asDate(o.timestamp); heatmapMap.set(`${d.getHours()}-${d.getDay()}`,(heatmapMap.get(`${d.getHours()}-${d.getDay()}`)||0)+1); });
+  revenueOrders.forEach(o=>{ const d=asDate(o.timestamp); heatmapMap.set(`${d.getHours()}-${d.getDay()}`,(heatmapMap.get(`${d.getHours()}-${d.getDay()}`)||0)+1); });
   const heatmap:HeatmapCell[]=[];
   for(let h=0;h<24;h++) for(let dow=0;dow<7;dow++) heatmap.push({hour:h,dow,orders:heatmapMap.get(`${h}-${dow}`)??0});
 
   // Type mix
   const typeAgg=new Map<string,{net:number;orders:number}>();
-  completed.forEach(o=>{
-    const raw=(o.type??o.channel??"unknown").toString().toLowerCase();
-    const key=raw==="dine-in"||raw==="dinein"||raw==="dine_in"?"Dine-In":raw==="delivery"?"Delivery":raw==="takeaway"||raw==="pickup"?"Takeaway":"Other";
-    const v=typeAgg.get(key)??{net:0,orders:0}; v.net+=orderSubtotal(o); v.orders+=1; typeAgg.set(key,v);
+  revenueOrders.forEach(o=>{
+    const isApp = isKadaCustomerAppOrder(o);
+    const key = isApp ? "The Kada Customer App" : ((o.type ?? o.channel ?? "POS").toString().toLowerCase().includes("dine") ? "Dine-In" : (o.type ?? o.channel ?? "POS").toString().toLowerCase().includes("takeaway") ? "Takeaway (POS)" : "POS Walk-in");
+    const v=typeAgg.get(key)??{net:0,orders:0}; v.net+=orderTotal(o); v.orders+=1; typeAgg.set(key,v);
   });
   const typeMix=Array.from(typeAgg.entries()).map(([type,v])=>({type,net:v.net,orders:v.orders})).sort((a,b)=>b.net-a.net);
 
   // Payment mix
   const payAgg=new Map<string,{net:number;orders:number}>();
-  completed.forEach(o=>{
+  revenueOrders.forEach(o=>{
     const method=normalizePayment(o.paymentMethod??o.payment);
     const v=payAgg.get(method)??{net:0,orders:0};
     v.net+=orderTotal(o); v.orders+=1; payAgg.set(method,v);
@@ -225,7 +279,7 @@ function aggregateOrders(orders: FirestoreOrder[]): Agg {
   // Items + categories
   const itemAgg=new Map<string,{qty:number;revenue:number}>();
   const catAgg=new Map<string,{net:number;units:number}>();
-  completed.forEach(o=>{
+  revenueOrders.forEach(o=>{
     (Array.isArray(o.items)?o.items:[]).forEach(it=>{
       const name=(it?.name??it?.title??"Item").toString();
       const qty=parseQty(it?.quantity??it?.qty),price=Number(it?.price)||0;
@@ -241,7 +295,7 @@ function aggregateOrders(orders: FirestoreOrder[]): Agg {
 
   // Staff
   const staffMap=new Map<string,{orders:number;revenue:number}>();
-  completed.forEach(o=>{
+  revenueOrders.forEach(o=>{
     const raw=(o as unknown as Record<string,unknown>)["staffName"]??(o as unknown as Record<string,unknown>)["server"]??(o as unknown as Record<string,unknown>)["waiter"];
     if(!raw) return;
     const v=staffMap.get(raw.toString())??{orders:0,revenue:0};
@@ -251,7 +305,7 @@ function aggregateOrders(orders: FirestoreOrder[]): Agg {
 
   // Table mix
   const tableAgg=new Map<string,{net:number;orders:number}>();
-  completed.forEach(o=>{
+  revenueOrders.forEach(o=>{
     const tbl=o.table!=null&&o.table!==""?`Table ${o.table}`:"Takeaway/Other";
     const v=tableAgg.get(tbl)??{net:0,orders:0};
     v.net+=orderTotal(o); v.orders+=1; tableAgg.set(tbl,v);
@@ -260,7 +314,7 @@ function aggregateOrders(orders: FirestoreOrder[]): Agg {
 
   // Day-part
   const dpAgg=new Map<string,{revenue:number;orders:number}>();
-  completed.forEach(o=>{
+  revenueOrders.forEach(o=>{
     const slot=getDayPart(asDate(o.timestamp).getHours());
     const v=dpAgg.get(slot)??{revenue:0,orders:0};
     v.revenue+=orderTotal(o); v.orders+=1; dpAgg.set(slot,v);
@@ -276,6 +330,7 @@ function aggregateOrders(orders: FirestoreOrder[]): Agg {
     preparingOrders:preparing.length,readyOrders:ready.length,
     units,discount,tax,aov,peakHour,daily,hourly,heatmap,
     typeMix,paymentMix,statusMix,topItems,categoryMix,staffPerf,tableMix,dayPartMix,
+    kadaAppRevenue,kadaAppOrders,posRevenue,posOrders,
   };
 }
 
@@ -318,8 +373,9 @@ function ChartTooltip({active,payload,label}:{active?:boolean;payload?:TTP[];lab
 const EMPTY_AGG: Agg = {
   gross:0,net:0,receipts:0,orders:0,cancelledOrders:0,preparingOrders:0,readyOrders:0,
   units:0,discount:0,tax:0,aov:0,peakHour:null,daily:[],
-  hourly:Array.from({length:24},(_,h)=>({hour:`${String(h).padStart(2,"0")}:00`,net:0,orders:0})),
+  hourly:Array.from({length:24},(_,h)=>({hour:`${String(h).padStart(2,"0")}:00`,net:0,orders:0,kadaAppRevenue:0,kadaAppOrders:0})),
   heatmap:[],typeMix:[],paymentMix:[],statusMix:[],topItems:[],categoryMix:[],staffPerf:[],tableMix:[],dayPartMix:[],
+  kadaAppRevenue:0,kadaAppOrders:0,posRevenue:0,posOrders:0,
 };
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
@@ -415,15 +471,40 @@ export default function ReportsPage() {
     return rawOrders.filter(o=>{
       const q=billSearch.toLowerCase();
       const ms=!q||String(o.orderNumber??"").toLowerCase().includes(q)||String(o.table??"").toLowerCase().includes(q)||String(o.total??"").includes(q);
-      const mf=billStatusFilter==="all"||(o.status??"").toLowerCase()===billStatusFilter;
+      let mf = true;
+      if (billStatusFilter === "kada_app") {
+        mf = isKadaCustomerAppOrder(o);
+      } else if (billStatusFilter !== "all") {
+        mf = (o.status??"").toLowerCase() === billStatusFilter;
+      }
       return ms&&mf;
     });
   },[rawOrders,billSearch,billStatusFilter]);
 
   const handleExportCSV = useCallback(()=>{
     if(rawOrders.length===0){toast.error("No orders to export");return;}
-    const hdr=["Order #","Table","Status","Payment","Type","Subtotal","Discount","Tax","Total","Date","Time"];
-    const rows=rawOrders.map(o=>{const d=asDate(o.timestamp);return [o.orderNumber??"",o.table??"",o.status??"",o.paymentMethod??o.payment??"",o.type??"",orderSubtotal(o),orderDiscount(o),orderTax(o),orderTotal(o),toIsoDate(d),`${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`].join(",");});
+    const hdr=["Order #","Table","Status","Payment","Type","Channel","Is The Kada App","The Kada App (INR)","Subtotal","Discount","Tax","Total","Date","Time"];
+    const rows=rawOrders.map(o=>{
+      const d=asDate(o.timestamp);
+      const isApp=isKadaCustomerAppOrder(o);
+      const tot=orderTotal(o);
+      return [
+        o.orderNumber??"",
+        o.table??"",
+        o.status??"",
+        o.paymentMethod??o.payment??"",
+        o.type??"",
+        isApp ? "The Kada Customer App" : (o.type ?? o.channel ?? "In-Store / POS"),
+        isApp ? "YES" : "NO",
+        isApp ? tot : 0,
+        orderSubtotal(o),
+        orderDiscount(o),
+        orderTax(o),
+        tot,
+        toIsoDate(d),
+        `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`
+      ].join(",");
+    });
     const csv=[hdr.join(","),...rows].join("\n");
     const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
     const a=document.createElement("a");a.href=url;a.download=`KadaDine-Orders-${rangeLabel.replace(/\s+/g,"-")}.csv`;a.click();URL.revokeObjectURL(url);
@@ -496,8 +577,8 @@ export default function ReportsPage() {
     const statusRows=agg.statusMix.map(s=>`<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600;text-transform:capitalize">${s.status}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${s.count}</td></tr>`).join("");
     const dailyShown=isSingleDay?agg.hourly:agg.daily.slice(-31);
     const trendRows=isSingleDay
-      ? dailyShown.map(d=>`<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600">${(d as {hour:string}).hour}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${d.orders}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">${inr(d.net)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">${inr(d.tax)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${inr(d.receipts)}</td></tr>`).join("")
-      : (agg.daily.slice(-31)).map(d=>`<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600">${d.date}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${d.orders}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">${inr(d.net)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">${inr(d.tax)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${inr(d.receipts)}</td></tr>`).join("");
+      ? dailyShown.map(d=>`<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600">${(d as {hour:string}).hour}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${d.orders}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700;color:#2563eb">${inr((d as any).kadaAppRevenue||0)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">${inr(d.net)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">${inr(d.tax)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${inr(d.receipts)}</td></tr>`).join("")
+      : (agg.daily.slice(-31)).map(d=>`<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600">${d.date}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${d.orders}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700;color:#2563eb">${inr(d.kadaAppRevenue||0)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">${inr(d.net)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">${inr(d.tax)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${inr(d.receipts)}</td></tr>`).join("");
     const payRows=agg.paymentMix.map(p=>{const tot=agg.paymentMix.reduce((s,x)=>s+x.net,0);const sh=tot>0?(p.net/tot)*100:0;return `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600;text-transform:uppercase">${p.method}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${p.orders}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${inr(p.net)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;color:#888;font-size:11px">${pct(sh)}</td></tr>`;}).join("");
     const catRows=agg.categoryMix.map(c=>`<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600">${c.category}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${c.units}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${inr(c.net)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;color:#888;font-size:11px">${pct(c.pct)}</td></tr>`).join("");
     const dpRows=agg.dayPartMix.map(d=>`<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600">${d.slot}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${d.orders}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${inr(d.revenue)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;color:#888;font-size:11px">${pct(d.pct)}</td></tr>`).join("");
@@ -644,19 +725,20 @@ thead th:nth-child(n+3){text-align:right}
 <div class="sh avoid-break"><span><span class="sh-num">2</span>Key performance indicators</span><span class="sh-meta">vs previous ${rangeLabel.toLowerCase()}</span></div>
 <div class="kg avoid-break">
   <div class="kb"><div class="kl">Total Receipts</div><div class="kv">${inr(agg.receipts)}</div><div class="kc" style="color:${cmpColor(cmpReceipts)}">${arrow(cmpReceipts)} ${Math.abs(cmpReceipts)}% vs prev</div></div>
+  <div class="kb" style="background:#eff6ff;border-color:#bfdbfe"><div class="kl" style="color:#1d4ed8">The Kada App</div><div class="kv" style="color:#1e40af">${inr(agg.kadaAppRevenue)}</div><div class="kc" style="color:#2563eb">${agg.kadaAppOrders} orders (${agg.receipts>0?pct((agg.kadaAppRevenue/agg.receipts)*100):"0%"})</div></div>
   <div class="kb"><div class="kl">Orders Completed</div><div class="kv">${agg.orders}</div><div class="kc" style="color:${cmpColor(cmpOrders)}">${arrow(cmpOrders)} ${Math.abs(cmpOrders)}% vs prev</div></div>
   <div class="kb"><div class="kl">Avg Order Value</div><div class="kv">${inr(agg.aov)}</div><div class="kc" style="color:${cmpColor(cmpAov)}">${arrow(cmpAov)} ${Math.abs(cmpAov)}% vs prev</div></div>
   <div class="kb"><div class="kl">Items Sold</div><div class="kv">${agg.units}</div><div class="kc" style="color:#64748b">${dayCount>0?(agg.units/dayCount).toFixed(1):"0"}/day avg</div></div>
   <div class="kb accent"><div class="kl">Discounts Given</div><div class="kv">${inr(agg.discount)}</div><div class="kc" style="color:${cmpColor(-cmpDiscount)}">${agg.gross>0?pct((agg.discount/agg.gross)*100):"0%"} of gross</div></div>
   <div class="kb"><div class="kl">${taxLabel} Collected</div><div class="kv">${inr(agg.tax)}</div><div class="kc" style="color:#64748b">${agg.net>0?pct((agg.tax/agg.net)*100):"0%"} eff. rate</div></div>
   <div class="kb warn"><div class="kl">Cancelled Orders</div><div class="kv" style="color:#ef4444">${agg.cancelledOrders}</div><div class="kc" style="color:#64748b">${(agg.orders+agg.cancelledOrders)>0?pct((agg.cancelledOrders/(agg.orders+agg.cancelledOrders))*100):"0%"} cancel rate</div></div>
-  <div class="kb"><div class="kl">Best Hour</div><div class="kv">${peakHours[0]?`${String(peakHours[0].hour).padStart(2,"0")}:00`:"—"}</div><div class="kc" style="color:#64748b">${peakHours[0]?`${peakHours[0].orders} orders`:"No data"}</div></div>
 </div>
 
 <!-- 3. Comparison block -->
 <div class="sh avoid-break"><span><span class="sh-num">3</span>Period-over-period comparison</span></div>
 <table class="avoid-break"><thead><tr><th>Metric</th><th>This Period</th><th>Previous</th><th>Change</th></tr></thead><tbody>
   <tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600">Receipts</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${inr(agg.receipts)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;color:#64748b">${inr(prevAgg.receipts)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700;color:${cmpColor(cmpReceipts)}">${arrow(cmpReceipts)} ${Math.abs(cmpReceipts)}%</td></tr>
+  <tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600;color:#2563eb">The Kada App Revenue</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700;color:#2563eb">${inr(agg.kadaAppRevenue)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;color:#64748b">${inr(prevAgg.kadaAppRevenue)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700;color:#2563eb">${pct(pctChange(agg.kadaAppRevenue,prevAgg.kadaAppRevenue))}</td></tr>
   <tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600">Orders</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${agg.orders}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;color:#64748b">${prevAgg.orders}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700;color:${cmpColor(cmpOrders)}">${arrow(cmpOrders)} ${Math.abs(cmpOrders)}%</td></tr>
   <tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600">Avg Order Value</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${inr(agg.aov)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;color:#64748b">${inr(prevAgg.aov)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700;color:${cmpColor(cmpAov)}">${arrow(cmpAov)} ${Math.abs(cmpAov)}%</td></tr>
   <tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;font-weight:600">Discounts</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700">${inr(agg.discount)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;color:#64748b">${inr(prevAgg.discount)}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:700;color:${cmpColor(-cmpDiscount)}">${arrow(cmpDiscount)} ${Math.abs(cmpDiscount)}%</td></tr>
@@ -668,7 +750,7 @@ ${agg.dayPartMix.length>0?`
 
 ${dailyShown.length>0?`
 <div class="sh"><span><span class="sh-num">5</span>${isSingleDay?"Hourly":"Daily"} sales trend</span><span class="sh-meta">${isSingleDay?agg.hourly.length:Math.min(31,agg.daily.length)} ${isSingleDay?"hours":"days"}</span></div>
-<table><thead><tr><th>${isSingleDay?"Hour":"Date"}</th><th>Orders</th><th>Net</th><th>Tax</th><th>Receipts</th></tr></thead><tbody>${trendRows}</tbody></table>`:""}
+<table><thead><tr><th>${isSingleDay?"Hour":"Date"}</th><th>Orders</th><th style="color:#2563eb">The Kada App</th><th>Net</th><th>Tax</th><th>Receipts</th></tr></thead><tbody>${trendRows}</tbody></table>`:""}
 
 ${peakHours.length>0?`
 <div class="sh avoid-break"><span><span class="sh-num">6</span>Peak performance hours</span><span class="sh-meta">Top 5 by volume</span></div>
@@ -939,12 +1021,21 @@ ${agg.statusMix.length>0?`
         {!loading&&(
           <div className="space-y-6">
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <KpiCard label="Total Revenue" value={formatINRCompact(agg.receipts)} sub={`Net: ${formatINR(agg.net)}`} pct={pctChange(agg.receipts,prevAgg.receipts)} icon={<DollarSign className="w-4 h-4"/>} accent="green" delay={0}/>
-              <KpiCard label="Total Orders" value={agg.orders.toString()} sub={`${agg.units} items sold`} pct={pctChange(agg.orders,prevAgg.orders)} icon={<ShoppingBag className="w-4 h-4"/>} delay={0.05}/>
-              <KpiCard label="Avg Order Value" value={formatINR(agg.aov)} sub="Per completed order" pct={pctChange(agg.aov,prevAgg.aov)} icon={<Receipt className="w-4 h-4"/>} delay={0.1}/>
-              <KpiCard label="Discounts Given" value={formatINR(agg.discount)} sub={agg.gross>0?`${((agg.discount/agg.gross)*100).toFixed(1)}% of gross`:"No sales"} icon={<Percent className="w-4 h-4"/>} accent="amber" delay={0.15}/>
-              <KpiCard label={`${taxLabel} Collected`} value={formatINR(agg.tax)} sub="Tax portion of receipts" icon={<Tag className="w-4 h-4"/>} delay={0.2}/>
+              <KpiCard
+                label="The Kada App"
+                value={formatINRCompact(agg.kadaAppRevenue)}
+                sub={`${agg.kadaAppOrders} orders (${agg.receipts > 0 ? Math.round((agg.kadaAppRevenue / agg.receipts) * 100) : 0}% of sales)`}
+                pct={pctChange(agg.kadaAppRevenue, prevAgg.kadaAppRevenue)}
+                icon={<Smartphone className="w-4 h-4 text-blue-600"/>}
+                accent="default"
+                delay={0.03}
+              />
+              <KpiCard label="Total Orders" value={agg.orders.toString()} sub={`${agg.units} items sold`} pct={pctChange(agg.orders,prevAgg.orders)} icon={<ShoppingBag className="w-4 h-4"/>} delay={0.06}/>
+              <KpiCard label="Avg Order Value" value={formatINR(agg.aov)} sub="Per completed order" pct={pctChange(agg.aov,prevAgg.aov)} icon={<Receipt className="w-4 h-4"/>} delay={0.09}/>
+              <KpiCard label="Discounts Given" value={formatINR(agg.discount)} sub={agg.gross>0?`${((agg.discount/agg.gross)*100).toFixed(1)}% of gross`:"No sales"} icon={<Percent className="w-4 h-4"/>} accent="amber" delay={0.12}/>
+              <KpiCard label={`${taxLabel} Collected`} value={formatINR(agg.tax)} sub="Tax portion of receipts" icon={<Tag className="w-4 h-4"/>} delay={0.15}/>
             </div>
 
             {/* Tabs */}
@@ -1067,6 +1158,101 @@ ${agg.statusMix.length>0?`
                         <Line yAxisId="ord" type="monotone" dataKey="orders" name="Orders" stroke="hsl(142 76% 36%)" strokeWidth={2} dot={false}/>
                       </AreaChart>
                     </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                {/* Daily Channel Breakdown Table with dedicated The Kada App Revenue Column */}
+                <Card className="rounded-2xl border-border/30 bg-card/50 backdrop-blur-xl">
+                  <CardHeader className="px-6 pt-6 pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                          <Smartphone className="w-4 h-4 text-blue-600" />
+                          Channel Revenue Breakdown
+                        </CardTitle>
+                        <CardDescription className="text-[10px] uppercase font-bold tracking-widest opacity-50 mt-0.5">
+                          Daily breakdown showing revenue from The Kada Customer App vs In-Store POS · {rangeLabel}
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px] font-bold gap-1 rounded-lg bg-blue-500/10 text-blue-600 border-blue-500/20 py-1">
+                          <Smartphone className="w-3 h-3" />
+                          The Kada App: {formatINR(agg.kadaAppRevenue)} ({agg.receipts > 0 ? Math.round((agg.kadaAppRevenue / agg.receipts) * 100) : 0}%)
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-0 pb-6 overflow-x-auto">
+                    {agg.daily.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground/40">
+                        <Receipt className="w-8 h-8 mb-2" />
+                        <p className="text-xs">No daily records for this period</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border/30 min-w-[680px]">
+                        <div
+                          className="grid px-6 py-2.5 bg-muted/20 text-[9px] font-bold uppercase tracking-widest text-muted-foreground"
+                          style={{ gridTemplateColumns: "1fr 80px 110px 150px 110px 90px" }}
+                        >
+                          <div>Date</div>
+                          <div className="text-center">Orders</div>
+                          <div className="text-right">Total Revenue</div>
+                          <div className="text-right text-blue-600 dark:text-blue-400 font-extrabold flex items-center justify-end gap-1">
+                            <Smartphone className="w-3 h-3" /> The Kada App
+                          </div>
+                          <div className="text-right">In-Store / POS</div>
+                          <div className="text-right">App Share</div>
+                        </div>
+                        {agg.daily.map((d, idx) => {
+                          const appPct = d.receipts > 0 ? Math.round((d.kadaAppRevenue / d.receipts) * 100) : 0;
+                          return (
+                            <div
+                              key={d.date}
+                              className={cn(
+                                "grid items-center px-6 py-3 hover:bg-muted/10 transition-colors text-xs",
+                                idx % 2 === 0 ? "" : "bg-muted/5"
+                              )}
+                              style={{ gridTemplateColumns: "1fr 80px 110px 150px 110px 90px" }}
+                            >
+                              <span className="font-semibold text-foreground">{d.date}</span>
+                              <span className="text-center text-muted-foreground font-semibold">{d.orders}</span>
+                              <span className="text-right font-bold text-foreground">{formatINR(d.receipts)}</span>
+                              <div className="text-right font-bold text-blue-600 dark:text-blue-400 flex items-center justify-end gap-1.5">
+                                <span>{formatINR(d.kadaAppRevenue)}</span>
+                                {d.kadaAppOrders > 0 && (
+                                  <span className="text-[10px] font-normal text-muted-foreground">({d.kadaAppOrders})</span>
+                                )}
+                              </div>
+                              <span className="text-right font-semibold text-muted-foreground">{formatINR(d.posRevenue)}</span>
+                              <div className="text-right">
+                                <span className={cn(
+                                  "inline-block px-2 py-0.5 rounded text-[10px] font-bold",
+                                  appPct > 0 ? "bg-blue-500/10 text-blue-600 border border-blue-500/20" : "text-muted-foreground/40"
+                                )}>
+                                  {appPct}%
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div
+                          className="grid items-center px-6 py-3 bg-muted/20 font-bold text-xs"
+                          style={{ gridTemplateColumns: "1fr 80px 110px 150px 110px 90px" }}
+                        >
+                          <span className="font-bold text-foreground">TOTAL</span>
+                          <span className="text-center">{agg.orders}</span>
+                          <span className="text-right text-foreground">{formatINR(agg.receipts)}</span>
+                          <span className="text-right text-blue-600 dark:text-blue-400 flex items-center justify-end gap-1">
+                            <Smartphone className="w-3 h-3" />
+                            {formatINR(agg.kadaAppRevenue)} ({agg.kadaAppOrders})
+                          </span>
+                          <span className="text-right text-muted-foreground">{formatINR(agg.posRevenue)}</span>
+                          <span className="text-right text-blue-600 font-extrabold">
+                            {agg.receipts > 0 ? Math.round((agg.kadaAppRevenue / agg.receipts) * 100) : 0}%
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -1263,7 +1449,29 @@ ${agg.statusMix.length>0?`
               <TabsContent value="bills" className="mt-4 space-y-4">
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/><Input placeholder="Search bill #, table, amount…" className="pl-9 h-10 rounded-xl text-xs font-semibold" value={billSearch} onChange={e=>setBillSearch(e.target.value)}/>{billSearch&&<button className="absolute right-3 top-1/2 -translate-y-1/2" onClick={()=>setBillSearch("")}><X className="w-3.5 h-3.5 text-muted-foreground"/></button>}</div>
-                  <div className="flex gap-2 flex-wrap">{["all","completed","cancelled","preparing"].map(s=><button key={s} onClick={()=>setBillStatusFilter(s)} className={cn("h-10 px-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border",billStatusFilter===s?"bg-primary text-primary-foreground border-primary":"bg-muted/30 text-muted-foreground border-border/40 hover:text-foreground")}>{s}</button>)}</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {[
+                      { id: "all", label: "All Bills" },
+                      { id: "kada_app", label: "The Kada App", icon: true },
+                      { id: "completed", label: "Completed" },
+                      { id: "cancelled", label: "Cancelled" },
+                      { id: "preparing", label: "Preparing" },
+                    ].map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => setBillStatusFilter(s.id)}
+                        className={cn(
+                          "h-10 px-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border flex items-center gap-1.5",
+                          billStatusFilter === s.id
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/30 text-muted-foreground border-border/40 hover:text-foreground"
+                        )}
+                      >
+                        {s.icon && <Smartphone className="w-3.5 h-3.5 text-blue-500" />}
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <Card className="rounded-2xl border-border/30 bg-card/50 backdrop-blur-xl">
                   <CardHeader className="px-6 pt-6 pb-4">
@@ -1274,20 +1482,38 @@ ${agg.statusMix.length>0?`
                   </CardHeader>
                   <CardContent className="px-0 pb-6 overflow-x-auto">
                     {filteredBills.length===0?<div className="flex flex-col items-center justify-center py-12 text-muted-foreground/40"><Receipt className="w-8 h-8 mb-2"/><p className="text-xs">No bills found</p></div>:(
-                      <div className="divide-y divide-border/30 min-w-[640px]">
-                        <div className="grid px-6 py-2" style={{gridTemplateColumns:"80px 90px 110px 90px 80px 90px 40px"}}>{["Bill #","Table","Date/Time","Status","Payment","Amount",""].map(h=><div key={h} className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap">{h}</div>)}</div>
+                      <div className="divide-y divide-border/30 min-w-[760px]">
+                        <div className="grid px-6 py-2" style={{gridTemplateColumns:"75px 75px 110px 85px 80px 135px 85px 36px"}}>
+                          {["Bill #","Table","Date/Time","Status","Payment","The Kada App","Total",""].map(h=>(
+                            <div key={h} className={cn("text-[9px] font-bold uppercase tracking-widest text-muted-foreground whitespace-nowrap", h==="The Kada App"?"text-blue-600 dark:text-blue-400 flex items-center gap-1":h==="Total"?"text-right":"")}>
+                              {h==="The Kada App" && <Smartphone className="w-3 h-3"/>}
+                              {h}
+                            </div>
+                          ))}
+                        </div>
                         {filteredBills.slice(0,100).map((o,idx)=>{
                           const d=asDate(o.timestamp),status=(o.status??"").toLowerCase();
                           const sc=status==="completed"||status==="paid"?"text-emerald-600":status==="cancelled"||status==="canceled"?"text-red-500":"text-amber-600";
                           const sb=status==="completed"||status==="paid"?"bg-emerald-500/10":status==="cancelled"||status==="canceled"?"bg-red-500/10":"bg-amber-500/10";
+                          const isApp = isKadaCustomerAppOrder(o);
                           return(
-                            <motion.div key={idx} initial={{opacity:0}} animate={{opacity:1}} transition={{delay:Math.min(idx*0.01,0.3)}} className="grid items-center px-6 py-2.5 hover:bg-muted/10 transition-colors" style={{gridTemplateColumns:"80px 90px 110px 90px 80px 90px 40px"}}>
+                            <motion.div key={idx} initial={{opacity:0}} animate={{opacity:1}} transition={{delay:Math.min(idx*0.01,0.3)}} className="grid items-center px-6 py-2.5 hover:bg-muted/10 transition-colors" style={{gridTemplateColumns:"75px 75px 110px 85px 80px 135px 85px 36px"}}>
                               <span className="text-xs font-bold text-primary">#{o.orderNumber??idx+1}</span>
                               <span className="text-xs font-semibold text-muted-foreground">{o.table ? (/^\d+$/.test(String(o.table)) ? `T${o.table}` : o.table) : "—"}</span>
                               <div><p className="text-[10px] font-semibold">{d.toLocaleDateString(locale,{day:"numeric",month:"short"})}</p><p className="text-[9px] text-muted-foreground">{d.toLocaleTimeString(locale,{hour:"2-digit",minute:"2-digit"})}</p></div>
                               <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full",sc,sb)}>{(o.status??"pending").charAt(0).toUpperCase()+(o.status??"pending").slice(1)}</span>
                               <span className="text-[10px] font-semibold text-muted-foreground">{normalizePayment(o.paymentMethod??o.payment)}</span>
-                              <span className="text-xs font-bold">{formatINR(orderTotal(o))}</span>
+                              <div>
+                                {isApp ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                    <Smartphone className="w-3 h-3 flex-shrink-0" />
+                                    {formatINR(orderTotal(o))}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground/40 font-semibold pl-2">—</span>
+                                )}
+                              </div>
+                              <span className="text-xs font-bold text-right">{formatINR(orderTotal(o))}</span>
                               <button onClick={()=>printBill(o)} title="Print bill" className="w-7 h-7 rounded-lg bg-muted/20 hover:bg-primary/10 hover:text-primary flex items-center justify-center transition-colors"><Printer className="w-3 h-3"/></button>
                             </motion.div>
                           );
@@ -1353,14 +1579,19 @@ ${agg.statusMix.length>0?`
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-1">
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">From</p>
-                <Input type="date" value={customStart} max={customEnd||toIsoDate(new Date())} onChange={e=>setCustomStart(e.target.value)} className="h-11 rounded-xl font-semibold text-xs"/>
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">To</p>
-                <Input type="date" value={customEnd} min={customStart} max={toIsoDate(new Date())} onChange={e=>setCustomEnd(e.target.value)} className="h-11 rounded-xl font-semibold text-xs"/>
-              </div>
+              <CalendarDatePicker
+                label="From"
+                value={customStart}
+                onChange={setCustomStart}
+                maxDate={customEnd ? new Date(customEnd) : new Date()}
+              />
+              <CalendarDatePicker
+                label="To"
+                value={customEnd}
+                onChange={setCustomEnd}
+                minDate={customStart ? new Date(customStart) : undefined}
+                maxDate={new Date()}
+              />
             </div>
 
             {/* Live summary */}

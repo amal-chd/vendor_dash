@@ -82,7 +82,7 @@ const getNavGroups = (features: Record<string, boolean>, isOutlet: boolean = fal
         { label: "Team", icon: Users, path: "/dashboard/staff" },
         { label: "Guests", icon: UserCircle, path: "/dashboard/customers" },
         ...(features.marketing !== false ? [{ label: "Marketing", icon: Megaphone, path: "/dashboard/marketing" }] : []),
-        { label: "Channels", icon: PlugZap, path: "/dashboard/integrations" },
+        { label: "Channels", icon: PlugZap, path: "/dashboard/integrations", badge: "Soon" },
         { label: "Reports", icon: BarChart3, path: "/dashboard/reports" },
         { label: "Expenses", icon: Wallet, path: "/dashboard/expenses" },
         { label: "Plans & Pricing", icon: CreditCard, path: "/dashboard/pricing" },
@@ -326,6 +326,8 @@ export default function DashboardLayout() {
     billingAccountId,
     teamRole,
     isMess,
+    hasBoth,
+    switchMode,
     isAdmin,
     isImpersonating,
     impersonatedRestaurantId,
@@ -526,8 +528,24 @@ export default function DashboardLayout() {
         </div>
 
         {!collapsed && (
-          <div className="px-4 pb-2">
+          <div className="px-4 pb-2 space-y-2">
             <OutletSwitcher />
+            {hasBoth && (
+              <button
+                type="button"
+                onClick={() => {
+                  switchMode("mess");
+                  navigate("/mess/dashboard");
+                }}
+                className="flex w-full items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <ChefHat className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>Mess Kitchen</span>
+                </div>
+                <span className="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded font-bold uppercase">Switch</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -559,11 +577,20 @@ export default function DashboardLayout() {
                         <item.icon className="w-4 h-4 shrink-0" />
                         {!collapsed && (
                           <span className="flex-1 flex items-center justify-between">
-                            {item.label}
-                            {isLocked && <Lock className="w-3.5 h-3.5 text-muted-foreground/60" />}
+                            <span>{item.label}</span>
+                            {(item as any).badge ? (
+                              <span className="text-[9px] font-black tracking-wide uppercase px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                {(item as any).badge}
+                              </span>
+                            ) : isLocked ? (
+                              <Lock className="w-3.5 h-3.5 text-muted-foreground/60" />
+                            ) : null}
                           </span>
                         )}
-                        {collapsed && isLocked && (
+                        {collapsed && (item as any).badge && (
+                          <div className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" title={(item as any).badge} />
+                        )}
+                        {collapsed && !(item as any).badge && isLocked && (
                           <div className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
                         )}
                         {isActive(item.path) && (
@@ -722,6 +749,21 @@ export default function DashboardLayout() {
           }
           actions={
             <div className="flex items-center gap-2 shrink-0">
+              {hasBoth && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    switchMode("mess");
+                    navigate("/mess/dashboard");
+                  }}
+                  className="h-8 gap-1.5 rounded-xl border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-bold"
+                >
+                  <ChefHat className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Switch to Mess</span>
+                  <span className="sm:hidden">Mess</span>
+                </Button>
+              )}
               {['thekada@gmail.com', 'thekadaapp@gmail.com'].includes(user?.email?.toLowerCase() || '') && (
                 <Link to="/portal-select">
                   <Button
