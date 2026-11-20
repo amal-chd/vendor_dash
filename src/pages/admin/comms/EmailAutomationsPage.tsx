@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Trash2, Zap, Loader2, Pencil, Clock, PlugZap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/admin/core/asyncDialogs";
 
 interface Automation {
   id: string;
@@ -96,9 +97,14 @@ export default function EmailAutomationsPage() {
                 </div>
                 <Switch checked={r.enabled !== false}
                   onCheckedChange={(v) => commsOp("saveAutomation", { ...r, enabled: v }, v ? `"${r.name}" is live` : `"${r.name}" paused`)} />
-                <Button size="icon" variant="ghost" onClick={() => setEditing(r)}><Pencil className="h-4 w-4" /></Button>
-                <Button size="icon" variant="ghost" onClick={() => {
-                  if (confirm(`Delete "${r.name}"? Emails already waiting will still go out.`)) commsOp("deleteAutomation", { id: r.id }, `"${r.name}" deleted`);
+                <Button size="icon" variant="ghost" aria-label={`Edit ${r.name}`} onClick={() => setEditing(r)}><Pencil className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" aria-label={`Delete ${r.name}`} onClick={async () => {
+                  if (await confirmDialog({
+                    title: `Delete “${r.name}”?`,
+                    description: "Emails already waiting will still go out.",
+                    confirmLabel: "Delete automation",
+                    destructive: true,
+                  })) await commsOp("deleteAutomation", { id: r.id }, `"${r.name}" deleted`);
                 }}><Trash2 className="h-4 w-4 text-rose-500" /></Button>
               </div>
             );

@@ -210,7 +210,7 @@ export default function LinksQrPage() {
           <CardContent className="flex flex-col items-center gap-3">
             {url ? (
               <>
-                <div className="rounded-2xl bg-white p-4 border">
+                <div className="rounded-2xl bg-white dark:bg-white p-4 border">
                   <QRCodeCanvas ref={qrRef} value={url} size={220} level="M" marginSize={2} />
                 </div>
                 <Button size="sm" variant="outline" onClick={() => downloadCanvas(qrRef.current, name || campaign || "kada-qr")}>
@@ -253,7 +253,7 @@ export default function LinksQrPage() {
                   </div>
                   {showQr === l.id && (
                     <div className="mt-3 flex items-center gap-4">
-                      <div className="rounded-xl bg-white p-3 border">
+                      <div className="rounded-xl bg-white dark:bg-white p-3 border">
                         <QRCodeCanvas ref={rowQrRef} value={l.url} size={140} level="M" marginSize={2} />
                       </div>
                       <Button size="sm" variant="outline" onClick={() => downloadCanvas(rowQrRef.current, l.name)}>

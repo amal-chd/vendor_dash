@@ -43,6 +43,8 @@ import {
 } from "@/components/ui/dialog";
 import { ResetPasswordDialog } from "@/components/admin/vendors/ResetPasswordDialog";
 import { VendorContactDialog } from "@/components/admin/vendors/VendorContactDialog";
+import { LocationMapView } from "@/components/common/LocationMapView";
+import { AssignZoneDialog } from "@/components/admin/onboarding/AssignZoneDialog";
 
 const inr = (n?: number) => `₹${Math.round(Number(n || 0)).toLocaleString("en-IN")}`;
 const toDate = (ts: unknown): Date | null => {
@@ -72,6 +74,14 @@ interface Restaurant {
   branches?: number;
   operatingHours?: string;
   deliverySettings?: string;
+  address?: string;
+  district?: string;
+  state?: string;
+  pincode?: string;
+  location?: { lat: number; lng: number };
+  zoneId?: string | null;
+  zoneName?: string | null;
+  marketId?: string | null;
   /** Online/offline switch; absent = taking orders. */
   acceptingOrders?: boolean;
   pausedUntil?: { toMillis?: () => number } | null;
@@ -133,12 +143,15 @@ export default function Vendor360() {
   const [storeBusy, setStoreBusy] = useState(false);
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [zoneDialogOpen, setZoneDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     phone: "",
     cuisine: "",
     city: "",
+    address: "",
+    pincode: "",
     operatingHours: "",
     deliverySettings: "",
   });
@@ -259,6 +272,8 @@ export default function Vendor360() {
       phone: r.phone || "",
       cuisine: r.cuisine || "",
       city: r.city || "",
+      address: r.address || "",
+      pincode: r.pincode || "",
       operatingHours: r.operatingHours || "",
       deliverySettings: r.deliverySettings || "",
     });
@@ -278,6 +293,8 @@ export default function Vendor360() {
         phone: editForm.phone.trim(),
         cuisine: editForm.cuisine.trim(),
         city: editForm.city.trim(),
+        address: editForm.address.trim(),
+        pincode: editForm.pincode.trim(),
         operatingHours: editForm.operatingHours.trim(),
         deliverySettings: editForm.deliverySettings.trim(),
         updatedAt: new Date().toISOString(),
@@ -324,8 +341,9 @@ export default function Vendor360() {
   const handleImpersonate = () => {
     if (!id || !r) return;
     sessionStorage.setItem("kada_impersonate_id", id);
+    localStorage.setItem("kada_impersonate_id", id);
     toast.success(`Impersonating ${r.name || "vendor"} — viewing their dashboard`);
-    window.open("/dashboard", "_blank");
+    window.open(`/dashboard?impersonate=${encodeURIComponent(id)}`, "_blank");
   };
 
   const handleToggleSuspend = async () => {
@@ -478,6 +496,48 @@ export default function Vendor360() {
                     <Fact label="Branches">{r.branches || 1}</Fact>
                     <Fact label="Operating Hours">{r.operatingHours || "Standard"}</Fact>
                     <Fact label="Delivery Settings">{r.deliverySettings || "Default"}</Fact>
+                  </div>
+                </Section>
+
+                <Section title="Store Location & Delivery Zone">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-semibold">{r.address || r.city || "Store Pinpoint"}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setZoneDialogOpen(true)}
+                        className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        {r.zoneName ? `Zone: ${r.zoneName} (Reassign)` : "Assign Service Zone"}
+                      </Button>
+                    </div>
+
+                    <LocationMapView
+                      lat={r.location?.lat}
+                      lng={r.location?.lng}
+                      title={r.name || "Restaurant"}
+                      address={r.address || [r.cuisine, r.city].filter(Boolean).join(" · ")}
+                      zoneName={r.zoneName}
+                      height={200}
+                    />
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs pt-1">
+                      <Fact label="Street Address">{r.address || "—"}</Fact>
+                      <Fact label="City / District">{[r.city, r.district, r.state].filter(Boolean).join(", ") || "—"}</Fact>
+                      <Fact label="Pincode">{r.pincode || "—"}</Fact>
+                      <Fact label="Coordinates">
+                        {r.location?.lat && r.location?.lng
+                          ? `${r.location.lat.toFixed(5)}, ${r.location.lng.toFixed(5)}`
+                          : "Not pinned"}
+                      </Fact>
+                      <Fact label="Service Zone">{r.zoneName ? `${r.zoneName}` : "Unassigned / Custom"}</Fact>
+                      <Fact label="Market Cluster">{r.marketId || "Default"}</Fact>
+                    </div>
                   </div>
                 </Section>
                 <Section title="Compliance & Operations">
@@ -719,6 +779,26 @@ export default function Vendor360() {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs">Street Address</Label>
+                <Input
+                  placeholder="Street, building, landmark"
+                  value={editForm.address}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Pincode</Label>
+                <Input
+                  placeholder="6 digits"
+                  value={editForm.pincode}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, pincode: e.target.value }))}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
             <div className="space-y-1">
               <Label className="text-xs">Cuisine Specialties</Label>
               <Input
@@ -853,6 +933,24 @@ export default function Vendor360() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Assign Zone Dialog ── */}
+      <AssignZoneDialog
+        open={zoneDialogOpen}
+        onOpenChange={setZoneDialogOpen}
+        partner={{
+          role: "vendor",
+          partnerId: id,
+          name: r.name || "Vendor",
+          zoneId: r.zoneId,
+          zoneName: r.zoneName,
+          location: r.location || null,
+          address: r.address || r.city || "",
+        }}
+        onAssigned={() => {
+          toast.success("Service zone updated successfully!");
+        }}
+      />
     </div>
   );
 }

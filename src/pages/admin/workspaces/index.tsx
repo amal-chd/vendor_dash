@@ -13,6 +13,8 @@ import {
   CalendarCheck,
   CalendarClock,
   ChefHat,
+  UserRound,
+  LayoutDashboard,
   CreditCard,
   Crown,
   Download,
@@ -55,6 +57,8 @@ import {
   Palette,
   QrCode,
   Bot,
+  Inbox,
+  Share2,
 } from "lucide-react";
 import { WorkspaceShell, type WorkspaceTab } from "@/components/admin/core/WorkspaceShell";
 
@@ -103,7 +107,11 @@ const DonationsPage = lazy(() => import("../DonationsPage"));
 const PlansPage = lazy(() => import("../PlansPage"));
 
 const StayCommandCenter = lazy(() => import("../stay/StayCommandCenter"));
+const MessOverview = lazy(() => import("../mess/MessOverview"));
 const MessKitchens = lazy(() => import("../mess/MessKitchens"));
+const MessAnalytics = lazy(() => import("../mess/MessAnalytics"));
+const MessCustomers = lazy(() => import("../mess/MessCustomers"));
+const MessReviews = lazy(() => import("../mess/MessReviews"));
 const MessPlans = lazy(() => import("../mess/MessPlans"));
 const MessSubscriptions = lazy(() => import("../mess/MessSubscriptions"));
 const MessSettlements = lazy(() => import("../mess/MessSettlements"));
@@ -118,6 +126,7 @@ const SupportChatsPage = lazy(() => import("../SupportChatsPage"));
 const SupportKnowledgeBasePage = lazy(() => import("../SupportKnowledgeBasePage"));
 const SupportAnalyticsPage = lazy(() => import("../SupportAnalyticsPage"));
 const DemoRequestsPage = lazy(() => import("../DemoRequestsPage"));
+const WebsiteEnquiriesPage = lazy(() => import("../WebsiteEnquiriesPage"));
 
 const FoodReviewsPage = lazy(() => import("../FoodReviewsPage"));
 const StayReviews = lazy(() => import("../stay/StayReviews"));
@@ -136,6 +145,7 @@ const AudienceConsentPage = lazy(() => import("../marketing/AudienceConsentPage"
 const LinksQrPage = lazy(() => import("../marketing/LinksQrPage"));
 const BrandKitPage = lazy(() => import("../marketing/BrandKitPage"));
 const AutopilotPage = lazy(() => import("../marketing/AutopilotPage"));
+const SocialStudioPage = lazy(() => import("../marketing/SocialStudioPage"));
 const ChangelogAdminPage = lazy(() => import("../changelog/ChangelogAdminPage"));
 
 const AnalyticsPage = lazy(() => import("../AnalyticsPage"));
@@ -309,16 +319,20 @@ export function StayWorkspace() {
 
 export function MessWorkspace() {
   const tabs: WorkspaceTab[] = [
+    { key: "overview", label: "Overview", icon: LayoutDashboard, component: t(MessOverview) },
+    { key: "analytics", label: "Analytics", icon: BarChart3, component: t(MessAnalytics) },
     { key: "kitchens", label: "Kitchens", icon: ChefHat, component: t(MessKitchens) },
     { key: "onboarding", label: "Onboarding", icon: Users, component: t(OnboardingCommandCenter) },
     { key: "plans", label: "Meal plans", icon: Layers, component: t(MessPlans) },
     { key: "subscriptions", label: "Subscriptions", icon: CalendarCheck, component: t(MessSubscriptions) },
+    { key: "customers", label: "Customers", icon: UserRound, component: t(MessCustomers) },
+    { key: "reviews", label: "Reviews", icon: Star, component: t(MessReviews) },
     { key: "settlements", label: "Settlements", icon: Wallet, component: t(MessSettlements) },
   ];
   return (
     <WorkspaceShell
       title="Kada Mess"
-      description="Home kitchens on monthly meal plans — who is cooking, onboarding pipeline, meal plans, subscriptions, and settlements."
+      description="Home kitchens on monthly meal plans — today's plates, kitchens and their onboarding, plans, subscribers, refunds and weekly settlements."
       icon={ChefHat}
       tabs={tabs}
     />
@@ -363,8 +377,10 @@ export function QualityWorkspace() {
 export function GrowthWorkspace() {
   const tabs: WorkspaceTab[] = [
     { key: "overview", label: "Overview", icon: Activity, component: t(MarketingOverviewPage) },
+    { key: "enquiries", label: "Website enquiries", icon: Inbox, component: t(WebsiteEnquiriesPage) },
     { key: "autopilot", label: "Autopilot", icon: Bot, component: t(AutopilotPage) },
     { key: "planner", label: "Planner", icon: CalendarRange, component: t(MarketingPlannerPage) },
+    { key: "social", label: "Social Studio", icon: Share2, component: t(SocialStudioPage) },
     { key: "audience", label: "Audience & consent", icon: ShieldCheck, component: t(AudienceConsentPage) },
     { key: "email", label: "Email", icon: Mail, component: t(EmailPage) },
     { key: "notifications", label: "Push", icon: Bell, component: t(MobileNotificationsPage) },

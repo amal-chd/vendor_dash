@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, Plus, Trash2, Users, Pencil, RefreshCw } from "lucide-react";
 import { ConditionsEditor, describeCondition as describe, loadFacets, type Condition, type Facets } from "./ConditionsEditor";
+import { confirmDialog } from "@/components/admin/core/asyncDialogs";
 
 interface Segment { id: string; name: string; description?: string; conditions: Condition[] }
 interface Estimate {
@@ -71,9 +72,11 @@ export default function AudiencesPage() {
                     {s.description && <p className="text-xs text-muted-foreground truncate">{s.description}</p>}
                   </div>
                   <div className="flex shrink-0">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => {
-                      if (confirm(`Delete "${s.name}"?`)) commsOp("deleteSegment", { id: s.id }, "Audience deleted.");
+                    <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Edit ${s.name}`} onClick={() => setEditing(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Delete ${s.name}`} onClick={async () => {
+                      if (await confirmDialog({ title: `Delete “${s.name}”?`, description: "This saved audience will be removed.", confirmLabel: "Delete audience", destructive: true })) {
+                        await commsOp("deleteSegment", { id: s.id }, "Audience deleted.");
+                      }
                     }}><Trash2 className="h-3.5 w-3.5 text-rose-500" /></Button>
                   </div>
                 </div>

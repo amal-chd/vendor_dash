@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/lib/firebase";
+import { CalendarDatePicker } from "@/components/common";
 import {
   collection, query, where, onSnapshot, limit,
   addDoc, deleteDoc, doc, serverTimestamp,
@@ -755,14 +756,12 @@ export default function ExpensesPage() {
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-semibold uppercase opacity-40">Date</Label>
-                <Input
-                  type="date" value={newExpense.date}
-                  onChange={e => setNewExpense({ ...newExpense, date: e.target.value })}
-                  className="rounded-xl h-11 bg-muted/20 border-none text-sm" required
-                />
-              </div>
+              <CalendarDatePicker
+                label="Date"
+                value={newExpense.date}
+                onChange={val => setNewExpense({ ...newExpense, date: val })}
+                required
+              />
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-semibold uppercase opacity-40">Payment Mode</Label>
                 <select

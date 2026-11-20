@@ -3,6 +3,10 @@
     "target": "vendor-dash",
     "public": "dist",
     "cleanUrls": true,
+    "predeploy": [
+      "npm run doctor",
+      "npm run build"
+    ],
     "postdeploy": [
       "node \"$PROJECT_DIR/scripts/changelog/push-release-manifest.mjs\" hosting"
     ],
@@ -44,7 +48,7 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json",
     "predeploy": [
-      "bash \"/Users/amalchand/Documents/The Kada/deploy_guard.sh\""
+      "npm run doctor"
     ]
   },
   "auth": {
@@ -62,13 +66,13 @@
   "storage": {
     "rules": "storage.rules",
     "predeploy": [
-      "bash \"/Users/amalchand/Documents/The Kada/deploy_guard.sh\""
+      "npm run doctor"
     ]
   },
   "functions": {
     "source": "functions",
     "predeploy": [
-      "bash \"/Users/amalchand/Documents/The Kada/deploy_guard.sh\"",
+      "npm run doctor",
       "npm --prefix \"$RESOURCE_DIR\" run build"
     ],
     "postdeploy": [

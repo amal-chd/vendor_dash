@@ -14,6 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, RotateCcw, Search, XCircle, Plus, Trash2, UserSearch, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/admin/core/asyncDialogs";
 
 interface Log {
   bounceMessage?: string;
@@ -328,7 +329,11 @@ function Queue() {
                   <td className="p-3 text-xs text-muted-foreground max-w-[280px] truncate" title={r.lastError || ""}>{status === "failed" ? r.lastError : `${when(r.nextAttemptAt)}${r.lastError ? ` · ${r.lastError}` : ""}`}</td>
                   <td className="p-3 text-right whitespace-nowrap">
                     <Button size="sm" variant="outline" className="h-7" onClick={async () => { if (await commsOp("retryEvent", { lane, eventId: r.eventId }, "Retrying now.")) load(); }}><RotateCcw className="h-3 w-3 mr-1" />Retry</Button>
-                    {status === "queued" && <Button size="sm" variant="ghost" className="h-7 text-rose-600" onClick={async () => { if (confirm("Cancel this email?") && await commsOp("cancelEvent", { lane, eventId: r.eventId }, "Cancelled.")) load(); }}><XCircle className="h-3.5 w-3.5" /></Button>}
+                    {status === "queued" && <Button size="sm" variant="ghost" className="h-7 text-rose-600" aria-label={`Cancel queued email to ${r.to}`} onClick={async () => {
+                      if (await confirmDialog({ title: "Cancel this queued email?", description: `The email to ${r.to} will be removed from the send queue.`, confirmLabel: "Cancel email", destructive: true })) {
+                        if (await commsOp("cancelEvent", { lane, eventId: r.eventId }, "Cancelled.")) load();
+                      }
+                    }}><XCircle className="h-3.5 w-3.5" /></Button>}
                   </td>
                 </tr>
               ))}
@@ -370,7 +375,7 @@ function Suppressions() {
                   <td className="p-3"><Badge variant="outline" className={cn("text-[10px]", s.reason === "unsubscribed" ? STATUS_TONE.skipped : STATUS_TONE.bounced)}>{REASON_LABEL[s.reason] || s.reason}</Badge>
                     <div className="text-[10px] text-muted-foreground mt-0.5 max-w-[260px] truncate" title={s.detail || s.source}>{s.detail || s.source}</div></td>
                   <td className="p-3 text-xs text-muted-foreground">{when(s.createdAt)}</td>
-                  <td className="p-3 text-right"><Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setRemoving(s)}><Trash2 className="h-3.5 w-3.5 text-rose-500" /></Button></td>
+                  <td className="p-3 text-right"><Button size="icon" variant="ghost" className="h-7 w-7" aria-label={`Remove suppression for ${s.email}`} onClick={() => setRemoving(s)}><Trash2 className="h-3.5 w-3.5 text-rose-500" /></Button></td>
                 </tr>
               ))}
             </tbody>

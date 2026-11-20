@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { CalendarDatePicker } from "@/components/common";
 import { usePermissions } from "@/hooks/usePermissions";
 import { FoodWaterfall, RuleVersions, StayWaterfall } from "./PricingWaterfall";
 import { callableError, canSimulate, pricingAdmin, readSimDrafts, writeSimDrafts, type RuleDraft } from "./pricingShared";
@@ -186,8 +187,8 @@ export default function PricingSimulatorPage() {
           <>
             <Field label="Property (hotel) id" className="md:col-span-2"><Input value={hotelId} onChange={(e) => setHotelId(e.target.value)} /></Field>
             <Field label="Room id" className="md:col-span-2"><Input value={roomId} placeholder="Blank = the property's first room" onChange={(e) => setRoomId(e.target.value)} /></Field>
-            <Field label="Check-in"><Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} /></Field>
-            <Field label="Check-out"><Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></Field>
+            <CalendarDatePicker label="Check-in" value={checkIn} onChange={setCheckIn} buttonClassName="h-9" />
+            <CalendarDatePicker label="Check-out" value={checkOut} onChange={setCheckOut} buttonClassName="h-9" />
             <Field label="Guests"><Input type="number" min="1" value={guests} onChange={(e) => setGuests(e.target.value)} /></Field>
           </>
         )}

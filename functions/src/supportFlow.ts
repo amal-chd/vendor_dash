@@ -24,8 +24,16 @@ export type UserMessagePlan =
  * answered at night). The AI now keeps helping while they wait; only once a
  * person has joined ("open") does it step aside.
  */
-export function planForUserMessage(status: string | undefined | null): UserMessagePlan {
+export function planForUserMessage(
+  status: string | undefined | null,
+  options?: { resolvedAt?: unknown; awaitingCsat?: boolean },
+): UserMessagePlan {
   const s = String(status ?? "bot").toLowerCase();
+  // If the thread was previously marked resolved or awaiting CSAT, the prior agent session has ended.
+  // A new message from the user reopens the conversation with the AI bot.
+  if (options?.resolvedAt || options?.awaitingCsat) {
+    return { kind: "ai", reopen: true, waitingForHuman: false };
+  }
   if (s === "open") return { kind: "human" };
   if (s === "escalated") return { kind: "ai", reopen: false, waitingForHuman: true };
   return { kind: "ai", reopen: s !== "bot", waitingForHuman: false };

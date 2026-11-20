@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useCurrency } from "@/lib/currency";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { CalendarDatePicker, ClockTimePicker } from "@/components/common";
 
 interface PreOrderItem {
   name: string;
@@ -839,24 +840,18 @@ export default function ReservationsPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground ml-1">Date</label>
-                <Input
-                  type="date"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className="h-11 rounded-xl bg-muted/30 border-none px-4 focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground ml-1">Time</label>
-                <Input
-                  type="time"
-                  value={newTime}
-                  onChange={(e) => setNewTime(e.target.value)}
-                  className="h-11 rounded-xl bg-muted/30 border-none px-4 focus:ring-1 focus:ring-primary"
-                />
-              </div>
+              <CalendarDatePicker
+                label="Date"
+                value={newDate}
+                onChange={setNewDate}
+                required
+              />
+              <ClockTimePicker
+                label="Time"
+                value={newTime}
+                onChange={setNewTime}
+                required
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">

@@ -149,7 +149,7 @@ export const getOnboardingState = onCall(async (request) => {
     checks: {
       documents: data.onboardingChecks?.documents ?? {},
       review: data.onboardingChecks?.review ?? null,
-      bankProofNeeded: data.onboardingChecks?.bankProofNeeded === true,
+      bankProofNeeded: false,
       identityCheckNeeded: data.onboardingChecks?.identityCheckNeeded === true,
     },
     // The partner's own extracted document numbers, to show on their resumed form.
@@ -374,13 +374,13 @@ export const submitBankDetails = onCall(async (request) => {
     pennyDrop = { started: false, reason: "Verification could not be started automatically." };
   }
 
-  await ref.set({ onboardingChecks: { bankProofNeeded: !pennyDrop.started } }, { merge: true });
+  await ref.set({ onboardingChecks: { bankProofNeeded: false } }, { merge: true });
   await runAutoProgress(role, canonicalPartnerId, "bank").catch(() => {});
 
   return {
     state: record.verificationState,
     accountMasked: publicBank.accountMasked,
-    bankProofNeeded: !pennyDrop.started,
+    bankProofNeeded: false,
     nameMatch: record.nameMatch ?? null,
     flags,
     validationStarted: pennyDrop.started,
@@ -440,12 +440,13 @@ export const resolveOnboardingZone = onCall(async (request) => {
     { merge: true },
   );
 
-  // Only a real containing zone satisfies the mandatory zone gate. Outside
-  // coverage leaves the step open, so activation stays blocked until an
-  // admin either extends the zone or records an explicit override.
+  // Setting valid coordinates always completes the map_location step.
+  await setStepComplete(role, canonicalPartnerId, "map_location", true, uid).catch(() => {});
+
+  // Only a real containing zone satisfies the automated zone gate. Outside
+  // coverage leaves zone_assignment open for ops review / manual assignment.
   if (zoneId && zone) {
     await setStepComplete(role, canonicalPartnerId, "zone_assignment", true, uid).catch(() => {});
-    await setStepComplete(role, canonicalPartnerId, "map_location", true, uid).catch(() => {});
   }
 
   return {

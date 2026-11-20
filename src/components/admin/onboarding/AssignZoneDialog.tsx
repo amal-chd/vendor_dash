@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,16 +8,17 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MapPin, Loader2 } from "lucide-react";
+import { MapPin, Loader2, Navigation, CheckCircle2 } from "lucide-react";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { adminActionToast } from "@/lib/admin-ops";
 import { useAdminScope } from "@/hooks/useAdminScope";
 import { ROLE_COLLECTION, type PartnerRole } from "@/lib/onboarding";
+import { LocationMapView } from "@/components/common/LocationMapView";
+import { haversineKm, centroidOf, pointInPolygon } from "@/lib/leaflet";
 
 interface AssignZoneDialogProps {
   open: boolean;
@@ -28,6 +29,8 @@ interface AssignZoneDialogProps {
     name: string;
     zoneId?: string | null;
     zoneName?: string | null;
+    location?: { lat: number; lng: number } | null;
+    address?: string | null;
   } | null;
   onAssigned?: () => void;
 }
@@ -50,6 +53,21 @@ export function AssignZoneDialog({
       setSelectedZoneId(zones[0]?.id || "");
     }
   }, [partner, zones]);
+
+  const selectedZone = useMemo(() => {
+    return zones.find((z) => z.id === selectedZoneId) || null;
+  }, [zones, selectedZoneId]);
+
+  // Spatial relation between partner and selected zone
+  const spatialInfo = useMemo(() => {
+    if (!partner?.location || !selectedZone?.polygon || selectedZone.polygon.length < 3) {
+      return null;
+    }
+    const inside = pointInPolygon(partner.location, selectedZone.polygon);
+    const center = centroidOf(selectedZone.polygon);
+    const distKm = haversineKm(partner.location, center);
+    return { inside, distKm };
+  }, [partner?.location, selectedZone]);
 
   if (!partner) return null;
 
@@ -96,12 +114,19 @@ export function AssignZoneDialog({
     }
   };
 
+  const zoneDisplays = zones.map((z) => ({
+    id: z.id,
+    name: z.name || z.id,
+    polygon: z.polygon || [],
+    color: z.colour,
+  }));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base font-semibold flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-primary" />
+            <MapPin className="h-4 w-4 text-blue-600" />
             Assign Service Zone
           </DialogTitle>
           <DialogDescription className="text-xs">
@@ -110,11 +135,47 @@ export function AssignZoneDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-3.5 py-1">
+          {/* Interactive Zone Map */}
+          <LocationMapView
+            lat={partner.location?.lat}
+            lng={partner.location?.lng}
+            title={partner.name}
+            address={partner.address || undefined}
+            zoneName={partner.zoneName}
+            zonePolygons={zoneDisplays}
+            selectedZoneId={selectedZoneId}
+            height={220}
+          />
+
+          {/* Spatial Match Indicator */}
+          {spatialInfo && (
+            <div
+              className={`rounded-lg p-2.5 text-xs border flex items-center justify-between ${
+                spatialInfo.inside
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30"
+                  : "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {spatialInfo.inside ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <Navigation className="h-4 w-4 text-amber-600 shrink-0" />
+                )}
+                <span className="font-medium">
+                  {spatialInfo.inside
+                    ? "Store pin is inside this zone polygon"
+                    : `Store pin is outside polygon (~${spatialInfo.distKm.toFixed(1)} km from center)`}
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1.5">
-            <Label className="text-xs">Select Service Zone</Label>
+            <Label className="text-xs font-semibold">Select Service Zone</Label>
             <select
-              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring/30"
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs outline-none focus:ring-2 focus:ring-ring/30"
               value={selectedZoneId}
               onChange={(e) => setSelectedZoneId(e.target.value)}
             >
@@ -126,12 +187,12 @@ export function AssignZoneDialog({
               ))}
             </select>
             <p className="text-[11px] text-muted-foreground">
-              Assigning a zone enables order dispatching and customer visibility.
+              Selecting a zone highlights its delivery polygon on the map above.
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Audit Justification Note</Label>
+            <Label className="text-xs font-semibold">Audit Justification Note</Label>
             <Textarea
               className="text-xs"
               rows={2}
@@ -142,7 +203,7 @@ export function AssignZoneDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="gap-2 sm:gap-0 pt-2">
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
@@ -150,10 +211,10 @@ export function AssignZoneDialog({
             size="sm"
             onClick={handleAssign}
             disabled={!selectedZoneId || submitting}
-            className="gap-1.5"
+            className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
           >
             {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Save Zone
+            Save & Assign Zone
           </Button>
         </DialogFooter>
       </DialogContent>

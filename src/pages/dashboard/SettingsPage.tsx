@@ -35,6 +35,7 @@ import { getLocalSessionId } from "@/lib/sessions";
 import { useGeoData } from "@/hooks/useGeoData";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
+import { OpeningHoursClockPicker } from "@/components/common";
 
 const settingsCategories = [
   { id: 'profile', label: 'Shop Profile', icon: Building2 },
@@ -611,36 +612,11 @@ export default function SettingsPage() {
                       Stand at your restaurant when capturing for the most accurate pin. Tap Save after updating.
                     </p>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground px-1">Opening hours</label>
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <Input 
-                          type="time" 
-                          className="h-11 rounded-xl bg-card border-border/40 pl-10 [&::-webkit-calendar-picker-indicator]:hidden" 
-                          value={profile.hours?.split(" - ")[0] || ""}
-                          onChange={(e) => {
-                            const end = profile.hours?.split(" - ")[1] || "";
-                            setProfile(prev => ({ ...prev, hours: `${e.target.value} - ${end}` }));
-                          }} 
-                        />
-                        <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                      </div>
-                      <span className="text-muted-foreground font-medium">-</span>
-                      <div className="relative flex-1">
-                        <Input 
-                          type="time" 
-                          className="h-11 rounded-xl bg-card border-border/40 pl-10 [&::-webkit-calendar-picker-indicator]:hidden" 
-                          value={profile.hours?.split(" - ")[1] || ""}
-                          onChange={(e) => {
-                            const start = profile.hours?.split(" - ")[0] || "";
-                            setProfile(prev => ({ ...prev, hours: `${start} - ${e.target.value}` }));
-                          }} 
-                        />
-                        <Clock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                      </div>
-                    </div>
-                  </div>
+                  <OpeningHoursClockPicker
+                    label="Opening hours"
+                    value={profile.hours || ""}
+                    onChange={(val) => setProfile(prev => ({ ...prev, hours: val }))}
+                  />
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground px-1">Display currency</label>
                     <select className="flex h-11 w-full rounded-xl border border-border/40 bg-card px-3 py-2 text-sm focus-visible:outline-none appearance-none"

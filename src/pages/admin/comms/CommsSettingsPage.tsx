@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, Copy, PauseCircle } from "lucide-react";
 import { toast } from "sonner";
+import { confirmDialog } from "@/components/admin/core/asyncDialogs";
 
 interface Settings {
   fromName?: string; fromAddress?: string; replyTo?: string;
@@ -67,8 +68,13 @@ export default function CommsSettingsPage() {
           </label>
           <label className="flex items-center justify-between gap-4 rounded-xl border px-4 py-3">
             <div><p className="text-sm font-semibold">Pause everything</p><p className="text-xs text-muted-foreground">Every email except sign-in and security alerts. Use only during an incident.</p></div>
-            <Switch checked={!!s.pauseAll} onCheckedChange={(v) => {
-              if (v && !confirm("Pause all email? Customers will stop getting order and payment emails until you resume.")) return;
+            <Switch checked={!!s.pauseAll} onCheckedChange={async (v) => {
+              if (v && !(await confirmDialog({
+                title: "Pause all email?",
+                description: "Customers will stop getting order and payment emails until you resume. Sign-in and security alerts will continue.",
+                confirmLabel: "Pause all email",
+                destructive: true,
+              }))) return;
               set({ pauseAll: v }); save({ pauseAll: v });
             }} />
           </label>
@@ -96,7 +102,7 @@ export default function CommsSettingsPage() {
         <CardContent className="space-y-4">
           <Field label="Logo URL" hint="HTTPS PNG or JPG, square, at least 96×96. SVG doesn't show in Gmail or Outlook.">
             <div className="flex items-center gap-3">
-              <img src={s.logoUrl || DEFAULT_LOGO} alt="" className="h-10 w-10 rounded-lg border bg-white object-contain p-1" />
+              <img src={s.logoUrl || DEFAULT_LOGO} alt="" className="h-10 w-10 rounded-lg border bg-white dark:bg-slate-50 object-contain p-1" />
               <Input value={s.logoUrl ?? ""} placeholder={DEFAULT_LOGO} onChange={(e) => set({ logoUrl: e.target.value })} />
             </div>
           </Field>
@@ -136,7 +142,7 @@ export default function CommsSettingsPage() {
             ].map(([label, url, hint]) => (
               <div key={label}>
                 <p className="text-xs font-semibold">{label}</p>
-                <div className="flex gap-2 mt-1"><Input readOnly value={url} className="font-mono text-xs" /><Button size="icon" variant="outline" onClick={() => copy(url)}><Copy className="h-4 w-4" /></Button></div>
+                <div className="flex gap-2 mt-1"><Input readOnly value={url} className="font-mono text-xs" /><Button size="icon" variant="outline" aria-label="Copy webhook URL" onClick={() => copy(url)}><Copy className="h-4 w-4" /></Button></div>
                 <p className="text-[11px] text-muted-foreground mt-1">{hint}</p>
               </div>
             ))}

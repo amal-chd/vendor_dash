@@ -17,16 +17,22 @@ import {
   Calendar, CheckCircle2,
   Plus, RefreshCw, TrendingDown,
   Activity, Sparkles, Eye, EyeOff,
-  Download, AlertTriangle, UserX
+  Download, AlertTriangle, UserX,
+  Loader2, ShoppingBag, UtensilsCrossed, Table,
+  Package, BookOpen, Award, BarChart3,
+  Megaphone, DollarSign, Store, Share2,
+  Settings, KeyRound, Lock
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { toast } from "sonner";
-import { db } from "@/lib/firebase";
+import { db, functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { 
@@ -35,12 +41,57 @@ import {
   orderBy, limit, Timestamp 
 } from "firebase/firestore";
 import { useAuth } from "@/hooks/useAuth";
+import { CalendarDatePicker } from "@/components/common";
 import { 
   Tabs, 
   TabsContent, 
   TabsList, 
   TabsTrigger 
 } from "@/components/ui/tabs";
+
+interface StaffFeatureConfig {
+  key: string;
+  label: string;
+  icon: React.ElementType;
+  sensitive?: boolean;
+}
+
+const STAFF_FEATURES: StaffFeatureConfig[] = [
+  { key: "orders", label: "Orders", icon: ShoppingBag },
+  { key: "kitchen", label: "Kitchen (KDS)", icon: ChefHat },
+  { key: "pos", label: "POS / Billing", icon: Banknote },
+  { key: "menu", label: "Menu", icon: UtensilsCrossed },
+  { key: "tables", label: "Tables", icon: Table },
+  { key: "reservations", label: "Reservations", icon: Calendar },
+  { key: "stock", label: "Stock", icon: Package },
+  { key: "recipes", label: "Recipes", icon: BookOpen },
+  { key: "guests", label: "Guests", icon: Users },
+  { key: "loyalty", label: "Loyalty", icon: Award },
+  { key: "schedule", label: "Schedule", icon: Clock },
+  { key: "reports", label: "Reports", icon: BarChart3, sensitive: true },
+  { key: "marketing", label: "Marketing", icon: Megaphone, sensitive: true },
+  { key: "expenses", label: "Expenses / P&L", icon: DollarSign, sensitive: true },
+  { key: "outlets", label: "Outlets", icon: Store, sensitive: true },
+  { key: "channels", label: "Channels", icon: Share2, sensitive: true },
+  { key: "team", label: "Team", icon: Shield, sensitive: true },
+  { key: "settings", label: "Settings", icon: Settings, sensitive: true },
+];
+
+const ROLE_PRESET_PERMISSIONS: Record<string, string[]> = {
+  Admin: [
+    "orders", "kitchen", "pos", "menu", "tables", "reservations", "stock",
+    "recipes", "guests", "loyalty", "schedule", "reports", "marketing", "expenses",
+  ],
+  Manager: [
+    "orders", "kitchen", "pos", "menu", "tables", "reservations", "stock",
+    "recipes", "guests", "loyalty", "schedule",
+  ],
+  Chef: ["kitchen", "orders", "stock", "recipes", "menu"],
+  Kitchen: ["kitchen", "orders", "stock", "recipes", "menu"],
+  Cashier: ["orders", "pos", "tables", "reservations", "guests"],
+  Waiter: ["tables", "reservations", "orders", "pos"],
+  Custom: [],
+};
 
 interface StaffMember {
   id: string;
@@ -54,8 +105,9 @@ interface StaffMember {
   email?: string;
   notes?: string;
   hourlyRate?: number;
+  permissions?: string[];
+  loginEnabled?: boolean;
   restaurantId: string;
-  pin?: string;
   timestamp?: any;
 }
 
@@ -130,7 +182,6 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
-  const [showPin, setShowPin] = useState(false);
   const [attendanceStaffFilter, setAttendanceStaffFilter] = useState("all");
 
   // Subscriptions for KPIs
@@ -176,16 +227,24 @@ export default function StaffPage() {
     email: "",
     performance: "100%",
     hourlyRate: 0,
-    pin: "",
     notes: "",
   });
 
-  // Add Staff inline form state
-  const [newName, setNewName] = useState("");
-  const [newRole, setNewRole] = useState("Kitchen");
-  const [newShift, setNewShift] = useState("Day Shift");
-  const [newPhone, setNewPhone] = useState("");
-  const [newEmail, setNewEmail] = useState("");
+  // Add Staff Modal Popup State
+  const [addStaffOpen, setAddStaffOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [newStaffDraft, setNewStaffDraft] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    role: "Waiter",
+    shift: "Day Shift",
+    hourlyRate: 0,
+    notes: "",
+    permissions: new Set<string>(ROLE_PRESET_PERMISSIONS["Waiter"]),
+    giveLogin: false,
+    password: "",
+  });
 
   // Day list generator for attendance selector
   const days = useMemo(() => {
@@ -380,40 +439,108 @@ export default function StaffPage() {
     return map;
   }, [payrollAttendance]);
 
-  const handleAddStaff = async (e: React.FormEvent) => {
+  const resetAddStaffDraft = () => {
+    setNewStaffDraft({
+      name: "",
+      phone: "",
+      email: "",
+      role: "Waiter",
+      shift: "Day Shift",
+      hourlyRate: 0,
+      notes: "",
+      permissions: new Set<string>(ROLE_PRESET_PERMISSIONS["Waiter"]),
+      giveLogin: false,
+      password: "",
+    });
+    setShowPassword(false);
+  };
+
+  const handleRoleChangeForNewStaff = (role: string) => {
+    const preset = ROLE_PRESET_PERMISSIONS[role] || [];
+    setNewStaffDraft((prev) => ({
+      ...prev,
+      role,
+      permissions: new Set<string>(preset),
+    }));
+  };
+
+  const togglePermissionForNewStaff = (key: string) => {
+    setNewStaffDraft((prev) => {
+      const next = new Set(prev.permissions);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return { ...prev, permissions: next };
+    });
+  };
+
+  const handleAddStaffModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName) {
-      toast.error("Please enter a name");
+    const rawName = newStaffDraft.name.trim();
+    if (rawName.length < 2) {
+      toast.error("Please enter a valid staff name (at least 2 letters)");
       return;
     }
-    if (newPhone && !isValidPhoneNumber(newPhone)) {
+    if (newStaffDraft.phone && !isValidPhoneNumber(newStaffDraft.phone)) {
       toast.error("Please enter a valid phone number");
       return;
     }
-    
+    const email = newStaffDraft.email.trim();
+    if (newStaffDraft.giveLogin) {
+      if (!email || !email.includes("@")) {
+        toast.error("App / Web login requires a valid email address");
+        return;
+      }
+      if (!newStaffDraft.password || newStaffDraft.password.length < 6) {
+        toast.error("Password must be at least 6 characters");
+        return;
+      }
+    }
+
     setSaving(true);
     try {
-      await addDoc(collection(db, "staff"), {
-        name: newName,
-        role: newRole,
-        shift: newShift,
+      const avatar = rawName.split(" ").map((n) => n[0]).join("").toUpperCase() || "S";
+      const docRef = await addDoc(collection(db, "staff"), {
+        name: rawName,
+        role: newStaffDraft.role,
+        shift: newStaffDraft.shift,
         status: "Active",
-        avatar: newName.split(" ").map(n => n[0]).join("").toUpperCase(),
+        avatar,
         performance: "100%",
-        phone: newPhone.trim(),
-        email: newEmail.trim(),
-        hourlyRate: 0,
-        pin: "0000",
-        notes: "",
+        phone: newStaffDraft.phone.trim(),
+        email: email,
+        hourlyRate: Number(newStaffDraft.hourlyRate) || 0,
+        notes: newStaffDraft.notes.trim(),
+        permissions: Array.from(newStaffDraft.permissions),
+        loginEnabled: false,
         restaurantId: activeRestaurantId,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
       });
-      setNewName("");
-      setNewPhone("");
-      setNewEmail("");
-      toast.success("Staff member added");
-    } catch (err) {
-      toast.error("Failed to add staff member");
+
+      // Provision Auth Login via Cloud Function if toggle was checked
+      if (newStaffDraft.giveLogin && email) {
+        try {
+          const provisionFn = httpsCallable(functions, "provisionStaffAccount");
+          await provisionFn({
+            staffId: docRef.id,
+            email: email,
+            password: newStaffDraft.password,
+            name: rawName,
+          });
+          toast.success(`Staff member "${rawName}" added with app & web login enabled!`);
+        } catch (provErr: any) {
+          toast.warning(`Staff created, but login credentials note: ${provErr?.message || "Please check credentials"}`);
+        }
+      } else {
+        toast.success(`Staff member "${rawName}" added to team!`);
+      }
+
+      resetAddStaffDraft();
+      setAddStaffOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to add staff member");
     } finally {
       setSaving(false);
     }
@@ -430,7 +557,6 @@ export default function StaffPage() {
       email: person.email || "",
       performance: person.performance || "100%",
       hourlyRate: Number(person.hourlyRate) || 0,
-      pin: person.pin || "0000",
       notes: person.notes || "",
     });
     setDetailsOpen(true);
@@ -459,7 +585,6 @@ export default function StaffPage() {
         email: editDraft.email.trim(),
         performance: editDraft.performance,
         hourlyRate: Number(editDraft.hourlyRate) || 0,
-        pin: editDraft.pin.trim() || "0000",
         notes: editDraft.notes.trim(),
       });
       toast.success("Staff updated");
@@ -697,7 +822,7 @@ export default function StaffPage() {
   return (
     <div className="space-y-8 pb-10">
       {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mt-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
         <div className="space-y-1">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-foreground tracking-tight uppercase italic line-none">Store <span className="text-primary not-italic">Team</span></h1>
@@ -706,6 +831,18 @@ export default function StaffPage() {
             <Users className="w-3.5 h-3.5" /> Managing your staff members, attendance, and payroll
           </p>
         </div>
+
+        {!readOnly && (
+          <Button
+            type="button"
+            onClick={() => setAddStaffOpen(true)}
+            size="sm"
+            className="h-10 px-4 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/25 gap-2 hover:-translate-y-0.5 transition-transform shrink-0 self-start sm:self-auto"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Staff
+          </Button>
+        )}
       </div>
 
       {/* Read-only banner for staff outlet accounts */}
@@ -820,9 +957,17 @@ export default function StaffPage() {
                   </h3>
                   <p className="text-sm text-muted-foreground/60 font-medium max-w-sm">
                     {staff.length === 0
-                      ? "Add your first team member using the form on the right to start managing your staff."
+                      ? "Get started by adding your first team member to manage access, shifts, and payroll."
                       : "Try adjusting your search or filter to find the staff member you're looking for."}
                   </p>
+                  {staff.length === 0 && !readOnly && (
+                    <Button
+                      onClick={() => setAddStaffOpen(true)}
+                      className="mt-4 gap-2 rounded-xl font-bold bg-primary text-primary-foreground"
+                    >
+                      <UserPlus className="w-4 h-4" /> Add Staff Member
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -944,86 +1089,27 @@ export default function StaffPage() {
               )}
             </div>
 
-            {/* Right column: Form & Highlights */}
+            {/* Right column: Quick Action & Highlights */}
             <div className="xl:col-span-4 space-y-6">
-              {/* Add Staff Inline Form */}
               {!readOnly && (
-              <Card className="rounded-[2rem] border border-border/40 shadow-xl bg-card/60 backdrop-blur-2xl overflow-hidden">
-                <div className="bg-gradient-to-r from-primary/10 to-transparent p-6 border-b border-border/20">
-                   <h4 className="text-lg font-black tracking-tight text-foreground uppercase italic flex items-center gap-2">
-                      <UserPlus className="w-5 h-5 text-primary" /> New Member
-                   </h4>
-                </div>
-                <form onSubmit={handleAddStaff} className="p-6 space-y-5">
+                <Card className="rounded-[2rem] border border-border/40 shadow-xl bg-gradient-to-br from-primary/10 via-card/60 to-card/40 backdrop-blur-2xl p-6 sm:p-7 flex flex-col justify-between gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-60 px-1">Full Name</label>
-                    <Input
-                      className="h-11 rounded-xl bg-background/50 border-border/40 font-bold focus:ring-primary focus:border-primary transition-colors text-sm"
-                      placeholder="e.g. Jane Smith"
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-1.5 [&_.PhoneInputInput]:h-11 [&_.PhoneInputInput]:rounded-xl [&_.PhoneInputInput]:bg-background/50 [&_.PhoneInputInput]:border [&_.PhoneInputInput]:border-border/40 [&_.PhoneInputInput]:font-bold [&_.PhoneInputInput]:focus:ring-primary [&_.PhoneInputInput]:focus:border-primary [&_.PhoneInputInput]:transition-colors [&_.PhoneInputInput]:text-sm [&_.PhoneInputInput]:px-3">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-60 px-1">Phone</label>
-                      <PhoneInput
-                        maxLength={15}
-                        international
-                        defaultCountry="IN"
-                        value={newPhone}
-                        onChange={(val) => setNewPhone(val || "")}
-                        className="w-full font-bold text-sm"
-                      />
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-black uppercase tracking-wider">
+                      <Sparkles className="w-3 h-3" /> Quick Action
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-60 px-1">Email</label>
-                      <Input
-                        className="h-11 rounded-xl bg-background/50 border-border/40 font-bold focus:ring-primary focus:border-primary transition-colors text-sm"
-                        placeholder="name@shop.com"
-                        type="email"
-                        value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                     <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-60 px-1">Role</label>
-                        <select
-                          className="w-full h-11 px-3 rounded-xl bg-background/50 border border-border/40 font-bold text-[10px] uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                          value={newRole}
-                          onChange={(e) => setNewRole(e.target.value)}
-                        >
-                          <option>Kitchen</option>
-                          <option>Cashier</option>
-                          <option>Manager</option>
-                          <option>Admin</option>
-                          <option>Waiter</option>
-                        </select>
-                     </div>
-                     <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-60 px-1">Shift</label>
-                        <select
-                          className="w-full h-11 px-3 rounded-xl bg-background/50 border border-border/40 font-bold text-[10px] uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                          value={newShift}
-                          onChange={(e) => setNewShift(e.target.value)}
-                        >
-                          <option>Day Shift</option>
-                          <option>Night Shift</option>
-                          <option>Full Time</option>
-                        </select>
-                     </div>
+                    <h3 className="text-lg font-black text-foreground uppercase italic tracking-tight">Onboard New Staff</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Add chefs, managers, waitstaff, or cashiers with fine-grained feature permissions and optional app & web logins.
+                    </p>
                   </div>
                   <Button
-                    type="submit"
-                    disabled={saving}
-                    className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-black uppercase tracking-widest text-[11px] shadow-lg shadow-primary/25 mt-2 hover:-translate-y-0.5 transition-transform"
+                    type="button"
+                    onClick={() => setAddStaffOpen(true)}
+                    className="w-full h-11 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-xs uppercase tracking-wider shadow-lg shadow-primary/20 gap-2 hover:-translate-y-0.5 transition-transform"
                   >
-                    {saving ? "Adding..." : "Add Staff"}
+                    <UserPlus className="w-4 h-4" /> Add Staff Member
                   </Button>
-                </form>
-              </Card>
+                </Card>
               )}
 
               {/* Workload Distribution */}
@@ -1250,22 +1336,20 @@ export default function StaffPage() {
                     <p className="text-xs text-muted-foreground font-semibold mt-0.5">Define ranges to calculate employee dues</p>
                   </div>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-                    <div className="space-y-1 w-full sm:w-40">
-                      <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest ml-1">From</Label>
-                      <Input 
-                        type="date" 
-                        value={periodStart} 
-                        onChange={(e) => setPeriodStart(e.target.value)} 
-                        className="bg-background border-border/40 rounded-xl h-11 font-bold text-xs" 
+                    <div className="w-full sm:w-44">
+                      <CalendarDatePicker
+                        label="From"
+                        value={periodStart}
+                        onChange={setPeriodStart}
+                        maxDate={periodEnd ? new Date(periodEnd) : undefined}
                       />
                     </div>
-                    <div className="space-y-1 w-full sm:w-40">
-                      <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest ml-1">To</Label>
-                      <Input 
-                        type="date" 
-                        value={periodEnd} 
-                        onChange={(e) => setPeriodEnd(e.target.value)} 
-                        className="bg-background border-border/40 rounded-xl h-11 font-bold text-xs" 
+                    <div className="w-full sm:w-44">
+                      <CalendarDatePicker
+                        label="To"
+                        value={periodEnd}
+                        onChange={setPeriodEnd}
+                        minDate={periodStart ? new Date(periodStart) : undefined}
                       />
                     </div>
                   </div>
@@ -1617,25 +1701,14 @@ export default function StaffPage() {
                     </div>
                  </div>
 
-                 <div className="grid sm:grid-cols-2 gap-4">
-                   <div className="space-y-1.5">
-                     <Label className="text-[9px] font-black uppercase tracking-widest opacity-60">Email</Label>
-                     <Input className="h-11 rounded-xl bg-muted/20" value={editDraft.email} onChange={(e) => setEditDraft((p) => ({ ...p, email: e.target.value }))} />
-                     {editDraft.email && (
-                       <a className="text-[10px] font-bold text-primary inline-flex items-center gap-1.5 mt-1" href={`mailto:${editDraft.email}`}>
-                         <Mail className="w-3 h-3" /> Email
-                       </a>
-                     )}
-                   </div>
-                   <div className="space-y-1.5">
-                     <Label className="text-[9px] font-black uppercase tracking-widest opacity-60">PIN (4-digits)</Label>
-                     <div className="relative">
-                       <Input className="h-11 rounded-xl bg-muted/20 pr-10" maxLength={4} type={showPin ? "text" : "password"} value={editDraft.pin} onChange={(e) => setEditDraft((p) => ({ ...p, pin: e.target.value }))} />
-                       <button type="button" onClick={() => setShowPin(!showPin)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                         {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                       </button>
-                     </div>
-                   </div>
+                 <div className="space-y-1.5">
+                   <Label className="text-[9px] font-black uppercase tracking-widest opacity-60">Email</Label>
+                   <Input className="h-11 rounded-xl bg-muted/20" value={editDraft.email} onChange={(e) => setEditDraft((p) => ({ ...p, email: e.target.value }))} />
+                   {editDraft.email && (
+                     <a className="text-[10px] font-bold text-primary inline-flex items-center gap-1.5 mt-1" href={`mailto:${editDraft.email}`}>
+                       <Mail className="w-3 h-3" /> Email
+                     </a>
+                   )}
                  </div>
 
                  <div className="space-y-1.5">
@@ -1655,6 +1728,272 @@ export default function StaffPage() {
                </DialogFooter>
              </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Staff Registration Modal Popup */}
+      <Dialog open={addStaffOpen} onOpenChange={(open) => {
+        setAddStaffOpen(open);
+        if (!open) resetAddStaffDraft();
+      }}>
+        <DialogContent className="rounded-3xl max-w-2xl border-border/40 shadow-2xl bg-card/95 backdrop-blur-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
+          <div className="p-6 sm:p-7 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b border-border/20 shrink-0">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-primary/15 border border-primary/25 flex items-center justify-center text-primary shadow-sm shrink-0">
+                <UserPlus className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl sm:text-2xl font-black uppercase tracking-tight italic text-foreground">
+                  New <span className="text-primary not-italic">Team Member</span>
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground font-medium mt-0.5">
+                  Onboard a new employee to your store with role-based permissions and optional mobile/web login.
+                </DialogDescription>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleAddStaffModalSubmit} className="flex-1 overflow-y-auto p-6 sm:p-7 space-y-6">
+            {/* Section 1: Personal Details */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                  Step 1
+                </span>
+                <h4 className="text-xs font-black uppercase tracking-widest text-foreground">Personal Details</h4>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">
+                  Full Name *
+                </Label>
+                <Input
+                  className="h-11 rounded-xl bg-background/60 border-border/50 font-bold focus:ring-primary text-sm px-4"
+                  placeholder="e.g. Jane Smith"
+                  value={newStaffDraft.name}
+                  onChange={(e) => setNewStaffDraft((p) => ({ ...p, name: e.target.value }))}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5 [&_.PhoneInputInput]:h-11 [&_.PhoneInputInput]:rounded-xl [&_.PhoneInputInput]:bg-background/60 [&_.PhoneInputInput]:border [&_.PhoneInputInput]:border-border/50 [&_.PhoneInputInput]:font-bold [&_.PhoneInputInput]:focus:ring-primary [&_.PhoneInputInput]:text-sm [&_.PhoneInputInput]:px-3">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">
+                    Phone Number
+                  </Label>
+                  <PhoneInput
+                    maxLength={15}
+                    international
+                    defaultCountry="IN"
+                    value={newStaffDraft.phone}
+                    onChange={(val) => setNewStaffDraft((p) => ({ ...p, phone: val || "" }))}
+                    className="w-full font-bold text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">
+                    Email Address
+                  </Label>
+                  <Input
+                    className="h-11 rounded-xl bg-background/60 border-border/50 font-bold focus:ring-primary text-sm px-4"
+                    placeholder="name@restaurant.com"
+                    type="email"
+                    value={newStaffDraft.email}
+                    onChange={(e) => setNewStaffDraft((p) => ({ ...p, email: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Role, Shift & Compensation */}
+            <div className="space-y-4 pt-2 border-t border-border/20">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                  Step 2
+                </span>
+                <h4 className="text-xs font-black uppercase tracking-widest text-foreground">Role & Shift</h4>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">
+                    Role Preset
+                  </Label>
+                  <select
+                    className="w-full h-11 px-3.5 rounded-xl bg-background/60 border border-border/50 font-bold text-xs uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                    value={newStaffDraft.role}
+                    onChange={(e) => handleRoleChangeForNewStaff(e.target.value)}
+                  >
+                    <option value="Waiter">Waiter</option>
+                    <option value="Kitchen">Kitchen / Chef</option>
+                    <option value="Cashier">Cashier</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">
+                    Assigned Shift
+                  </Label>
+                  <select
+                    className="w-full h-11 px-3.5 rounded-xl bg-background/60 border border-border/50 font-bold text-xs uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                    value={newStaffDraft.shift}
+                    onChange={(e) => setNewStaffDraft((p) => ({ ...p, shift: e.target.value }))}
+                  >
+                    <option value="Day Shift">Day Shift</option>
+                    <option value="Night Shift">Night Shift</option>
+                    <option value="Rotating">Rotating</option>
+                    <option value="Full Time">Full Time</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">
+                    Hourly Rate (₹)
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    className="h-11 rounded-xl bg-background/60 border-border/50 font-bold focus:ring-primary text-sm px-4"
+                    placeholder="0"
+                    value={newStaffDraft.hourlyRate || ""}
+                    onChange={(e) => setNewStaffDraft((p) => ({ ...p, hourlyRate: Number(e.target.value) }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Feature Permissions (RBAC) */}
+            <div className="space-y-3 pt-2 border-t border-border/20">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                    Step 3
+                  </span>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-foreground">Feature Access</h4>
+                </div>
+                <span className="text-[11px] font-bold text-muted-foreground">
+                  {newStaffDraft.permissions.size} features selected
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Seeded from the <span className="font-bold text-foreground">"{newStaffDraft.role}"</span> role. Tap any chip to toggle individual feature visibility. Sensitive tools marked with •
+              </p>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                {STAFF_FEATURES.map((feat) => {
+                  const active = newStaffDraft.permissions.has(feat.key);
+                  const IconComp = feat.icon;
+                  return (
+                    <button
+                      type="button"
+                      key={feat.key}
+                      onClick={() => togglePermissionForNewStaff(feat.key)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border",
+                        active
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-background/60 text-muted-foreground border-border/40 hover:bg-muted/40 hover:text-foreground"
+                      )}
+                    >
+                      <IconComp className="w-3.5 h-3.5" />
+                      <span>{feat.label}{feat.sensitive ? " •" : ""}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Section 4: App & Web Login Toggle */}
+            <div className="space-y-4 pt-2 border-t border-border/20">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                  Step 4
+                </span>
+                <h4 className="text-xs font-black uppercase tracking-widest text-foreground">System Login Access</h4>
+              </div>
+
+              <div className="rounded-2xl border border-border/40 bg-muted/20 p-4 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-black text-foreground">Give App & Web Login</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Enables this staff member to sign in on the Kada mobile app or web portal using their email and password.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={newStaffDraft.giveLogin}
+                    onCheckedChange={(checked) => setNewStaffDraft((p) => ({ ...p, giveLogin: checked }))}
+                  />
+                </div>
+
+                {newStaffDraft.giveLogin && (
+                  <div className="pt-2 border-t border-border/20 space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">
+                        Login Password (min 6 characters) *
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          className="h-11 rounded-xl bg-background/80 border-border/50 font-bold focus:ring-primary text-sm pr-11"
+                          placeholder="Create temporary password"
+                          value={newStaffDraft.password}
+                          onChange={(e) => setNewStaffDraft((p) => ({ ...p, password: e.target.value }))}
+                          minLength={6}
+                          required={newStaffDraft.giveLogin}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Section 5: Notes & Responsibilities */}
+            <div className="space-y-2 pt-2 border-t border-border/20">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">
+                Notes / Skills
+              </Label>
+              <Textarea
+                className="rounded-xl min-h-[75px] bg-background/60 border-border/50 text-xs font-medium focus:ring-primary p-3"
+                placeholder="Station specialties, certifications, food handling permits, notes..."
+                value={newStaffDraft.notes}
+                onChange={(e) => setNewStaffDraft((p) => ({ ...p, notes: e.target.value }))}
+              />
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="pt-4 border-t border-border/20 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto rounded-xl font-bold uppercase text-xs h-11 px-6"
+                onClick={() => setAddStaffOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="w-full sm:w-auto rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-wider text-xs h-11 px-8 shadow-lg shadow-primary/25 gap-2"
+              >
+                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {saving ? "Adding Staff..." : "Add Staff Member"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

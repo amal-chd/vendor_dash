@@ -36,6 +36,7 @@ import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { CalendarDatePicker } from "@/components/common";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   collection,
@@ -626,8 +627,9 @@ export default function TenantsHub() {
   // value alone.
   const handleImpersonate = useCallback((r: Restaurant) => {
     sessionStorage.setItem("kada_impersonate_id", r.id);
+    localStorage.setItem("kada_impersonate_id", r.id);
     toast.success(`Impersonating ${r.name} — you will see their dashboard`);
-    navigate("/dashboard");
+    navigate(`/dashboard?impersonate=${encodeURIComponent(r.id)}`);
   }, [navigate]);
 
   // ── Delete (soft) ──────────────────────────────────────────────────────────
@@ -1460,10 +1462,9 @@ export default function TenantsHub() {
                     <option value="expired">Expired</option>
                   </select>
                 </div>
-                <div className="col-span-2 space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Subscription End Date</label>
-                  <Input
-                    type="date"
+                <div className="col-span-2">
+                  <CalendarDatePicker
+                    label="Subscription End Date"
                     value={
                       draft.subscriptionEndDate
                         ? (() => {
@@ -1478,13 +1479,13 @@ export default function TenantsHub() {
                           })()
                         : ""
                     }
-                    onChange={(e) =>
+                    onChange={(val) =>
                       setDraft((p) => ({
                         ...p,
-                        subscriptionEndDate: e.target.value ? new Date(e.target.value).toISOString() : null,
+                        subscriptionEndDate: val ? new Date(val).toISOString() : null,
                       }))
                     }
-                    className="h-9 text-sm"
+                    buttonClassName="h-9 text-sm"
                   />
                 </div>
               </div>

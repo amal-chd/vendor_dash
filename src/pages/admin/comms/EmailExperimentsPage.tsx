@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { FlaskConical, Plus, Trophy, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/admin/core/asyncDialogs";
 
 interface VariantStats { sent?: number; delivered?: number; opened?: number; clicked?: number; bounced?: number; complained?: number }
 interface Experiment {
@@ -84,7 +85,13 @@ export default function EmailExperimentsPage() {
                 <div className="flex gap-1.5">
                   {(["A", "B"] as const).map((v) => (
                     <Button key={v} size="sm" variant={suggestion === v ? "default" : "outline"}
-                      onClick={() => { if (confirm(`End the test with ${v} as the winner?`)) commsOp("concludeExperiment", { id: r.id, winner: v }, `${v} marked as the winner.`); }}>
+                      onClick={async () => {
+                        if (await confirmDialog({
+                          title: `End the test with ${v} as the winner?`,
+                          description: "The experiment will be marked complete and this version will be recorded as the winner.",
+                          confirmLabel: `Set ${v} as winner`,
+                        })) await commsOp("concludeExperiment", { id: r.id, winner: v }, `${v} marked as the winner.`);
+                      }}>
                       <Trophy className="h-3.5 w-3.5 mr-1" />{v} wins
                     </Button>
                   ))}

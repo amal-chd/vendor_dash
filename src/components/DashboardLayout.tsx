@@ -13,7 +13,7 @@ import { StandardHeader } from "./StandardHeader";
 import { BottomNav } from "./BottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { auth } from "@/lib/firebase";
-import { signOutWeb } from "@/lib/auth-flow";
+import { signOutWeb, isAdminEmail } from "@/lib/auth-flow";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "@/hooks/useNotifications";
 import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -82,7 +82,7 @@ const getNavGroups = (features: Record<string, boolean>, isOutlet: boolean = fal
         { label: "Team", icon: Users, path: "/dashboard/staff" },
         { label: "Guests", icon: UserCircle, path: "/dashboard/customers" },
         ...(features.marketing !== false ? [{ label: "Marketing", icon: Megaphone, path: "/dashboard/marketing" }] : []),
-        { label: "Channels", icon: PlugZap, path: "/dashboard/integrations" },
+        { label: "Channels", icon: PlugZap, path: "/dashboard/integrations", badge: "Soon" },
         { label: "Reports", icon: BarChart3, path: "/dashboard/reports" },
         { label: "Expenses", icon: Wallet, path: "/dashboard/expenses" },
         { label: "Plans & Pricing", icon: CreditCard, path: "/dashboard/pricing" },
@@ -318,7 +318,21 @@ export default function DashboardLayout() {
   const { hasCapability, plan } = useSubscription();
   // Always use restaurantId (not user.uid) so outlet sub-accounts read the
   // parent restaurant document and get the correct subscription status.
-  const { user, restaurantId, primaryOutletId, isStaffOutlet, billingAccountId, teamRole, isMess } = useAuth();
+  const {
+    user,
+    restaurantId,
+    primaryOutletId,
+    isStaffOutlet,
+    billingAccountId,
+    teamRole,
+    isMess,
+    hasBoth,
+    switchMode,
+    isAdmin,
+    isImpersonating,
+    impersonatedRestaurantId,
+    stopImpersonating,
+  } = useAuth();
   const [restaurantData, setRestaurantData] = useState<any>(null);
   const [dataError, setDataError] = useState(false);
   const [isRenewalOpen, setIsRenewalOpen] = useState(false);
@@ -342,30 +356,29 @@ export default function DashboardLayout() {
     return () => unsub();
   }, []);
 
-
-
   useEffect(() => {
     if (!user) return;
     
     // If we are in 'global' view, we check the primary account's subscription.
     // Outlets always check their parent's billing account to ensure all branches
     // stay synced to the same subscription plan.
-    const activeId = billingAccountId || user.uid;
+    const activeId = billingAccountId || restaurantId || (isImpersonating ? impersonatedRestaurantId : user.uid);
+    if (!activeId) return;
 
     const unsub = onSnapshot(doc(db, "restaurants", activeId), (snap) => {
       if (snap.exists()) {
         setRestaurantData(snap.data());
         setDataError(false);
       } else {
-        setDataError(true);
+        setDataError(!isImpersonating && !isAdmin && !isAdminEmail(user?.email));
       }
     }, (error) => {
       console.error("DashboardLayout sub check failed:", error);
-      setDataError(true);
+      setDataError(!isImpersonating && !isAdmin && !isAdminEmail(user?.email));
     });
 
     return () => unsub();
-  }, [user, restaurantId, primaryOutletId]);
+  }, [user, restaurantId, primaryOutletId, billingAccountId, isImpersonating, impersonatedRestaurantId, isAdmin]);
 
   const isActive = (path: string) => {
     if (path === "/dashboard") return location.pathname === "/dashboard";
@@ -390,6 +403,11 @@ export default function DashboardLayout() {
   }, [location.pathname, teamRole, navigate]);
 
   const checkSubscription = () => {
+    // Platform administrators and impersonated vendor sessions are NEVER blocked by subscription paywall
+    if (isAdmin || isImpersonating || isAdminEmail(user?.email)) {
+      return { status: 'active', daysLeft: 999 };
+    }
+
     if (dataError) return { status: 'blocked', daysLeft: 0 };
     // Default to 'pending' (not 'active') while the Firestore snapshot is still
     // loading — prevents blocked/expired accounts from briefly accessing the dashboard.
@@ -510,8 +528,24 @@ export default function DashboardLayout() {
         </div>
 
         {!collapsed && (
-          <div className="px-4 pb-2">
+          <div className="px-4 pb-2 space-y-2">
             <OutletSwitcher />
+            {hasBoth && (
+              <button
+                type="button"
+                onClick={() => {
+                  switchMode("mess");
+                  navigate("/mess/dashboard");
+                }}
+                className="flex w-full items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <ChefHat className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span>Mess Kitchen</span>
+                </div>
+                <span className="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded font-bold uppercase">Switch</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -543,11 +577,20 @@ export default function DashboardLayout() {
                         <item.icon className="w-4 h-4 shrink-0" />
                         {!collapsed && (
                           <span className="flex-1 flex items-center justify-between">
-                            {item.label}
-                            {isLocked && <Lock className="w-3.5 h-3.5 text-muted-foreground/60" />}
+                            <span>{item.label}</span>
+                            {(item as any).badge ? (
+                              <span className="text-[9px] font-black tracking-wide uppercase px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                {(item as any).badge}
+                              </span>
+                            ) : isLocked ? (
+                              <Lock className="w-3.5 h-3.5 text-muted-foreground/60" />
+                            ) : null}
                           </span>
                         )}
-                        {collapsed && isLocked && (
+                        {collapsed && (item as any).badge && (
+                          <div className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full" title={(item as any).badge} />
+                        )}
+                        {collapsed && !(item as any).badge && isLocked && (
                           <div className="absolute top-1 right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
                         )}
                         {isActive(item.path) && (
@@ -662,6 +705,38 @@ export default function DashboardLayout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+        {/* Admin Impersonation Notice Bar */}
+        {isImpersonating && (
+          <div className="bg-amber-500 text-amber-950 px-4 py-2 text-xs font-bold flex items-center justify-between border-b border-amber-600/30 z-[100] shadow-sm shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-950 animate-pulse" />
+              <span>
+                Impersonation Mode: Viewing as <strong className="font-extrabold">{restaurantData?.name || impersonatedRestaurantId}</strong>
+              </span>
+              {restaurantData?.subscriptionStatus && restaurantData.subscriptionStatus !== 'active' && (
+                <span className="ml-2 bg-amber-950/20 text-amber-950 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider">
+                  Vendor Plan: {restaurantData.subscriptionStatus}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/admin/vendors"
+                className="px-2.5 py-1 rounded-md bg-amber-950/10 hover:bg-amber-950/20 text-amber-950 font-bold transition-colors"
+              >
+                All Vendors
+              </Link>
+              <button
+                onClick={stopImpersonating}
+                type="button"
+                className="px-3 py-1 rounded-md bg-amber-950 hover:bg-amber-900 text-amber-100 font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                Exit Impersonation
+              </button>
+            </div>
+          </div>
+        )}
+
         <StandardHeader
           logo={
             <button
@@ -674,6 +749,21 @@ export default function DashboardLayout() {
           }
           actions={
             <div className="flex items-center gap-2 shrink-0">
+              {hasBoth && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    switchMode("mess");
+                    navigate("/mess/dashboard");
+                  }}
+                  className="h-8 gap-1.5 rounded-xl border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 text-xs font-bold"
+                >
+                  <ChefHat className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Switch to Mess</span>
+                  <span className="sm:hidden">Mess</span>
+                </Button>
+              )}
               {['thekada@gmail.com', 'thekadaapp@gmail.com'].includes(user?.email?.toLowerCase() || '') && (
                 <Link to="/portal-select">
                   <Button

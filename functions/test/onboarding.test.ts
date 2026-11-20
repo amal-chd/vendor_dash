@@ -132,9 +132,9 @@ describe("KYC requirement resolution", () => {
     expect(with_).toContain("gst_certificate");
   });
 
-  it("asks for a cancelled cheque only when automatic bank verification can't vouch", () => {
+  it("does not require a cancelled cheque or passbook during onboarding", () => {
     expect(resolveRequirements("vendor", {}).map((r) => r.id)).not.toContain("bank_proof");
-    expect(resolveRequirements("vendor", { bankProofNeeded: true }).map((r) => r.id)).toContain("bank_proof");
+    expect(resolveRequirements("vendor", { bankProofNeeded: true }).map((r) => r.id)).not.toContain("bank_proof");
   });
 
   it("asks a business for owner ID only when a name check failed; riders always", () => {

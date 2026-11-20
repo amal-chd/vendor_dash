@@ -450,7 +450,8 @@ export default function SupportPage() {
     const unsubContact = onSnapshot(
       qContact,
       (snap) => {
-        const data = (snap.docs.map((d) => ({ id: d.id, ...d.data() })) as ContactRequest[]).sort(
+        // Website project enquiries are sales leads — they live in Growth › Website enquiries.
+        const data = (snap.docs.map((d) => ({ id: d.id, ...d.data() })) as ContactRequest[]).filter((c) => c.source !== "kadaverse-website").sort(
           (a, b) =>
             getTimestamp(b.createdAt, b.createdAtIso) - getTimestamp(a.createdAt, a.createdAtIso)
         );

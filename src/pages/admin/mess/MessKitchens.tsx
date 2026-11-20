@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
 import { ColumnDef } from "@tanstack/react-table";
-import { Ban, CheckCircle2, ChefHat, ImageIcon, IndianRupee, Layers, Utensils } from "lucide-react";
+import { Ban, CalendarX2, CheckCircle2, ChefHat, ImageIcon, IndianRupee, Layers, Utensils } from "lucide-react";
+import { messAction, type MessKitchen } from "./messAdmin";
+import { MessKitchenSheet } from "./MessKitchenSheet";
 import { KitchenPhotos } from "@/components/mess/KitchenPhotos";
 import { db } from "@/lib/firebase";
 import { useLiveCollection } from "@/hooks/useLiveCollection";
@@ -21,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { CalendarDatePicker } from "@/components/common";
 
 interface Kitchen {
   id: string;
@@ -35,6 +38,8 @@ interface Kitchen {
   onboarding?: { state?: string };
   logoUrl?: string;
   coverImage?: string;
+  holidays?: string[];
+  messSettings?: { acceptingSubscribers?: boolean; capacity?: Record<string, number>; skipCutoffHour?: number | null };
 }
 
 interface Sub {
@@ -52,6 +57,29 @@ const inr = (n: number) => `₹${(Math.round(n * 100) / 100).toLocaleString("en-
  */
 export default function MessKitchens() {
   const [photosFor, setPhotosFor] = useState<Kitchen | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [closeFor, setCloseFor] = useState<Kitchen | null>(null);
+  const [closeDay, setCloseDay] = useState("");
+  const [closeReason, setCloseReason] = useState("");
+  const [closing, setClosing] = useState(false);
+
+  const submitClosure = async (reopen: boolean, day = closeDay) => {
+    if (!closeFor || !day) return;
+    setClosing(true);
+    try {
+      const r = await messAction<{ affected: number }>(reopen ? "reopenDay" : "closeDay", {
+        kitchenId: closeFor.id,
+        day,
+        reason: closeReason.trim(),
+      });
+      toast.success(`${reopen ? "Reopened" : "Closed"} ${day} — ${r.affected} subscriber plan(s) adjusted and notified.`);
+      if (!reopen) setCloseDay("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't update the closure");
+    } finally {
+      setClosing(false);
+    }
+  };
   const kitchens = useLiveCollection<Kitchen>("mess_kitchens", { orderByField: "createdAt" });
   const subs = useLiveCollection<Sub>("mess_subscriptions", { limit: 1000 });
 
@@ -115,9 +143,9 @@ export default function MessKitchens() {
       accessorFn: (k) => k.name || k.kitchenName || k.id,
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="font-medium truncate">
+          <button className="font-medium truncate hover:underline text-left" onClick={() => setOpenId(row.original.id)}>
             {row.original.name || row.original.kitchenName || row.original.id}
-          </div>
+          </button>
           <div className="text-[11px] text-muted-foreground truncate">
             {row.original.area || row.original.locality || row.original.city || "—"}
             {row.original.vegOnly ? " · Pure veg" : ""}
@@ -131,10 +159,28 @@ export default function MessKitchens() {
       cell: ({ row }) => {
         const s = row.original.onboarding?.state ?? "unknown";
         return (
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             <Badge variant={s === "active" ? "default" : "outline"}>{s}</Badge>
             {row.original.isBlocked && <Badge variant="destructive">blocked</Badge>}
+            {row.original.messSettings?.acceptingSubscribers === false && <Badge variant="outline">not accepting</Badge>}
+            {(row.original.holidays ?? []).some((d) => d >= new Date(Date.now() + 19_800_000).toISOString().slice(0, 10)) && (
+              <Badge variant="outline">closure planned</Badge>
+            )}
           </div>
+        );
+      },
+    },
+    {
+      id: "rating",
+      header: "Rating",
+      cell: ({ row }) => {
+        const k = row.original as Kitchen & { ratingAvg?: number; ratingCount?: number };
+        return k.ratingCount ? (
+          <span className={`tabular-nums ${(k.ratingAvg ?? 0) < 3.5 ? "text-rose-600" : ""}`}>
+            {(k.ratingAvg ?? 0).toFixed(1)} ★ <span className="text-[11px] text-muted-foreground">({k.ratingCount})</span>
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">new</span>
         );
       },
     },
@@ -166,6 +212,10 @@ export default function MessKitchens() {
           <Button size="sm" variant="outline" onClick={() => setPhotosFor(row.original)}>
             <ImageIcon className="w-3.5 h-3.5 mr-1" />
             Photos
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setCloseFor(row.original)}>
+            <CalendarX2 className="w-3.5 h-3.5 mr-1" />
+            Closures
           </Button>
           <Button size="sm" variant="outline" asChild>
             <Link to={`/admin/mess?tab=plans&kitchenId=${row.original.id}`}>
@@ -216,6 +266,49 @@ export default function MessKitchens() {
         searchPlaceholder="Search kitchens…"
         exportFilename="mess-kitchens"
       />
+
+      <MessKitchenSheet
+        kitchen={(kitchens.rows.find((k) => k.id === openId) as unknown as MessKitchen) ?? null}
+        onClose={() => setOpenId(null)}
+      />
+
+      <Dialog open={!!closeFor} onOpenChange={(o) => !o && setCloseFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Closures — {closeFor?.name || closeFor?.kitchenName}</DialogTitle>
+            <DialogDescription>
+              Closing a day adds it to the end of every affected subscriber&apos;s plan and notifies them. Settlement neither pays the
+              kitchen nor charges Kada&apos;s fee for it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {(kitchens.rows.find((k) => k.id === closeFor?.id)?.holidays ?? [])
+                .filter((d) => d >= new Date(Date.now() + 19_800_000).toISOString().slice(0, 10))
+                .sort()
+                .map((d) => (
+                  <Button key={d} size="sm" variant="outline" disabled={closing} onClick={() => submitClosure(true, d)} title="Reopen">
+                    {d} ✕
+                  </Button>
+                ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <CalendarDatePicker label="Day" value={closeDay} onChange={setCloseDay} buttonClassName="h-10" />
+              </div>
+              <div className="space-y-1">
+                <Label>Reason</Label>
+                <Input value={closeReason} onChange={(e) => setCloseReason(e.target.value)} placeholder="Onam, gas shortage…" className="h-10" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="destructive" disabled={!closeDay || closing} onClick={() => submitClosure(false)}>
+              {closing ? "Saving…" : "Close kitchen that day"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!photosFor} onOpenChange={(o) => !o && setPhotosFor(null)}>
         <DialogContent>

@@ -25,6 +25,7 @@ interface Health {
   unsubscribeUrl: string;
   domains: { ok: boolean; error?: string; restricted?: boolean; inferredVerified?: boolean; domains: { name: string; status: string; records: { record: string; type: string; status: string }[] }[] };
   webhookLastAt?: number | null;
+  resendAccount?: { ok: boolean; error?: string; at?: number | null; fallingBack?: boolean };
   reach?: { customers: number; customerProfiles: number; pushReachable: number };
   switches: { pauseAll: boolean; pauseMarketing: boolean };
   last30d: {
@@ -189,6 +190,11 @@ export default function CommsOverviewPage() {
                   warn={h.provider === "smtp" && h.providerConfigured}
                   label={h.provider === "resend" ? "Sending through Resend" : "Sending through Gmail SMTP (fallback)"}
                   detail={h.provider === "resend" ? undefined : "Gmail caps volume and gives no delivery events. Set RESEND_API_KEY to switch."} />
+                {h.resendAccount && !h.resendAccount.ok && (
+                  <Check ok={false} warn={h.resendAccount.fallingBack}
+                    label={h.resendAccount.fallingBack ? "Resend is refusing your key — service email is going through Gmail" : "Resend is refusing your API key"}
+                    detail={`Resend says: "${(h.resendAccount.error || "").replace(/^\d+\s*/, "").replace(/^\{"message":"/, "").split('","')[0]}". Fix it in Resend: create an API key with sending access for your verified domain (thekada.in), then set it as the RESEND_API_KEY secret and redeploy the email functions. Until then, receipts and account email go through Gmail; marketing email waits.`} />
+                )}
                 <Check ok={domainOk}
                   label={domain ? `${domain.name} is ${domain.status}` : h.domains.inferredVerified ? "Sending domain verified" : "Sending domain"}
                   detail={h.domains.ok

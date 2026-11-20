@@ -38,6 +38,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { CalendarDatePicker, ClockTimePicker } from "@/components/common";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { StatCards, type StatItem } from "@/components/admin/StatCards";
 import { useLiveCollection } from "@/hooks/useLiveCollection";
@@ -873,25 +874,19 @@ export default function ReservationsHubPage() {
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Date *</Label>
-                <Input
-                  type="date"
-                  value={newResForm.date}
-                  onChange={(e) => setNewResForm({ ...newResForm, date: e.target.value })}
-                  className="text-xs"
-                />
-              </div>
+              <CalendarDatePicker
+                label="Date *"
+                value={newResForm.date}
+                onChange={(val) => setNewResForm({ ...newResForm, date: val })}
+                required
+              />
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Time Slot *</Label>
-                <Input
-                  type="time"
-                  value={newResForm.time}
-                  onChange={(e) => setNewResForm({ ...newResForm, time: e.target.value })}
-                  className="text-xs"
-                />
-              </div>
+              <ClockTimePicker
+                label="Time Slot *"
+                value={newResForm.time}
+                onChange={(val) => setNewResForm({ ...newResForm, time: val })}
+                required
+              />
             </div>
 
             <div className="space-y-1.5">

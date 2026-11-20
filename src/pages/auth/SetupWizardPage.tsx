@@ -52,6 +52,14 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { signOutWeb } from "@/lib/auth-flow";
+import { AiMenuImportDialog } from "@/components/dashboard/AiMenuImportDialog";
+import {
+  LocationMapPicker,
+  ClockTimePicker,
+  OpeningHoursClockPicker,
+  CalendarDatePicker,
+  to24HourTime,
+} from "@/components/common";
 import {
   onboardingClient,
   messOnboardingClient,
@@ -887,13 +895,12 @@ export default function SetupWizardPage() {
         />
       )}
 
-      {/* 5. Document Modals: PAN, FSSAI, GST Certificate, Owner ID, Bank Proof, Kitchen Photos, Weekly Menu */}
+      {/* 5. Document Modals: PAN, FSSAI, GST Certificate, Owner ID, Kitchen Photos, Weekly Menu */}
       {[
         "pan",
         "fssai",
         "gst_certificate",
         "owner_identity",
-        "bank_proof",
         "kitchen_photos",
         "weekly_menu",
       ].includes(activeModal || "") && (
@@ -935,6 +942,7 @@ export default function SetupWizardPage() {
           open
           client={client}
           editable={isEditable}
+          restaurantId={user?.uid || client?.uid || ""}
           onClose={() => setActiveModal(null)}
           onSuccess={() => {
             setActiveModal(null);
@@ -1407,17 +1415,23 @@ function MealTimesModal({
             </div>
             {bEnabled && (
               <div className="grid grid-cols-3 gap-2.5 pt-1">
-                <div>
-                  <Label className="text-[11px] font-bold text-slate-600">Start Time</Label>
-                  <Input type="time" value={bStart} onChange={(e) => setBStart(e.target.value)} disabled={!editable} required className="h-9 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-[11px] font-bold text-slate-600">End Time</Label>
-                  <Input type="time" value={bEnd} onChange={(e) => setBEnd(e.target.value)} disabled={!editable} required className="h-9 text-xs" />
-                </div>
+                <ClockTimePicker
+                  label="Start Time"
+                  value={bStart}
+                  onChange={(val) => setBStart(to24HourTime(val))}
+                  disabled={!editable}
+                  required
+                />
+                <ClockTimePicker
+                  label="End Time"
+                  value={bEnd}
+                  onChange={(val) => setBEnd(to24HourTime(val))}
+                  disabled={!editable}
+                  required
+                />
                 <div>
                   <Label className="text-[11px] font-bold text-slate-600">Order Cut-off</Label>
-                  <Input value={bCutoff} onChange={(e) => setBCutoff(e.target.value)} placeholder="e.g. 21:00 (prev day)" disabled={!editable} required className="h-9 text-xs" />
+                  <Input value={bCutoff} onChange={(e) => setBCutoff(e.target.value)} placeholder="e.g. 21:00 (prev day)" disabled={!editable} required className="h-10 text-xs rounded-xl" />
                 </div>
               </div>
             )}
@@ -1443,17 +1457,23 @@ function MealTimesModal({
             </div>
             {lEnabled && (
               <div className="grid grid-cols-3 gap-2.5 pt-1">
-                <div>
-                  <Label className="text-[11px] font-bold text-slate-600">Start Time</Label>
-                  <Input type="time" value={lStart} onChange={(e) => setLStart(e.target.value)} disabled={!editable} required className="h-9 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-[11px] font-bold text-slate-600">End Time</Label>
-                  <Input type="time" value={lEnd} onChange={(e) => setLEnd(e.target.value)} disabled={!editable} required className="h-9 text-xs" />
-                </div>
+                <ClockTimePicker
+                  label="Start Time"
+                  value={lStart}
+                  onChange={(val) => setLStart(to24HourTime(val))}
+                  disabled={!editable}
+                  required
+                />
+                <ClockTimePicker
+                  label="End Time"
+                  value={lEnd}
+                  onChange={(val) => setLEnd(to24HourTime(val))}
+                  disabled={!editable}
+                  required
+                />
                 <div>
                   <Label className="text-[11px] font-bold text-slate-600">Order Cut-off</Label>
-                  <Input value={lCutoff} onChange={(e) => setLCutoff(e.target.value)} placeholder="e.g. 09:00" disabled={!editable} required className="h-9 text-xs" />
+                  <Input value={lCutoff} onChange={(e) => setLCutoff(e.target.value)} placeholder="e.g. 09:00" disabled={!editable} required className="h-10 text-xs rounded-xl" />
                 </div>
               </div>
             )}
@@ -1479,17 +1499,23 @@ function MealTimesModal({
             </div>
             {dEnabled && (
               <div className="grid grid-cols-3 gap-2.5 pt-1">
-                <div>
-                  <Label className="text-[11px] font-bold text-slate-600">Start Time</Label>
-                  <Input type="time" value={dStart} onChange={(e) => setDStart(e.target.value)} disabled={!editable} required className="h-9 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-[11px] font-bold text-slate-600">End Time</Label>
-                  <Input type="time" value={dEnd} onChange={(e) => setDEnd(e.target.value)} disabled={!editable} required className="h-9 text-xs" />
-                </div>
+                <ClockTimePicker
+                  label="Start Time"
+                  value={dStart}
+                  onChange={(val) => setDStart(to24HourTime(val))}
+                  disabled={!editable}
+                  required
+                />
+                <ClockTimePicker
+                  label="End Time"
+                  value={dEnd}
+                  onChange={(val) => setDEnd(to24HourTime(val))}
+                  disabled={!editable}
+                  required
+                />
                 <div>
                   <Label className="text-[11px] font-bold text-slate-600">Order Cut-off</Label>
-                  <Input value={dCutoff} onChange={(e) => setDCutoff(e.target.value)} placeholder="e.g. 16:00" disabled={!editable} required className="h-9 text-xs" />
+                  <Input value={dCutoff} onChange={(e) => setDCutoff(e.target.value)} placeholder="e.g. 16:00" disabled={!editable} required className="h-10 text-xs rounded-xl" />
                 </div>
               </div>
             )}
@@ -1538,95 +1564,55 @@ function MapLocationModal({
   const [lat, setLat] = useState<number | null>(profile.location?.lat ?? null);
   const [lng, setLng] = useState<number | null>(profile.location?.lng ?? null);
 
-  const [locating, setLocating] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [zoneResult, setZoneResult] = useState<ZoneResult | null>(null);
 
-  // Auto-detect current browser location
-  const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser.");
-      return;
+  // Initial zone preview if coordinates already exist
+  useEffect(() => {
+    if (lat !== null && lng !== null && client?.previewZone) {
+      client.previewZone(lat, lng).then(setZoneResult).catch(() => {});
     }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const cLat = pos.coords.latitude;
-        const cLng = pos.coords.longitude;
-        setLat(cLat);
-        setLng(cLng);
-        setLocating(false);
-
-        // Reverse geocoding lookup
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${cLat}&lon=${cLng}`
-          );
-          if (res.ok) {
-            const data = await res.json();
-            if (data.display_name && !address) {
-              setAddress(data.display_name);
-            }
-            if (data.address?.postcode && !pincode) {
-              setPincode(data.address.postcode);
-            }
-            if (data.address?.state_district || data.address?.city) {
-              setDistrict(data.address.city || data.address.state_district || "");
-            }
-          }
-        } catch {
-          // ignore lookup failure
-        }
-
-        // Preview zone
-        try {
-          const z = await client.previewZone(cLat, cLng);
-          setZoneResult(z);
-        } catch {
-          // ignore
-        }
-      },
-      (err) => {
-        setLocating(false);
-        toast.error("Could not obtain location. Please enter coordinates or address manually.");
-      },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
-  };
+  }, [lat, lng, client]);
 
   const handleSaveLocation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!address.trim()) return toast.error(isMess ? "Please enter kitchen street address." : "Please enter restaurant street address.");
+    if (!address.trim()) {
+      return toast.error(isMess ? "Please enter kitchen street address." : "Please enter restaurant street address.");
+    }
     if (lat === null || lng === null) {
-      return toast.error("Please set location coordinates by tapping 'Detect My Location' or typing lat/lng.");
+      return toast.error("Please pinpoint your location on the map or tap 'Locate Me'.");
     }
 
     setResolving(true);
     try {
-      // 1. Save profile address fields
+      // 1. Save profile address fields and explicitly mark the map_location step complete!
       await client.saveFields({
         address: address.trim(),
         district: district.trim(),
         state,
         pincode: pincode.trim(),
         location: { lat, lng },
-      });
+      }, "map_location");
 
       // 2. Resolve & assign zone via cloud function
-      const z = await client.assignZone(lat, lng);
-      setZoneResult(z);
-
-      if (z.serviceable) {
-        toast.success(`Location confirmed in Zone "${z.zoneName}"!`);
-        onSuccess();
-      } else {
-        toast.warning(
-          "Location saved! This area is currently outside active coverage, but our team will review it."
-        );
-        onSuccess();
+      let z: ZoneResult | null = null;
+      try {
+        z = await client.assignZone(lat, lng);
+        setZoneResult(z);
+      } catch (zoneErr) {
+        console.warn("Zone assignment notice:", zoneErr);
       }
+
+      if (z && z.serviceable) {
+        toast.success(`Location confirmed in Zone "${z.zoneName}"!`);
+      } else {
+        toast.info(
+          "Location saved! This territory is currently outside standard fleet polygons, but our team reviews all partner areas and supports self-delivery."
+        );
+      }
+      onSuccess();
     } catch (err: any) {
-      toast.error(err?.message || "Failed to assign location & zone.");
+      toast.error(err?.message || "Failed to save location.");
     } finally {
       setResolving(false);
     }
@@ -1634,53 +1620,48 @@ function MapLocationModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">
-            {isMess ? "Mess Kitchen Location & Delivery Zone" : "Restaurant Location & Zone"}
+          <DialogTitle className="text-xl font-bold flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-blue-600" />
+            {isMess ? "Mess Kitchen Location & Delivery Territory" : "Restaurant Location & Delivery Zone"}
           </DialogTitle>
           <DialogDescription>
             {isMess
-              ? "Pinpoint your kitchen to verify subscriber delivery coverage and dispatch routes."
-              : "Pinpoint your outlet so we can assign riders, calculate delivery polygons, and route orders."}
+              ? "Pinpoint your kitchen on the interactive map so subscribers and delivery partners can find you easily."
+              : "Pinpoint your outlet entrance so riders can navigate directly to the pickup point."}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSaveLocation} className="space-y-4 py-2">
-          {/* GPS Detector button */}
-          <div className="rounded-xl bg-blue-50/70 p-3.5 border border-blue-100 flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-xs font-bold text-blue-900">Auto-Detect GPS Location</p>
-              <p className="text-[11px] text-blue-700">
-                {lat && lng ? `Lat: ${lat.toFixed(5)}, Lng: ${lng.toFixed(5)}` : "Tap to use device coordinates"}
-              </p>
-            </div>
-            {editable && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={locating}
-                onClick={handleDetectLocation}
-                className="h-8 bg-white text-blue-700 border-blue-200 hover:bg-blue-50 text-xs font-bold"
-              >
-                {locating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <>
-                    <LocateFixed className="mr-1.5 h-3.5 w-3.5" /> Locate Me
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
+        <form onSubmit={handleSaveLocation} className="space-y-4 py-1">
+          {/* Interactive Map Picker with Place Search & GPS Locate */}
+          <LocationMapPicker
+            value={{ lat, lng, address, district, state, pincode }}
+            onChange={(loc) => {
+              setLat(loc.lat);
+              setLng(loc.lng);
+              if (loc.address) setAddress(loc.address);
+              if (loc.district) setDistrict(loc.district);
+              if (loc.state) setState(loc.state);
+              if (loc.pincode) setPincode(loc.pincode);
 
+              // Live zone preview
+              if (client?.previewZone) {
+                client.previewZone(loc.lat, loc.lng).then(setZoneResult).catch(() => {});
+              }
+            }}
+            editable={editable}
+            height={260}
+            isMess={isMess}
+          />
+
+          {/* Detailed Address Inputs (Auto-filled & fine-tunable) */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-slate-700">Street Address *</Label>
+            <Label className="text-xs font-bold text-slate-700">Street Address / Landmark *</Label>
             <Input
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="Building, street, landmark"
+              placeholder="Building name, street, nearby landmark"
               disabled={!editable}
               required
             />
@@ -1696,7 +1677,7 @@ function MapLocationModal({
                   setDistrict("");
                 }}
                 disabled={!editable}
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 {indiaStates.map((s) => (
                   <option key={s.state} value={s.state}>
@@ -1716,7 +1697,7 @@ function MapLocationModal({
                       value={district}
                       onChange={(e) => setDistrict(e.target.value)}
                       disabled={!editable}
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <option value="">— Select district —</option>
                       {districtList.map((d) => (
@@ -1759,7 +1740,7 @@ function MapLocationModal({
                 step="any"
                 value={lat ?? ""}
                 onChange={(e) => setLat(e.target.value ? parseFloat(e.target.value) : null)}
-                placeholder="e.g. 8.5241"
+                placeholder="e.g. 11.9515"
                 disabled={!editable}
               />
             </div>
@@ -1770,45 +1751,50 @@ function MapLocationModal({
                 step="any"
                 value={lng ?? ""}
                 onChange={(e) => setLng(e.target.value ? parseFloat(e.target.value) : null)}
-                placeholder="e.g. 76.9366"
+                placeholder="e.g. 75.6446"
                 disabled={!editable}
               />
             </div>
           </div>
 
-          {/* Zone preview feedback */}
+          {/* Zone preview status banner */}
           {zoneResult && (
             <div
               className={cn(
                 "rounded-xl p-3 text-xs border flex items-start gap-2.5",
                 zoneResult.serviceable
-                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                  : "bg-amber-50 text-amber-800 border-amber-200"
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800"
+                  : "bg-blue-50 text-blue-900 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800"
               )}
             >
               {zoneResult.serviceable ? (
                 <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
               ) : (
-                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
               )}
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 min-w-0">
                 <p className="font-bold">
                   {zoneResult.serviceable
-                    ? `Assigned Zone: ${zoneResult.zoneName}`
-                    : "Area outside active delivery zone"}
+                    ? `Active Service Zone: ${zoneResult.zoneName}`
+                    : "Registered Location (Coverage Review)"}
                 </p>
-                <p className="text-[11px] opacity-90">{zoneResult.reason}</p>
+                <p className="text-[11px] opacity-90 leading-relaxed">
+                  {zoneResult.serviceable
+                    ? `Rider dispatch and customer delivery are active in this zone.`
+                    : `Your kitchen/restaurant location is pinned accurately. You can complete all onboarding steps; our operations team verifies dispatch routing and self-delivery modes.`}
+                </p>
               </div>
             </div>
           )}
 
-          <DialogFooter className="pt-4">
+          <DialogFooter className="pt-3">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
             {editable && (
-              <Button type="submit" disabled={resolving} className="bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                {resolving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save & Verify Zone"}
+              <Button type="submit" disabled={resolving} className="bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2">
+                {resolving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save & Confirm Location
               </Button>
             )}
           </DialogFooter>
@@ -1874,28 +1860,23 @@ function OperatingHoursModal({
         </DialogHeader>
 
         <form onSubmit={handleSave} className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">Opening Time</Label>
-              <Input
-                type="time"
-                value={openTime}
-                onChange={(e) => setOpenTime(e.target.value)}
-                disabled={!editable}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">Closing Time</Label>
-              <Input
-                type="time"
-                value={closeTime}
-                onChange={(e) => setCloseTime(e.target.value)}
-                disabled={!editable}
-                required
-              />
-            </div>
-          </div>
+          <OpeningHoursClockPicker
+            label="Operating Hours"
+            value={openTime && closeTime ? `${openTime} – ${closeTime}` : ""}
+            onChange={(val) => {
+              if (val.includes("–")) {
+                const [o, c] = val.split("–").map((s) => s.trim());
+                setOpenTime(to24HourTime(o));
+                setCloseTime(to24HourTime(c));
+              } else if (val.includes("-")) {
+                const [o, c] = val.split("-").map((s) => s.trim());
+                setOpenTime(to24HourTime(o));
+                setCloseTime(to24HourTime(c));
+              }
+            }}
+            disabled={!editable}
+            required
+          />
 
           <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
@@ -2204,15 +2185,12 @@ function DocumentUploadModal({
 
           {/* Expiry date for FSSAI */}
           {isFssai && phase === "pick" && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">Licence Expiry Date (Optional)</Label>
-              <Input
-                type="date"
-                value={expiryDate}
-                onChange={(e) => setExpiryDate(e.target.value)}
-                disabled={!editable}
-              />
-            </div>
+            <CalendarDatePicker
+              label="Licence Expiry Date (Optional)"
+              value={expiryDate}
+              onChange={setExpiryDate}
+              disabled={!editable}
+            />
           )}
 
           {/* File Picker State */}
@@ -2462,13 +2440,7 @@ function BankAccountModal({
         vpa: vpa.trim() || undefined,
       });
 
-      if (res.bankProofNeeded) {
-        toast.info(
-          "Bank details recorded! A cancelled cheque/passbook photo is required to verify this account."
-        );
-      } else {
-        toast.success("Bank details saved! Automated verification in progress.");
-      }
+      toast.success("Bank details saved successfully!");
       onSuccess();
     } catch (err: any) {
       toast.error(err?.message || "Failed to submit bank details.");
@@ -2495,7 +2467,7 @@ function BankAccountModal({
             <Input
               value={holder}
               onChange={(e) => setHolder(e.target.value)}
-              placeholder="As registered in passbook/cheque"
+              placeholder="As registered with your bank"
               disabled={!editable}
               required
             />
@@ -2595,12 +2567,14 @@ function MenuSetupModal({
   open,
   client,
   editable,
+  restaurantId,
   onClose,
   onSuccess,
 }: {
   open: boolean;
   client: any;
   editable: boolean;
+  restaurantId?: string;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -2611,6 +2585,9 @@ function MenuSetupModal({
   const [category, setCategory] = useState("Main Course");
   const [isVeg, setIsVeg] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [aiImportOpen, setAiImportOpen] = useState(false);
+
+  const effectiveRestaurantId = restaurantId || client?.uid || "";
 
   useEffect(() => {
     client.hasMenuItems().then((res: boolean) => {
@@ -2649,117 +2626,191 @@ function MenuSetupModal({
     }
   };
 
+  const handleAiImportSuccess = async (count: number) => {
+    try {
+      await client.setStep("menu", true);
+      toast.success(`Imported ${count} dishes with AI and completed menu step!`);
+      onSuccess();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to complete menu step.");
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Menu Setup</DialogTitle>
-          <DialogDescription>
-            Confirm at least one starter dish so your digital catalog can be created.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open && !aiImportOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              Menu Setup
+            </DialogTitle>
+            <DialogDescription>
+              Add dishes or import your full printed menu using AI to complete this step.
+            </DialogDescription>
+          </DialogHeader>
 
-        {checking ? (
-          <div className="py-8 text-center space-y-2">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto" />
-            <p className="text-xs text-slate-500">Checking your menu catalog…</p>
-          </div>
-        ) : hasItems ? (
-          <div className="py-4 space-y-4">
-            <div className="rounded-2xl bg-emerald-50 p-4 border border-emerald-200 text-emerald-900 flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-              <div>
-                <p className="text-sm font-bold">Menu items already exist</p>
-                <p className="text-xs opacity-90">Your digital catalog is configured with dishes.</p>
-              </div>
+          {checking ? (
+            <div className="py-8 text-center space-y-2">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600 mx-auto" />
+              <p className="text-xs text-slate-500">Checking your menu catalog…</p>
             </div>
-
-            <DialogFooter>
-              <Button onClick={handleSeedStandard} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                Confirm & Complete Step
-              </Button>
-            </DialogFooter>
-          </div>
-        ) : (
-          <form onSubmit={handleAddDish} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">Signature Dish Name *</Label>
-              <Input
-                value={dishName}
-                onChange={(e) => setDishName(e.target.value)}
-                placeholder="e.g. Chicken Biryani / Paneer Butter Masala"
-                disabled={!editable}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-700">Price (₹) *</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  disabled={!editable}
-                  required
-                />
+          ) : hasItems ? (
+            <div className="py-4 space-y-4">
+              <div className="rounded-2xl bg-emerald-50 p-4 border border-emerald-200 text-emerald-900 flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-bold">Menu items already exist</p>
+                  <p className="text-xs opacity-90">Your digital catalog is configured with dishes.</p>
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-700">Category</Label>
-                <Input
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  placeholder="e.g. Main Course"
-                  disabled={!editable}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 pt-1">
-              <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
-                <input
-                  type="radio"
-                  name="diet"
-                  checked={isVeg}
-                  onChange={() => setIsVeg(true)}
-                  disabled={!editable}
-                />
-                Veg 🟢
-              </label>
-              <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
-                <input
-                  type="radio"
-                  name="diet"
-                  checked={!isVeg}
-                  onChange={() => setIsVeg(false)}
-                  disabled={!editable}
-                />
-                Non-Veg 🔴
-              </label>
-            </div>
-
-            <DialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={saving}
-                onClick={handleSeedStandard}
-                className="text-xs font-semibold"
-              >
-                Skip & Add Full Menu Later
-              </Button>
-              {editable && (
-                <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white font-bold">
-                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Dish"}
+              <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAiImportOpen(true)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 text-xs font-semibold"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                  Import More with AI
                 </Button>
-              )}
-            </DialogFooter>
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
+                <Button onClick={handleSeedStandard} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                  Confirm & Complete Step
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              {/* AI Menu Import Option */}
+              <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/20">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        Import with AI
+                      </h4>
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                        Recommended
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                      Upload a photo or PDF of your printed menu, or describe your items. AI extracts all items, categories, and prices automatically.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => setAiImportOpen(true)}
+                  disabled={!editable}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold shadow-md shadow-blue-600/20 flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Scan or Upload Menu with AI
+                </Button>
+              </div>
+
+              <div className="relative flex items-center justify-center py-1">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+                </div>
+                <span className="relative bg-white dark:bg-slate-950 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  Or enter starter dish manually
+                </span>
+              </div>
+
+              <form onSubmit={handleAddDish} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-slate-700">Signature Dish Name *</Label>
+                  <Input
+                    value={dishName}
+                    onChange={(e) => setDishName(e.target.value)}
+                    placeholder="e.g. Chicken Biryani / Paneer Butter Masala"
+                    disabled={!editable}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700">Price (₹) *</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                      disabled={!editable}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-700">Category</Label>
+                    <Input
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      placeholder="e.g. Main Course"
+                      disabled={!editable}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 pt-1">
+                  <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                    <input
+                      type="radio"
+                      name="diet"
+                      checked={isVeg}
+                      onChange={() => setIsVeg(true)}
+                      disabled={!editable}
+                    />
+                    Veg 🟢
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                    <input
+                      type="radio"
+                      name="diet"
+                      checked={!isVeg}
+                      onChange={() => setIsVeg(false)}
+                      disabled={!editable}
+                    />
+                    Non-Veg 🔴
+                  </label>
+                </div>
+
+                <DialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={handleSeedStandard}
+                    className="text-xs font-semibold"
+                  >
+                    Skip & Add Full Menu Later
+                  </Button>
+                  {editable && (
+                    <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white font-bold">
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Dish"}
+                    </Button>
+                  )}
+                </DialogFooter>
+              </form>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {effectiveRestaurantId && (
+        <AiMenuImportDialog
+          open={aiImportOpen}
+          onOpenChange={setAiImportOpen}
+          restaurantId={effectiveRestaurantId}
+          onImportSuccess={handleAiImportSuccess}
+        />
+      )}
+    </>
   );
 }
 

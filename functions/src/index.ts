@@ -74,6 +74,7 @@ export {
 export { recomputeOpsHealth, refreshOpsHealth } from "./opsHealth";
 // Changelog / release notes: authoring, engagement, scheduled publishing.
 export { changelogAdmin, changelogEngage, publishDueChangelog } from "./changelog";
+export { socialStartOAuth, socialOAuthCallback, socialSetLinkedInOrganization, socialDisconnect, socialPublishNow, publishDueSocialPosts } from "./socialStudio";
 export { createSubscriptionOrder, getSubscriptionStatus } from "./subscriptionBilling";
 export { createCodDepositOrder, getCodReconciliation } from "./codReconciliation";
 export { aggregatorWebhook } from "./webhook";

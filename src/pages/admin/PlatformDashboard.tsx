@@ -66,6 +66,7 @@ import { isOnlineOrder } from "@/lib/orderChannels";
 import { AttentionRequired } from "@/components/admin/AttentionRequired";
 import { StatCards } from "@/components/admin/StatCards";
 import { OpsAlerts } from "@/components/admin/ops/OpsAlerts";
+import { CalendarDatePicker } from "@/components/common";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -454,17 +455,22 @@ export default function PlatformDashboard() {
     let gmv = 0;
     let live = 0;
     let cancelled = 0;
+    let validCount = 0;
     for (const o of marketplaceOrders) {
       const st = (o.status ?? "").toLowerCase();
       if (LIVE_STATUSES.has(st)) live++;
-      if (CANCELLED_STATUSES.has(st)) cancelled++;
-      if (typeof o.total === "number") gmv += o.total;
+      if (CANCELLED_STATUSES.has(st)) {
+        cancelled++;
+      } else if (typeof o.total === "number") {
+        gmv += o.total;
+        validCount++;
+      }
     }
     return {
       live,
       count,
       gmv,
-      aov: count > 0 ? gmv / count : 0,
+      aov: validCount > 0 ? gmv / validCount : 0,
       cancelRate: count > 0 ? (cancelled / count) * 100 : 0,
     };
   }, [marketplaceOrders]);
@@ -729,30 +735,18 @@ export default function PlatformDashboard() {
               </div>
 
               <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="custom-start" className="text-xs font-medium text-muted-foreground">
-                    Start Date
-                  </Label>
-                  <Input
-                    id="custom-start"
-                    type="date"
-                    value={tempStart || customStart}
-                    onChange={(e) => setTempStart(e.target.value)}
-                    className="h-9 text-xs rounded-lg"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="custom-end" className="text-xs font-medium text-muted-foreground">
-                    End Date
-                  </Label>
-                  <Input
-                    id="custom-end"
-                    type="date"
-                    value={tempEnd || customEnd}
-                    onChange={(e) => setTempEnd(e.target.value)}
-                    className="h-9 text-xs rounded-lg"
-                  />
-                </div>
+                <CalendarDatePicker
+                  label="Start Date"
+                  value={tempStart || customStart}
+                  onChange={(val) => setTempStart(val)}
+                  buttonClassName="h-9 text-xs rounded-lg"
+                />
+                <CalendarDatePicker
+                  label="End Date"
+                  value={tempEnd || customEnd}
+                  onChange={(val) => setTempEnd(val)}
+                  buttonClassName="h-9 text-xs rounded-lg"
+                />
               </div>
 
               {/* Quick Preset Shortcuts inside Popover */}

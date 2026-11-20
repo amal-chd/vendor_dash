@@ -31,6 +31,9 @@ service cloud.firestore {
     function hasAdminRole(roles) {
       return isAdmin() && (adminRole() in roles);
     }
+    function canManageMarketing() {
+      return hasAdminRole(['super_admin', 'platform_admin', 'marketing_manager']);
+    }
 
     // Money ledgers. Support and marketing staff are isAdmin() for operations,
     // but they must not read payout books or forge settlement rows.
@@ -292,9 +295,6 @@ service cloud.firestore {
 
     function ownerCanCreateRestaurant(restaurantId) {
       return isRestaurantOwner(restaurantId) &&
-        // One login is one partner type: a mess kitchen can't also open a
-        // restaurant under the same id (mess_kitchens refuses the reverse).
-        !exists(/databases/$(database)/documents/mess_kitchens/$(restaurantId)) &&
         seedsNoEngineOwnedFields() &&
         !request.resource.data.keys().hasAny([
           "transactions",
@@ -361,7 +361,6 @@ service cloud.firestore {
         || resource.data.get("onboarding", {}).get("state", "") == "active";
       allow create: if request.auth != null
         && request.auth.uid == kitchenId
-        && !exists(/databases/$(database)/documents/restaurants/$(kitchenId))
         && seedsNoEngineOwnedFields()
         && !request.resource.data.keys().hasAny(messProtectedFields());
       allow update: if isAdmin() || (
@@ -1772,6 +1771,94 @@ service cloud.firestore {
     match /emailSuppressions/{id}     { allow read: if isAdmin(); allow write: if false; }
     match /communicationAuditLogs/{id} { allow read: if isAdmin(); allow write: if false; }
     match /emailWebhookEvents/{id}    { allow read: if isAdmin(); allow write: if false; }
+
+    // Social Studio campaign content. Browser writes are limited to drafts and
+    // scheduled briefs; provider delivery state and all OAuth credentials are
+    // written only by Cloud Functions using the Admin SDK.
+    match /marketing_social_posts/{postId} {
+      function editableSocialFields() {
+        return [
+          'title', 'category', 'audience', 'goal', 'headline', 'support', 'cta',
+          'caption', 'captions', 'imagePrompt', 'dailyPrompt', 'visualDirection', 'assetPath',
+          'assetUrl', 'assetName', 'referenceAssets', 'destinations', 'planId', 'planDay', 'brandProfileId',
+          'status', 'scheduledAt', 'createdBy', 'createdAt', 'updatedAt'
+        ];
+      }
+      allow read: if canManageMarketing();
+      allow create: if canManageMarketing()
+        && request.resource.data.keys().hasOnly(editableSocialFields())
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.status in ['draft', 'scheduled']
+        && request.resource.data.destinations is map
+        && request.resource.data.captions is map
+        && (request.resource.data.status != 'scheduled' || request.resource.data.scheduledAt is timestamp);
+      allow update: if canManageMarketing()
+        && resource.data.status in ['draft', 'scheduled', 'failed', 'partial']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(editableSocialFields())
+        && request.resource.data.status in ['draft', 'scheduled']
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 200
+        && (request.resource.data.status != 'scheduled' || request.resource.data.scheduledAt is timestamp);
+      allow delete: if canManageMarketing() && resource.data.status in ['draft', 'scheduled', 'failed', 'partial'];
+    }
+    match /marketing_social_connections/{provider} {
+      allow read: if canManageMarketing();
+      allow write: if false;
+    }
+    match /marketing_brand_profiles/{profileId} {
+      function validProfileId() {
+        return profileId in [
+          'kadaverse', 'the-kada', 'kada-dine', 'sellrapp', 'kada-stay',
+          'kada-delivery', 'kada-mess', 'kada-ledger', 'kada-partner'
+        ];
+      }
+      function validProfile(data) {
+        return data.keys().hasOnly([
+            'id', 'name', 'section', 'description', 'audience', 'positioning', 'voice',
+            'wordsUse', 'wordsAvoid', 'claims', 'offerRules', 'logoUrl', 'website',
+            'handles', 'hashtags', 'font', 'palette', 'updatedAt', 'updatedBy'
+          ])
+          && data.id == profileId
+          && data.name is string && data.name.size() <= 100
+          && data.section is string && data.section.size() <= 40
+          && data.description is string && data.description.size() <= 300
+          && data.audience is string && data.audience.size() <= 500
+          && data.positioning is string && data.positioning.size() <= 2000
+          && data.voice is string && data.voice.size() <= 1000
+          && data.wordsUse is string && data.wordsUse.size() <= 1000
+          && data.wordsAvoid is string && data.wordsAvoid.size() <= 1000
+          && data.claims is string && data.claims.size() <= 2000
+          && data.offerRules is string && data.offerRules.size() <= 2000
+          && data.logoUrl is string && data.logoUrl.size() <= 500
+          && data.website is string && data.website.size() <= 500
+          && data.handles is string && data.handles.size() <= 500
+          && data.hashtags is string && data.hashtags.size() <= 500
+          && data.font is string && data.font.size() <= 200
+          && data.palette is map
+          && data.palette.keys().hasOnly(['primary', 'secondary', 'accent', 'background', 'text'])
+          && data.palette.primary is string && data.palette.primary.matches('^#[0-9a-fA-F]{6}$')
+          && data.palette.secondary is string && data.palette.secondary.matches('^#[0-9a-fA-F]{6}$')
+          && data.palette.accent is string && data.palette.accent.matches('^#[0-9a-fA-F]{6}$')
+          && data.palette.background is string && data.palette.background.matches('^#[0-9a-fA-F]{6}$')
+          && data.palette.text is string && data.palette.text.matches('^#[0-9a-fA-F]{6}$');
+      }
+      // Collection queries cannot be filtered by rules, so keep all documents
+      // in this admin-only collection readable by the same marketing roles.
+      allow read: if canManageMarketing();
+      allow create, update: if canManageMarketing() && validProfileId() && validProfile(request.resource.data);
+      allow delete: if canManageMarketing() && validProfileId();
+    }
+    match /marketing_settings/{settingsId} {
+      allow read: if canManageMarketing();
+      // The Kada's existing communication templates continue using this record.
+      allow create, update: if canManageMarketing() && settingsId == 'brand';
+      allow delete: if false;
+    }
+    match /marketing_social_tokens/{provider} { allow read, write: if false; }
+    match /marketing_social_oauth_states/{state} { allow read, write: if false; }
 
     // ── Marketplace ops (admin console + public catalog reads) ────────────
     match /markets/{id} {

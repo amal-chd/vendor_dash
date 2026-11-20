@@ -73,6 +73,7 @@ function NotificationLegacyRedirect() {
 const NotFound = lazy(() => import("./pages/NotFound"));
 const LoginPage = lazy(() => import("./pages/auth/LoginPage"));
 const SignupPage = lazy(() => import("./pages/auth/SignupPage"));
+const BusinessTypeSelectPage = lazy(() => import("./pages/auth/BusinessTypeSelectPage"));
 const SetupWizardPage = lazy(() => import("./pages/auth/SetupWizardPage"));
 const AdminPortalChooser = lazy(() => import("./pages/auth/AdminPortalChooser"));
 const DashboardLayout = lazy(() => import("./components/DashboardLayout"));
@@ -94,6 +95,7 @@ const SettingsPage = lazy(() => import("./pages/dashboard/SettingsPage"));
 const OutletsPage = lazy(() => import("./pages/dashboard/OutletsPage"));
 const PlansPricingPage = lazy(() => import("./pages/dashboard/PlansPricingPage"));
 const MessDashboardPage = lazy(() => import("./pages/mess/MessDashboardPage"));
+const ShowcasePage = lazy(() => import("./pages/showcase/ShowcasePage"));
 
 const queryClient = new QueryClient();
 
@@ -116,8 +118,11 @@ const App = () => (
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
+              <Route path="/select-type" element={<BusinessTypeSelectPage />} />
               <Route path="/setup" element={<SetupWizardPage />} />
               <Route path="/pricing" element={<PlansPricingPage />} />
+              <Route path="/showcase/:view" element={<ShowcasePage />} />
+              <Route path="/showcase" element={<Navigate to="/showcase/overview" replace />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/portal-select" element={<AdminPortalChooser />} />

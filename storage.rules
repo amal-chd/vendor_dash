@@ -21,6 +21,14 @@ service firebase.storage {
     function isPlatformAdmin() {
       return request.auth != null && request.auth.token.get("platformAdmin", false) == true;
     }
+    function isMarketingAdmin() {
+      return request.auth != null && (
+        request.auth.token.get("platformAdmin", false) == true ||
+        (request.auth.token.get("email_verified", false) == true &&
+          request.auth.token.get("email", "") in ["thekada@gmail.com", "thekadaapp@gmail.com"]) ||
+        request.auth.token.get("adminRole", "") in ["super_admin", "platform_admin", "marketing_manager"]
+      );
+    }
     // Every write is bounded: images for public media, images or PDF for
     // identity documents. Writes used to accept any type and any size. The apps
     // upload without explicit metadata, so an uninferred type (octet-stream) is
@@ -181,6 +189,14 @@ service firebase.storage {
         && (isPlatformAdmin()
           || request.auth.token.email in ['thekada@gmail.com', 'thekadaapp@gmail.com'])
         && (request.resource == null || imageUpload(8));
+    }
+
+    // Social Studio final posters and references. The user's UID is part of
+    // each upload path; only authorized Marketing admins can read these files.
+    match /social_assets/{userId}/{postId}/{allPaths=**} {
+      allow read: if isMarketingAdmin();
+      allow write: if isMarketingAdmin() && request.auth.uid == userId &&
+        (request.resource == null || imageUpload(8));
     }
 
     // No catch-all. Previously a single rule allowed any authenticated user

@@ -399,18 +399,22 @@ export default function AnalyticsPage() {
 
   // ── Orders & revenue analytics (last 30 days) ──────────────────────────────
   const orderKpis = useMemo(() => {
-    let gmv = 0, delivered = 0, cancelled = 0;
+    let gmv = 0, delivered = 0, cancelled = 0, validOrdersCount = 0;
     for (const o of marketplaceOrders) {
-      gmv += o.total;
       const st = o.status.toLowerCase();
       const ds = o.deliveryStatus.toLowerCase();
+      if (["cancelled", "canceled", "rejected", "failed"].includes(st)) {
+        cancelled++;
+      } else {
+        gmv += (typeof o.total === "number" ? o.total : 0);
+        validOrdersCount++;
+      }
       if (st === "completed" || ds === "delivered") delivered++;
-      if (["cancelled", "canceled", "rejected"].includes(st)) cancelled++;
     }
     const count = marketplaceOrders.length;
     return {
       gmv, count,
-      aov: count > 0 ? gmv / count : 0,
+      aov: validOrdersCount > 0 ? gmv / validOrdersCount : 0,
       deliveredRate: count > 0 ? (delivered / count) * 100 : 0,
       cancelRate: count > 0 ? (cancelled / count) * 100 : 0,
     };
@@ -425,6 +429,8 @@ export default function AnalyticsPage() {
     }
     for (const o of marketplaceOrders) {
       if (!o.date) continue;
+      const st = (o.status ?? "").toLowerCase();
+      if (["cancelled", "canceled", "rejected", "failed"].includes(st)) continue;
       const key = `${o.date.getMonth() + 1}/${o.date.getDate()}`;
       if (buckets[key]) { buckets[key].revenue += o.total; buckets[key].orders += 1; }
     }

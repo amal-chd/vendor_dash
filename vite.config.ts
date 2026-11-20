@@ -108,6 +108,7 @@ export default defineConfig(({ mode }) => ({
           }
           if (pkg === "country-state-city") return "vendor-geo";
           if (pkg.startsWith("@tanstack")) return "vendor-tanstack";
+          if (pkg === "leaflet") return "vendor-leaflet";
 
           // React, react-dom, react-router, Radix and every other small
           // dependency share one chunk with the CJS helpers they need. Radix

@@ -252,9 +252,6 @@ export const DEFAULT_REQUIREMENTS: Record<PartnerRole, StepRequirement[]> = {
       hint: "Aadhaar, voter ID or passport. Needed because a name didn't match." },
     { id: "bank_account", label: "Bank account", group: "banking", stage: "bank", mandatory: true,
       hint: "Where your payouts go. We verify it automatically." },
-    { id: "bank_proof", label: "Cancelled cheque or passbook", group: "banking", stage: "bank", mandatory: true,
-      requiresDocument: true, autoVerify: true,
-      hint: "A photo showing your account number and IFSC confirms the account." },
     { id: "menu", label: "Menu", group: "operations", stage: "setup", mandatory: true,
       hint: "Add a few dishes, or snap your printed menu and we'll type it in." },
     { id: "agreement", label: "Partner agreement", group: "agreement", stage: "finish", mandatory: true },
@@ -284,9 +281,6 @@ export const DEFAULT_REQUIREMENTS: Record<PartnerRole, StepRequirement[]> = {
       hint: "Aadhaar, voter ID or passport. Needed because a name didn't match." },
     { id: "bank_account", label: "Bank account", group: "banking", stage: "bank", mandatory: true,
       hint: "Where your weekly subscriptions will be settled." },
-    { id: "bank_proof", label: "Cancelled cheque or passbook", group: "banking", stage: "bank", mandatory: true,
-      requiresDocument: true, autoVerify: true,
-      hint: "A photo showing your account number and IFSC confirms the account." },
     { id: "weekly_menu", label: "Weekly menu", group: "operations", stage: "setup", mandatory: true, requiresDocument: true,
       hint: "A photo or PDF of this week's meal schedule." },
     { id: "agreement", label: "Partner agreement, including Kada's per-customer daily fee", group: "agreement", stage: "finish", mandatory: true },
@@ -302,7 +296,7 @@ export function resolveDefaultRequirements(
   const base = DEFAULT_REQUIREMENTS[role] || DEFAULT_REQUIREMENTS.vendor;
   return base.filter((r) => {
     if (r.id === "gst_certificate" && !context.gstRegistered) return false;
-    if (r.id === "bank_proof" && !context.bankProofNeeded) return false;
+    if (r.id === "bank_proof") return false;
     if (r.id === "owner_identity" && !context.identityCheckNeeded) return false;
     return true;
   });

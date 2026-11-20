@@ -40,6 +40,7 @@ type Platform = {
   badge: string;
   icon: React.ReactNode;
   partnerUrl?: string;
+  comingSoon?: boolean;
 };
 
 type ChannelStats = {
@@ -70,52 +71,13 @@ function GenericDeliveryIcon() {
 
 const PLATFORMS: Platform[] = [
   {
-    key: "ubereats",
-    name: "Uber Eats",
-    subtitle: "Sync Uber Eats orders instantly to your KDS.",
-    gradient: "from-green-500/20 to-green-500/5",
-    badge: "bg-green-500 text-white",
-    icon: <UberEatsIcon />,
-  },
-  {
-    key: "doordash",
-    name: "DoorDash",
-    subtitle: "Receive DoorDash orders without a separate tablet.",
-    gradient: "from-rose-500/20 to-rose-500/5",
-    badge: "bg-rose-500 text-white",
-    icon: <DoorDashIcon />,
-  },
-  {
-    key: "deliveroo",
-    name: "Deliveroo",
-    subtitle: "Process Deliveroo orders smoothly.",
-    gradient: "from-cyan-500/20 to-cyan-500/5",
-    badge: "bg-cyan-500 text-white",
-    icon: <GenericDeliveryIcon />,
-  },
-  {
-    key: "grab",
-    name: "GrabFood",
-    subtitle: "Connect your Grab merchant account.",
-    gradient: "from-emerald-500/20 to-emerald-500/5",
-    badge: "bg-emerald-500 text-white",
-    icon: <GenericDeliveryIcon />,
-  },
-  {
-    key: "talabat",
-    name: "Talabat",
-    subtitle: "Sync MENA region Talabat orders.",
-    gradient: "from-orange-500/20 to-orange-500/5",
-    badge: "bg-orange-500 text-white",
-    icon: <GenericDeliveryIcon />,
-  },
-  {
     key: "zomato",
     name: "Zomato",
     subtitle: "Receive Zomato orders directly in your kitchen display.",
     gradient: "from-red-500/20 to-red-500/5",
     badge: "bg-red-500 text-white",
     icon: <ZomatoIcon />,
+    comingSoon: true,
   },
   {
     key: "swiggy",
@@ -124,6 +86,52 @@ const PLATFORMS: Platform[] = [
     gradient: "from-orange-500/20 to-orange-500/5",
     badge: "bg-orange-500 text-white",
     icon: <SwiggyIcon />,
+    comingSoon: true,
+  },
+  {
+    key: "ubereats",
+    name: "Uber Eats",
+    subtitle: "Sync Uber Eats orders instantly to your KDS.",
+    gradient: "from-green-500/20 to-green-500/5",
+    badge: "bg-green-500 text-white",
+    icon: <UberEatsIcon />,
+    comingSoon: true,
+  },
+  {
+    key: "doordash",
+    name: "DoorDash",
+    subtitle: "Receive DoorDash orders without a separate tablet.",
+    gradient: "from-rose-500/20 to-rose-500/5",
+    badge: "bg-rose-500 text-white",
+    icon: <DoorDashIcon />,
+    comingSoon: true,
+  },
+  {
+    key: "deliveroo",
+    name: "Deliveroo",
+    subtitle: "Process Deliveroo orders smoothly.",
+    gradient: "from-cyan-500/20 to-cyan-500/5",
+    badge: "bg-cyan-500 text-white",
+    icon: <GenericDeliveryIcon />,
+    comingSoon: true,
+  },
+  {
+    key: "grab",
+    name: "GrabFood",
+    subtitle: "Connect your Grab merchant account.",
+    gradient: "from-emerald-500/20 to-emerald-500/5",
+    badge: "bg-emerald-500 text-white",
+    icon: <GenericDeliveryIcon />,
+    comingSoon: true,
+  },
+  {
+    key: "talabat",
+    name: "Talabat",
+    subtitle: "Sync MENA region Talabat orders.",
+    gradient: "from-orange-500/20 to-orange-500/5",
+    badge: "bg-orange-500 text-white",
+    icon: <GenericDeliveryIcon />,
+    comingSoon: true,
   },
   {
     key: "kada",
@@ -132,6 +140,7 @@ const PLATFORMS: Platform[] = [
     gradient: "from-primary/20 to-primary/5",
     badge: "bg-primary text-white",
     icon: <QrCode className="h-8 w-8 text-primary drop-shadow-md" />,
+    comingSoon: false,
   },
 ];
 
@@ -192,9 +201,16 @@ export default function IntegrationsPage() {
 
         ordersSnap.forEach((d) => {
           const data = d.data();
-          const rawSrc = (data.source ?? data.orderSource ?? "pos").toString().toLowerCase();
-          const validChannels = ["zomato", "swiggy", "kada", "ubereats", "doordash", "deliveroo", "grab", "foodpanda", "talabat"];
-          const key = validChannels.includes(rawSrc) ? rawSrc : "pos";
+          const st = (data.status ?? "").toString().toLowerCase().trim();
+          if (["cancelled", "canceled", "rejected", "failed"].includes(st)) return;
+
+          const rawSrc = (data.source ?? data.orderSource ?? "pos").toString().toLowerCase().trim();
+          const ch = (data.channel ?? "").toString().toLowerCase().trim();
+          const type = (data.type ?? data.orderType ?? "").toString().toLowerCase().trim();
+          const isKada = rawSrc === "delivery_app" || rawSrc === "customer_app" || rawSrc === "web_app" || rawSrc === "web_delivery" || rawSrc === "kada" || ch === "delivery" || type === "delivery";
+
+          const validChannels = ["zomato", "swiggy", "ubereats", "doordash", "deliveroo", "grab", "foodpanda", "talabat"];
+          const key = isKada ? "kada" : (validChannels.includes(rawSrc) ? rawSrc : "pos");
           if (!acc[key]) acc[key] = { orders: 0, revenue: 0 };
           acc[key].orders += 1;
           acc[key].revenue += Number(data.total ?? data.totalAmount ?? 0);
@@ -255,13 +271,62 @@ export default function IntegrationsPage() {
   return (
     <div className="space-y-8 pb-16">
       {/* Header */}
-      <div className="mt-2">
-        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground uppercase italic">
-          Channels <span className="text-primary not-italic">&amp; Sync</span>
-        </h1>
-        <p className="mt-1 text-xs sm:text-sm font-medium text-muted-foreground opacity-70 italic">
-          Connect your delivery partners and Kada QR to sync all orders into one KDS.
-        </p>
+      <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground uppercase italic">
+              Channels <span className="text-primary not-italic">&amp; Sync</span>
+            </h1>
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-black tracking-wider uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+              Coming Soon
+            </span>
+          </div>
+          <p className="mt-1 text-xs sm:text-sm font-medium text-muted-foreground opacity-70 italic">
+            Connect food delivery aggregators and direct ordering platforms into your unified kitchen KDS.
+          </p>
+        </div>
+      </div>
+
+      {/* Coming Soon Hero Banner */}
+      <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-purple-500/5 to-primary/10 p-5 sm:p-6 backdrop-blur-xl relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950">
+                ✨ Rollout in Progress
+              </span>
+              <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                Multi-Channel Aggregator Hub
+              </span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-black tracking-tight text-foreground">
+              Direct Two-Way Integrations Are Coming Soon
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              We are actively rolling out native aggregator bridges for Swiggy, Zomato, Uber Eats, DoorDash, and direct channels. Soon you’ll manage catalog sync, automatic order acceptance, and delivery status without running five separate tablets.
+            </p>
+          </div>
+          <div className="shrink-0 flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="text-xs font-bold border-amber-500/30 hover:bg-amber-500/10 gap-1.5"
+              onClick={async () => {
+                if (restaurantId) {
+                  await setDoc(
+                    doc(db, "restaurants", restaurantId, "settings", "channelsWaitlist"),
+                    { requestedAt: Timestamp.now(), channel: "aggregator_channels" },
+                    { merge: true }
+                  ).catch(() => {});
+                }
+                toast.success("You're on the early-access notification list for Channels!");
+              }}
+            >
+              <PlugZap className="w-3.5 h-3.5 text-amber-500" />
+              Notify When Live
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Summary Bar */}
@@ -344,11 +409,15 @@ export default function IntegrationsPage() {
                         <span className="text-xl font-black text-foreground uppercase tracking-tight italic">
                           {p.name}
                         </span>
-                        {isEnabled && (
+                        {p.comingSoon ? (
+                          <span className="rounded-md px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                            Coming Soon
+                          </span>
+                        ) : isEnabled ? (
                           <span className={cn("rounded-md px-2.5 py-1 text-[8px] font-black uppercase tracking-widest shadow-sm", p.badge)}>
                             Live Now
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <p className="text-xs font-medium text-muted-foreground opacity-80 leading-relaxed max-w-sm">
                         {p.subtitle}
@@ -366,7 +435,11 @@ export default function IntegrationsPage() {
                        </div>
 
                        <div className="flex items-center gap-3">
-                         {p.key !== "kada" && (
+                         {p.comingSoon ? (
+                           <span className="text-[11px] font-bold text-muted-foreground bg-muted/60 px-3 py-1.5 rounded-full border border-border/50">
+                             In Preview
+                           </span>
+                         ) : p.key !== "kada" && (
                            <button
                              onClick={() => void togglePlatform(p.key, !isEnabled)}
                              disabled={isSaving}

@@ -3,6 +3,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { PARTNER_CONTACT_COLLECTION, ownerUidsOf, partnerDocKey } from "./onboarding/partnerPrivate";
 import { assertOperational } from "./onboarding/activationGate";
+import { isAdminCaller } from "./adminAuthz";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,11 +67,19 @@ export function parseQty(q: number | string | undefined): number {
  * own restaurants doc is missing.
  */
 async function resolveCallerRestaurantId(
-  request: { auth?: { uid?: string; token?: Record<string, any> } | null }
+  request: { auth?: { uid?: string; token?: Record<string, any> } | null; data?: Record<string, any> }
 ): Promise<string> {
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Authentication required");
+  }
+
+  // 0. If caller is a platform admin and passed an explicit parentId or restaurantId
+  if (isAdminCaller(request)) {
+    const explicit = request.data?.restaurantId || request.data?.parentId;
+    if (typeof explicit === "string" && explicit.length > 0) {
+      return explicit;
+    }
   }
 
   // 1. Check custom claims if present
@@ -90,6 +99,16 @@ async function resolveCallerRestaurantId(
     if (data.isOutlet === true && typeof data.parentId === "string" && data.parentId.length > 0) {
       return data.parentId;
     }
+    return uid;
+  }
+
+  // 2b. Direct mess kitchen doc
+  const ownMessSnap = await admin
+    .firestore()
+    .collection("mess_kitchens")
+    .doc(uid)
+    .get();
+  if (ownMessSnap.exists) {
     return uid;
   }
 
@@ -519,10 +538,11 @@ export const createOutletAccount = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Authentication required");
   }
 
+  const isAdmin = isAdminCaller(request);
   const parentId = await resolveCallerRestaurantId(request);
 
-  // Validate only the parent owner can manage outlets (not an existing outlet)
-  if (parentId !== request.auth.uid) {
+  // Validate only the parent owner (or platform admin) can manage outlets (not an existing outlet)
+  if (!isAdmin && parentId !== request.auth.uid) {
     throw new HttpsError("permission-denied", "Only the main restaurant owner can manage outlets.");
   }
 
@@ -686,6 +706,9 @@ export const createOutletAccount = onCall(async (request) => {
           displayName: name,
         });
       } catch (error: any) {
+        if (error.code === "auth/email-already-exists") {
+          throw new HttpsError("already-exists", `The email address ${email} is already in use by another account. Please use a unique email for this branch login, or disable 'Create login account'.`);
+        }
         throw new HttpsError("already-exists", `Failed to create auth user: ${error.message}`);
       }
 
@@ -712,6 +735,12 @@ export const createOutletAccount = onCall(async (request) => {
       batch.set(newRootRef, withoutLoginEmail(rootData));
       setOutletContact(batch, newOutletUid, parentId, email);
 
+      // Check if parent also has a mess_kitchens document, and keep in sync
+      const messCheck = await db.collection("mess_kitchens").doc(parentId).get();
+      if (messCheck.exists) {
+        batch.set(db.collection("mess_kitchens").doc(parentId).collection("outlets").doc(newOutletUid), baseData);
+      }
+
       try {
         await batch.commit();
       } catch (error: any) {
@@ -731,7 +760,15 @@ export const createOutletAccount = onCall(async (request) => {
       baseData.isActive = true;
       baseData.createdAt = admin.firestore.FieldValue.serverTimestamp();
 
-      await newSubRef.set(baseData);
+      const batch = db.batch();
+      batch.set(newSubRef, baseData);
+
+      const messCheck = await db.collection("mess_kitchens").doc(parentId).get();
+      if (messCheck.exists) {
+        batch.set(db.collection("mess_kitchens").doc(parentId).collection("outlets").doc(newId), baseData);
+      }
+      await batch.commit();
+
       return { ok: true, outletId: newId, outletUid: "" };
     }
   }
