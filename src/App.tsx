@@ -15,6 +15,7 @@ import { useParams } from "react-router-dom";
 
 // ── Admin panel ───────────────────────────────────────────────────────────
 const AdminLayout = lazy(() => import("./components/AdminLayout"));
+const ProductModulesPage = lazy(() => import("./pages/admin/ProductModulesPage"));
 // The 14 admin workspaces. Each composes existing pages as `?tab=` panes.
 const DashboardWorkspace = lazy(() => import("./pages/admin/workspaces").then(m => ({ default: m.DashboardWorkspace })));
 const OrdersWorkspace = lazy(() => import("./pages/admin/workspaces").then(m => ({ default: m.OrdersWorkspace })));
@@ -154,6 +155,8 @@ const App = () => (
                 {/* ── Admin console ────────────────────────────────────── */}
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<DashboardWorkspace />} />
+                  <Route path="products" element={<ProductModulesPage />} />
+                  <Route path="products/:productId" element={<ProductModulesPage />} />
                   <Route path="orders" element={<OrdersWorkspace />} />
                   <Route path="orders/:id" element={<Order360 />} />
                   <Route path="customers" element={<CustomersWorkspace />} />

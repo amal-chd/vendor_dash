@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -43,7 +44,16 @@ const COLOR_FIELDS: { key: keyof BrandProfile["palette"]; label: string }[] = [
 export default function BrandKitPage() {
   const [savedProfiles, setSavedProfiles] = useState<Record<string, Partial<BrandProfile>>>({});
   const [legacyKada, setLegacyKada] = useState<Partial<BrandProfile>>();
-  const [selectedId, setSelectedId] = useState("kadaverse");
+  const [params, setParams] = useSearchParams();
+  const requestedBrand = params.get("brand");
+  const selectedId = BRAND_PROFILE_OPTIONS.some((option) => option.id === requestedBrand) ? requestedBrand! : "kadaverse";
+  const setSelectedId = (id: string) => {
+    setParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set("brand", id);
+      return next;
+    }, { replace: true });
+  };
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [profileLoadError, setProfileLoadError] = useState("");

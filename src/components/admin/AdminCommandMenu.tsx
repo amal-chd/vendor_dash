@@ -11,33 +11,9 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import {
-  BarChart3,
-  BookOpen,
-  Bell,
-  Bike,
-  Building2,
-  Hotel,
-  CalendarClock,
-  CreditCard,
-  Download,
-  DownloadCloud,
-  FileCheck2,
-  Headset,
-  LayoutDashboard,
-  Megaphone,
-  MessageSquare,
-  PackageSearch,
-  PlusCircle,
-  ShieldCheck,
-  SlidersHorizontal,
-  Smartphone,
-  Store,
-  Ticket,
-  User,
-  Users,
-  ShoppingBag,
-} from "lucide-react";
+import { Bell, Bike, CreditCard, DownloadCloud, Headset, Hotel, Megaphone, PackageSearch, PlusCircle, ShieldCheck, Store, Ticket, User, Users, type LucideIcon } from "lucide-react";
+import { ADMIN_NAV, type NavItem } from "@/lib/adminNavigation";
+import { getAdminModule, groupsForModule, moduleLink } from "@/lib/adminModules";
 
 /**
  * Universal admin search (⌘K) — one box that finds *everything*:
@@ -90,24 +66,25 @@ const EMPTY_INDEX: EntityIndex = {
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 
-async function loadIndex(): Promise<EntityIndex> {
+async function loadIndex(canOpen: (path: string) => boolean): Promise<EntityIndex> {
+  const read = async <Snapshot,>(path: string, load: () => Promise<Snapshot>) =>
+    canOpen(path) ? load().catch(() => null) : null;
+
   const [
     restSnap, custSnap, riderSnap, orderSnap, promoSnap,
     propSnap, hostSnap, ticketSnap, incSnap, txnSnap, contactSnap
   ] = await Promise.all([
-    getDocs(query(collection(db, "restaurants"), limit(500))),
-    getDocs(query(collection(db, "customer_users"), limit(500))),
-    getDocs(query(collection(db, "delivery_users"), limit(500))),
-    getDocs(query(collection(db, "orders"), orderBy("timestamp", "desc"), limit(200))),
-    getDocs(query(collection(db, "promos"), limit(200))),
-    getDocs(query(collection(db, "stay_properties"), limit(200))),
-    getDocs(query(collection(db, "stay_hosts"), limit(200))),
-    getDocs(query(collection(db, "support_threads"), orderBy("lastUpdatedAt", "desc"), limit(200))),
-    getDocs(query(collection(db, "incidents"), orderBy("createdAt", "desc"), limit(100))),
-    getDocs(query(collection(db, "transactions"), orderBy("created_at", "desc"), limit(200))).catch(() => null),
-    // Vendor login emails moved off the public restaurants doc. Optional, so
-    // a role that can't read it still gets the rest of the index.
-    getDocs(query(collection(db, "partner_contact"), where("role", "==", "vendor"), limit(2000))).catch(() => null),
+    read("/admin/vendors", () => getDocs(query(collection(db, "restaurants"), limit(500)))),
+    read("/admin/customers", () => getDocs(query(collection(db, "customer_users"), limit(500)))),
+    read("/admin/delivery", () => getDocs(query(collection(db, "delivery_users"), limit(500)))),
+    read("/admin/orders", () => getDocs(query(collection(db, "orders"), orderBy("timestamp", "desc"), limit(200)))),
+    read("/admin/growth", () => getDocs(query(collection(db, "promos"), limit(200)))),
+    read("/admin/stay", () => getDocs(query(collection(db, "stay_properties"), limit(200)))),
+    read("/admin/stay", () => getDocs(query(collection(db, "stay_hosts"), limit(200)))),
+    read("/admin/support", () => getDocs(query(collection(db, "support_threads"), orderBy("lastUpdatedAt", "desc"), limit(200)))),
+    read("/admin/orders", () => getDocs(query(collection(db, "incidents"), orderBy("createdAt", "desc"), limit(100)))),
+    read("/admin/finance", () => getDocs(query(collection(db, "transactions"), orderBy("created_at", "desc"), limit(200)))),
+    read("/admin/vendors", () => getDocs(query(collection(db, "partner_contact"), where("role", "==", "vendor"), limit(2000)))),
   ]);
 
   const vendorEmails = new Map<string, string>();
@@ -117,7 +94,7 @@ async function loadIndex(): Promise<EntityIndex> {
     if (email) vendorEmails.set(str(c.partnerId), email);
   });
 
-  const restaurants: EntityHit[] = restSnap.docs
+  const restaurants: EntityHit[] = (restSnap?.docs ?? [])
     .filter((d) => !d.data().isDeleted)
     .map((d) => {
       const name = str(d.data().name) || "Unknown restaurant";
@@ -131,7 +108,7 @@ async function loadIndex(): Promise<EntityIndex> {
       };
     });
 
-  const customers: EntityHit[] = custSnap.docs.map((d) => {
+  const customers: EntityHit[] = (custSnap?.docs ?? []).map((d) => {
     const name = str(d.data().name) || "Guest";
     const email = str(d.data().email);
     const phone = str(d.data().phone);
@@ -144,7 +121,7 @@ async function loadIndex(): Promise<EntityIndex> {
     };
   });
 
-  const riders: EntityHit[] = riderSnap.docs.map((d) => {
+  const riders: EntityHit[] = (riderSnap?.docs ?? []).map((d) => {
     const name = str(d.data().name) || "Rider";
     const phone = str(d.data().phone);
     const vehicle = str(d.data().vehicleNumber);
@@ -157,7 +134,7 @@ async function loadIndex(): Promise<EntityIndex> {
     };
   });
 
-  const orders: EntityHit[] = orderSnap.docs.map((d) => {
+  const orders: EntityHit[] = (orderSnap?.docs ?? []).map((d) => {
     const num = str(d.data().orderNumber) || d.id;
     const customer = str(d.data().customerName);
     const restaurant = str(d.data().restaurantName);
@@ -171,7 +148,7 @@ async function loadIndex(): Promise<EntityIndex> {
     };
   });
 
-  const promos: EntityHit[] = promoSnap.docs.map((d) => {
+  const promos: EntityHit[] = (promoSnap?.docs ?? []).map((d) => {
     const code = str(d.data().code) || d.id;
     const desc = str(d.data().description);
     return {
@@ -183,7 +160,7 @@ async function loadIndex(): Promise<EntityIndex> {
     };
   });
 
-  const properties: EntityHit[] = propSnap.docs.map((d) => {
+  const properties: EntityHit[] = (propSnap?.docs ?? []).map((d) => {
     const name = str(d.data().name) || "Property";
     const city = str(d.data().city);
     return {
@@ -195,7 +172,7 @@ async function loadIndex(): Promise<EntityIndex> {
     };
   });
 
-  const hosts: EntityHit[] = hostSnap.docs.map((d) => {
+  const hosts: EntityHit[] = (hostSnap?.docs ?? []).map((d) => {
     const name = str(d.data().name) || "Host";
     const email = str(d.data().email);
     return {
@@ -207,7 +184,7 @@ async function loadIndex(): Promise<EntityIndex> {
     };
   });
 
-  const tickets: EntityHit[] = ticketSnap.docs.map((d) => {
+  const tickets: EntityHit[] = (ticketSnap?.docs ?? []).map((d) => {
     const num = str(d.data().ticketId) || d.id;
     const subject = str(d.data().subject);
     const status = str(d.data().status);
@@ -220,7 +197,7 @@ async function loadIndex(): Promise<EntityIndex> {
     };
   });
 
-  const incidents: EntityHit[] = incSnap.docs.map((d) => {
+  const incidents: EntityHit[] = (incSnap?.docs ?? []).map((d) => {
     const num = str(d.data().incidentId) || d.id;
     const title = str(d.data().title);
     return {
@@ -280,73 +257,56 @@ function match(hits: EntityHit[], q: string, cap = 6): EntityHit[] {
   return out;
 }
 
-const PAGES: { label: string; path: string; icon: typeof LayoutDashboard }[] = [
-  { label: "Platform Dashboard", path: "/admin", icon: LayoutDashboard },
-  { label: "Platform Orders Hub", path: "/admin/orders", icon: ShoppingBag },
-  { label: "Business Analytics", path: "/admin/analytics", icon: BarChart3 },
-  { label: "Customer Users", path: "/admin/customers", icon: Smartphone },
-  { label: "Coupons & Offers", path: "/admin/growth", icon: Ticket },
-  { label: "Ads & Sponsorships", path: "/admin/growth?tab=ads", icon: Megaphone },
-  { label: "Live Dispatch", path: "/admin/orders?tab=live", icon: PackageSearch },
-  { label: "Push Broadcasts", path: "/admin/growth?tab=notifications", icon: Bell },
-  { label: "Partner Restaurants", path: "/admin/vendors", icon: Building2 },
-  { label: "Partner Onboarding", path: "/admin/vendors?tab=onboarding", icon: Users },
-  { label: "Bank Verification", path: "/admin/quality?tab=bank", icon: FileCheck2 },
-  { label: "POS Plans & Billing", path: "/admin/vendors?tab=plans", icon: CreditCard },
-  { label: "Rider Fleet & KYC", path: "/admin/delivery", icon: Bike },
-  { label: "KadaStay Properties", path: "/admin/stay?tab=properties", icon: Hotel },
-  { label: "Platform Settings", path: "/admin/settings", icon: SlidersHorizontal },
-  { label: "Support & Tickets", path: "/admin/support", icon: Headset },
-  { label: "Live Support Chat", path: "/admin/support?tab=chats", icon: MessageSquare },
-  { label: "Support Knowledge Base", path: "/admin/support?tab=knowledge", icon: BookOpen },
-  { label: "Support AI Analytics", path: "/admin/support?tab=analytics", icon: BarChart3 },
-  { label: "Demo Requests", path: "/admin/support?tab=leads", icon: CalendarClock },
-  { label: "Security & Audit", path: "/admin/settings?tab=security", icon: ShieldCheck },
-  { label: "Data Exports", path: "/admin/analytics?tab=exports", icon: Download },
-  { label: "Settlements & Payouts", path: "/admin/finance?tab=settlements", icon: CreditCard },
-  { label: "Refunds Ledger", path: "/admin/finance?tab=refunds", icon: CreditCard },
-  { label: "Markets & Cities", path: "/admin/markets?tab=cities", icon: Store },
-  { label: "Service Zones", path: "/admin/markets", icon: Store },
-  { label: "Surge & Demand Zones", path: "/admin/markets?tab=surge", icon: PackageSearch },
-  { label: "Food Reviews", path: "/admin/quality", icon: FileCheck2 },
-  { label: "Home Merchandising", path: "/admin/growth?tab=merchandising", icon: Megaphone },
-  { label: "Changelog & release notes", path: "/admin/growth?tab=changelog", icon: Megaphone },
-  { label: "New changelog update", path: "/admin/growth/changelog/new", icon: Megaphone },
-  { label: "App modules (feature flags)", path: "/admin/settings?tab=platform", icon: SlidersHorizontal },
-  { label: "App Releases", path: "/admin/settings?tab=releases", icon: Smartphone },
-  { label: "Loyalty & Gold", path: "/admin/customers?tab=loyalty", icon: Ticket },
-  { label: "Table Reservations", path: "/admin/vendors?tab=reservations", icon: CalendarClock },
-  { label: "Incidents", path: "/admin/orders?tab=incidents", icon: ShieldCheck },
-  { label: "Catalog Quality", path: "/admin/quality?tab=catalog", icon: Store },
-  { label: "Admin Team", path: "/admin/settings?tab=team", icon: Users },
-  { label: "Cancellation Reasons", path: "/admin/settings?tab=cancellation", icon: FileCheck2 },
+const QUICK_ACTIONS: NavItem[] = [
+  { label: "Add restaurant", path: "/admin/vendors?tab=directory&action=new", icon: PlusCircle },
+  { label: "Create support ticket", path: "/admin/support?tab=queue", icon: Headset },
+  { label: "Log incident", path: "/admin/orders?tab=incidents&action=new", icon: ShieldCheck },
+  { label: "Launch ad campaign", path: "/admin/growth?tab=ads", icon: Megaphone },
+  { label: "Send push notification", path: "/admin/growth?tab=notifications&section=send", icon: Bell },
+  { label: "Export data", path: "/admin/analytics?tab=exports", icon: DownloadCloud },
 ];
 
 interface AdminCommandMenuProps {
   open: boolean;
   setOpen: (open: boolean) => void;
+  canOpen: (path: string) => boolean;
+  activeModule: string;
 }
 
-export function AdminCommandMenu({ open, setOpen }: AdminCommandMenuProps) {
+export function AdminCommandMenu({ open, setOpen, canOpen, activeModule }: AdminCommandMenuProps) {
   const navigate = useNavigate();
   const [index, setIndex] = useState<EntityIndex>(EMPTY_INDEX);
-  const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const shouldLoad = open && search.trim().length >= 2;
+  const scopes = ["/admin/vendors", "/admin/customers", "/admin/delivery", "/admin/orders", "/admin/growth", "/admin/stay", "/admin/support", "/admin/finance"]
+    .filter(canOpen).join(" ");
 
   useEffect(() => {
-    if (!open || loaded || loading) return;
+    if (!shouldLoad) {
+      setIndex(EMPTY_INDEX);
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    const allowed = new Set(scopes.split(" "));
     setLoading(true);
-    loadIndex()
-      .then((idx) => {
-        setIndex(idx);
-        setLoaded(true);
-      })
-      .catch((error) =>
-        console.error("Command palette index load failed", error)
-      )
-      .finally(() => setLoading(false));
-  }, [open, loaded, loading]);
+    setIndex(EMPTY_INDEX);
+    loadIndex((path) => allowed.has(path)).then((result) => {
+      if (active) setIndex(result);
+    }).catch(() => {
+      if (active) setIndex(EMPTY_INDEX);
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, [shouldLoad, scopes]);
+
+  const modulePages = groupsForModule(getAdminModule(activeModule));
+  const pages = [...modulePages, ...ADMIN_NAV]
+    .flatMap((group) => group.items.map((item) => ({ ...item, group: group.label })))
+    .filter((item, i, all) => canOpen(item.path) && all.findIndex((entry) => entry.path === item.path) === i);
+  const actions = QUICK_ACTIONS.filter((action) => canOpen(action.path));
 
   // Reset the query each time the palette opens fresh.
   useEffect(() => {
@@ -376,7 +336,7 @@ export function AdminCommandMenu({ open, setOpen }: AdminCommandMenuProps) {
 
   const entityGroups: {
     heading: string;
-    icon: any;
+    icon: LucideIcon;
     hits: EntityHit[];
   }[] = [
     { heading: "Restaurants", icon: Store, hits: results.restaurants },
@@ -404,76 +364,40 @@ export function AdminCommandMenu({ open, setOpen }: AdminCommandMenuProps) {
         </CommandEmpty>
 
         <CommandGroup heading="Pages">
-          {PAGES.map((p) => (
+          {pages.map((page) => (
             <CommandItem
-              key={p.path}
-              value={`page ${p.label}`}
-              onSelect={() => runCommand(() => navigate(p.path))}
+              key={page.path}
+              value={`page ${page.group} ${page.label}`}
+              onSelect={() => runCommand(() => {
+                if (page.document) window.location.assign(page.path);
+                else navigate(modulePages.some((group) => group.items.some((item) => item.path === page.path))
+                  ? moduleLink(page.path, activeModule) : page.path);
+              })}
             >
-              <p.icon className="mr-2 h-4 w-4" />
-              <span>{p.label}</span>
+              <page.icon className="mr-2 size-4 shrink-0" />
+              <span>{page.label}</span>
+              <span className="ml-auto pl-2 text-xs text-muted-foreground">{page.group}</span>
             </CommandItem>
           ))}
         </CommandGroup>
 
-        <CommandSeparator />
-
-        <CommandGroup heading="Quick Actions">
-          <CommandItem
-            value="action add new tenant restaurant"
-            onSelect={() =>
-              runCommand(() => navigate("/admin/vendors?tab=directory&action=new"))
-            }
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            <span>Add New Tenant</span>
-          </CommandItem>
-          <CommandItem
-            value="action create support ticket"
-            onSelect={() => runCommand(() => navigate("/admin/support?tab=queue"))}
-          >
-            <Headset className="mr-2 h-4 w-4" />
-            <span>Create Support Ticket</span>
-          </CommandItem>
-          <CommandItem
-            value="action log major incident"
-            onSelect={() => runCommand(() => navigate("/admin/orders?tab=incidents&action=new"))}
-          >
-            <ShieldCheck className="mr-2 h-4 w-4 text-destructive" />
-            <span className="text-destructive font-medium">Log Major Incident</span>
-          </CommandItem>
-          <CommandItem
-            value="action launch ad campaign sponsorship"
-            onSelect={() => runCommand(() => navigate("/admin/growth?tab=ads"))}
-          >
-            <Megaphone className="mr-2 h-4 w-4" />
-            <span>Launch Ad Campaign</span>
-          </CommandItem>
-          <CommandItem
-            value="action broadcast push notification"
-            onSelect={() =>
-              runCommand(() => navigate("/admin/growth?tab=notifications&section=send"))
-            }
-          >
-            <Bell className="mr-2 h-4 w-4" />
-            <span>Broadcast Notification</span>
-          </CommandItem>
-          <CommandItem
-            value="action export data csv"
-            onSelect={() => runCommand(() => navigate("/admin/analytics?tab=exports"))}
-          >
-            <DownloadCloud className="mr-2 h-4 w-4" />
-            <span>Export Data</span>
-          </CommandItem>
-        </CommandGroup>
+        {!!actions.length && <CommandGroup heading="Quick Actions">
+          {actions.map((action) => (
+            <CommandItem key={action.path} value={`action ${action.label}`} onSelect={() => runCommand(() => navigate(action.path))}>
+              <action.icon className="mr-2 size-4" />
+              {action.label}
+            </CommandItem>
+          ))}
+        </CommandGroup>}
 
         {entityGroups.map(
-          (group) =>
-            group.hits.length > 0 && (
+          (group) => {
+            const hits = group.hits.filter((hit) => canOpen(hit.target));
+            return hits.length > 0 && (
               <div key={group.heading}>
                 <CommandSeparator />
                 <CommandGroup heading={group.heading}>
-                  {group.hits.map((hit) => (
+                  {hits.map((hit) => (
                     <CommandItem
                       key={`${group.heading}-${hit.id}`}
                       value={`${group.heading} ${hit.haystack}`}
@@ -490,7 +414,8 @@ export function AdminCommandMenu({ open, setOpen }: AdminCommandMenuProps) {
                   ))}
                 </CommandGroup>
               </div>
-            )
+            );
+          }
         )}
       </CommandList>
     </CommandDialog>
