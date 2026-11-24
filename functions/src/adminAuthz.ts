@@ -10,7 +10,7 @@
  */
 import { HttpsError } from "firebase-functions/v2/https";
 
-export const ADMIN_EMAILS = ["thekada@gmail.com", "thekadaapp@gmail.com"];
+export const ADMIN_EMAILS = ["thekada@gmail.com", "thekadaapp@gmail.com", "amalchandtp@gmail.com"];
 
 /** Staff roles granted as a custom claim by an existing admin. */
 export const STAFF_ROLES = [
