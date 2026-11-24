@@ -42,15 +42,6 @@
       }
     ]
   },
-  "firestore": {
-    "database": "(default)",
-    "location": "nam5",
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json",
-    "predeploy": [
-      "npm run doctor"
-    ]
-  },
   "auth": {
     "providers": {
       "emailPassword": true,
@@ -63,20 +54,5 @@
       }
     }
   },
-  "storage": {
-    "rules": "storage.rules",
-    "predeploy": [
-      "npm run doctor"
-    ]
-  },
-  "functions": {
-    "source": "functions",
-    "predeploy": [
-      "npm run doctor",
-      "npm --prefix \"$RESOURCE_DIR\" run build"
-    ],
-    "postdeploy": [
-      "node \"$PROJECT_DIR/scripts/changelog/push-release-manifest.mjs\" functions"
-    ]
-  }
+  "//": "Hosting only. Rules, functions and storage deploy from the kada-platform monorepo; this folder carried stale copies (the 2026-11-17 rules deploy from here wiped live rules)."
 }
