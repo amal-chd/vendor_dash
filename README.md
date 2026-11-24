@@ -90,3 +90,9 @@ The system is built horizontally using a multi-tenant schema where the `restaura
 
 ## 8. Deployment
 This repo supports standard static hosting for the web build output (`dist/`) and standard Flutter release builds for the mobile app natively.
+
+### Kada Verse workspace
+
+The Admin sidebar opens the Flutter app at `/verse-app/` on the same origin. The app uses the existing Firebase sign-in and Kada Verse membership checks, so each account sees the same permitted workflows as on mobile.
+
+`npm run build` includes the workspace when it finds the Flutter source in the local workspace. For a separate checkout, point `KADA_VERSE_APP_DIR` at the Flutter project and run `npm run build:with-verse`. Flutter must be on PATH, or set `KADA_FLUTTER_BIN` to its executable. Firebase Hosting's predeploy build requires the app source.

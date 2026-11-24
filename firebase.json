@@ -5,7 +5,7 @@
     "cleanUrls": true,
     "predeploy": [
       "npm run doctor",
-      "npm run build"
+      "npm run build:with-verse"
     ],
     "postdeploy": [
       "node \"$PROJECT_DIR/scripts/changelog/push-release-manifest.mjs\" hosting"

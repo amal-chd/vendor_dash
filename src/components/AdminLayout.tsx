@@ -69,6 +69,7 @@ import {
   Palette,
   QrCode,
   Bot,
+  PanelsTopLeft,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -108,7 +109,7 @@ import type { WorkspaceAlertCounts, AdminItemCounts } from "@/types/adminNotific
 // mapped into a workspace so nothing is lost; the sidebar renders these as an
 // accordion (progressive disclosure) rather than one giant expanded list.
 
-type NavItem = { label: string; icon: LucideIcon; path: string };
+type NavItem = { label: string; icon: LucideIcon; path: string; document?: boolean };
 type NavWorkspace = { id: string; label: string; icon: LucideIcon; items: NavItem[] };
 
 /**
@@ -129,6 +130,8 @@ type NavWorkspace = { id: string; label: string; icon: LucideIcon; items: NavIte
  * pathname alone would light up every sibling at once.
  */
 const NAV_COLLAPSED_KEY = "kada_admin_nav_collapsed";
+const VERSE_WORKSPACE_PATH = "/verse-app/";
+const hasVerseWorkspace = import.meta.env.VITE_KADA_VERSE_WORKSPACE === "true";
 
 function splitNavPath(path: string): { pathname: string; tab: string } {
   const [pathname, query = ""] = path.split("?");
@@ -179,6 +182,9 @@ const WORKSPACES: NavWorkspace[] = [
     icon: LayoutDashboard,
     items: [
       { label: "Overview", icon: LayoutDashboard, path: "/admin" },
+      ...(hasVerseWorkspace
+        ? [{ label: "Kada Verse workspace", icon: PanelsTopLeft, path: VERSE_WORKSPACE_PATH, document: true }]
+        : []),
     ],
   },
   {
@@ -611,8 +617,8 @@ function AdminLayoutContent() {
             >
               <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
                 <img
-                  src="/logo.png"
-                  alt="Kada Verse"
+                  src={hasVerseWorkspace ? `${VERSE_WORKSPACE_PATH}favicon.png` : "/logo.png"}
+                  alt=""
                   className="w-full h-full object-contain"
                 />
               </div>
@@ -708,7 +714,7 @@ function AdminLayoutContent() {
                                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                               )}
                             >
-                              <Link to={item.path} className="flex items-center gap-2.5">
+                              <Link to={item.path} reloadDocument={item.document} className="flex items-center gap-2.5">
                                 <item.icon
                                   className={cn(
                                     "w-4 h-4 shrink-0",
