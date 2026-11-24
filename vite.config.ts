@@ -62,7 +62,7 @@ export default defineConfig(({ mode }) => ({
         cleanupOutdatedCaches: true,
         // Never let the navigation fallback answer an asset request with the
         // app shell — a missing asset must fail as a missing asset.
-        navigateFallbackDenylist: [/^\/assets\//],
+        navigateFallbackDenylist: [/^\/assets\//, /^\/verse-app(?:\/|$)/],
       }
     })
   ].filter(Boolean),

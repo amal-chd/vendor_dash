@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/build-with-verse.mjs",
+    "build:with-verse": "node scripts/build-with-verse.mjs --require-verse",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
