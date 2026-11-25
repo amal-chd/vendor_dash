@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Link, Navigate, useOutletContext, useParams } from "react-router-dom";
 import { ArrowUpRight, ChevronRight, Grid2X2 } from "lucide-react";
 import { AdminModuleIcon } from "@/components/admin/AdminModulePicker";
@@ -5,9 +6,14 @@ import { Button } from "@/components/ui/button";
 import { adminModuleHome, groupsForModule, moduleLink, visibleAdminModules } from "@/lib/adminModules";
 import { ADMIN_NAV } from "@/lib/adminNavigation";
 
+const ProductDataPanel = lazy(() => import("@/components/admin/ProductDataPanel"));
+
 export default function ProductModulesPage() {
   const { productId } = useParams();
-  const { canOpen } = useOutletContext<{ canOpen: (path: string) => boolean }>();
+  const { canOpen, canReadProductData } = useOutletContext<{
+    canOpen: (path: string) => boolean;
+    canReadProductData: boolean;
+  }>();
   const modules = visibleAdminModules(canOpen);
 
   if (!productId) {
@@ -28,6 +34,9 @@ export default function ProductModulesPage() {
                     <AdminModuleIcon module={module} />
                     <div className="min-w-0 flex-1">
                       <h3 className="font-semibold">{module.label}</h3>
+                      {module.category === "portfolio" && (
+                        <span className="text-xs font-medium text-primary">{module.console ? "Product console" : "Product links"}</span>
+                      )}
                       <p className="mt-1 text-sm text-muted-foreground">{module.description}</p>
                     </div>
                     <ChevronRight className="mt-2 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -69,9 +78,29 @@ export default function ProductModulesPage() {
         <Button variant="outline" asChild><Link to="/admin/products"><Grid2X2 className="mr-2 size-4" />All products</Link></Button>
       </header>
 
-      {module.category === "portfolio" && (
+      {module.console && (
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4">
+          <div>
+            <h2 className="font-semibold">Product console</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Manage operations and settings in the product’s own console.</p>
+          </div>
+          <Button asChild>
+            <a href={module.console.url} target="_blank" rel="noopener noreferrer">
+              {module.console.label}<ArrowUpRight className="ml-2 size-4" aria-hidden="true" />
+            </a>
+          </Button>
+        </section>
+      )}
+
+      {module.bridge && canReadProductData && (
+        <Suspense fallback={<p className="text-sm text-muted-foreground">Loading product tools…</p>}>
+          <ProductDataPanel key={module.id} product={module.bridge} />
+        </Suspense>
+      )}
+
+      {module.category === "portfolio" && !module.console && (
         <p className="rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">
-          Product operations are managed separately. Use the links below to open the product or its store listing.
+          This product has no admin connection configured in the Control Center.
         </p>
       )}
 
@@ -90,7 +119,7 @@ export default function ProductModulesPage() {
           <section className="rounded-xl border bg-card p-4">
             <h2 className="mb-2 text-base font-semibold">Product links</h2>
             {module.links.map((link) => (
-              <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="flex min-h-10 items-center justify-between gap-2 rounded-md px-2 text-sm hover:bg-accent">
+              <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="flex min-h-10 items-center justify-between gap-2 rounded-md px-2 text-sm hover:bg-accent">
                 {link.label}<ArrowUpRight className="size-4 text-muted-foreground" aria-hidden="true" />
               </a>
             ))}

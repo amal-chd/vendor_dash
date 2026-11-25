@@ -13,6 +13,8 @@ export type AdminModule = {
   groups: string[];
   category: "operations" | "portfolio";
   brand?: string;
+  console?: { label: string; url: string };
+  bridge?: "taskpilot" | "sellix";
   links?: { label: string; url: string }[];
 };
 
@@ -24,10 +26,10 @@ export const ADMIN_MODULES: AdminModule[] = [
   { id: "kada-stay", label: "Kada Stay", description: "Properties, bookings, hosts, destinations and reviews.", icon: Hotel, logo: "/kadastay-logo.png", category: "operations", brand: "kada-stay", groups: ["stay"] },
   { id: "kada-mess", label: "Kada Mess", description: "Kitchens, meal plans, subscriptions and settlements.", icon: ChefHat, category: "operations", brand: "kada-mess", groups: ["mess"] },
   { id: "kadaverse", label: "KadaVerse", description: "Studio enquiries, campaigns, social content and branding.", icon: PanelsTopLeft, category: "operations", brand: "kadaverse", groups: ["growth", "support", "dashboard"] },
-  { id: "kada-ledger", label: "Kada Ledger", description: "Digital khata, merchant credit and statements.", icon: BookOpen, category: "portfolio", brand: "kada-ledger", groups: [], links: [{ label: "Product site", url: "https://ledger.thekada.in" }] },
-  { id: "sellrapp", label: "SellrApp", description: "Online storefronts for independent sellers.", icon: Store, category: "portfolio", brand: "sellrapp", groups: [], links: [{ label: "Product site", url: "https://sellrapp.thekada.in" }] },
-  { id: "taskpilot", label: "TaskPilot", description: "Project and site operations for construction teams.", icon: ClipboardList, category: "portfolio", groups: [], links: [{ label: "Company case study", url: "https://www.thekada.in/work/task-pilot" }] },
-  { id: "puzlume", label: "Puzlume", description: "Mobile puzzle game and its store listing.", icon: Gamepad2, logo: "/admin-products/puzlume.webp", category: "portfolio", groups: [], links: [{ label: "Google Play listing", url: "https://play.google.com/store/apps/details?id=com.puzlume.game" }] },
+  { id: "kada-ledger", label: "Kada Ledger", description: "Digital khata, merchant credit and statements.", icon: BookOpen, category: "portfolio", brand: "kada-ledger", groups: [], console: { label: "Open Kada Ledger Admin", url: "https://ledger.thekada.in/admin/login" }, links: [{ label: "Product site", url: "https://ledger.thekada.in" }] },
+  { id: "sellrapp", label: "Sellix", description: "SellrApp’s storefront platform for independent sellers.", icon: Store, category: "portfolio", brand: "sellrapp", groups: [], bridge: "sellix", console: { label: "Open Sellix Admin", url: "https://sellix.thekada.in/admin" }, links: [{ label: "Product site", url: "https://sellix.thekada.in" }] },
+  { id: "taskpilot", label: "TaskPilot", description: "Project and site operations for construction teams.", icon: ClipboardList, category: "portfolio", groups: [], bridge: "taskpilot", console: { label: "Open TaskPilot Platform Console", url: "https://kurickaldevelopers.vercel.app/platform" }, links: [{ label: "Company case study", url: "https://www.thekada.in/work/task-pilot" }] },
+  { id: "puzlume", label: "Puzlume", description: "Mobile puzzle game, releases and store listing.", icon: Gamepad2, logo: "/admin-products/puzlume.webp", category: "portfolio", groups: [], console: { label: "Open Google Play Console", url: "https://play.google.com/console" }, links: [{ label: "Google Play listing", url: "https://play.google.com/store/apps/details?id=com.puzlume.game" }] },
   { id: "whichott", label: "WhichOTT", description: "Discover where movies and series are streaming.", icon: Play, category: "portfolio", groups: [], links: [{ label: "Product site", url: "https://whichott.vercel.app" }] },
   { id: "devflow", label: "DevFlow", description: "A workspace for freelancers and small studios.", icon: BriefcaseBusiness, category: "portfolio", groups: [], links: [{ label: "Product site", url: "https://devflow-web-puce.vercel.app" }] },
   { id: "lunoo", label: "Lunoo", description: "Habits, personal finance and wellness.", icon: Target, category: "portfolio", groups: [], links: [{ label: "Product site", url: "https://lunoo-two.vercel.app" }] },

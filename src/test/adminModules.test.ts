@@ -27,6 +27,15 @@ describe("admin module navigation", () => {
     expect(workspaceForAdminPath("/admin/products/puzlume")).toBe("dashboard");
   });
 
+  it("maps product consoles and live counts to the right backend", () => {
+    expect(getAdminModule("sellrapp").console?.url).toBe("https://sellix.thekada.in/admin");
+    expect(getAdminModule("sellrapp").bridge).toBe("sellix");
+    expect(getAdminModule("taskpilot").bridge).toBe("taskpilot");
+    expect(getAdminModule("kada-ledger").console?.url).toBe("https://ledger.thekada.in/admin/login");
+    expect(getAdminModule("puzlume").bridge).toBeUndefined();
+    expect(getAdminModule("whichott").console).toBeUndefined();
+  });
+
   it("matches default tabs and ignores the active module when highlighting tools", () => {
     expect(adminNavItemIsActive("/admin/stay", "/admin/stay", "?tab=overview&module=kada-stay")).toBe(true);
     expect(adminNavItemIsActive("/admin/stay", "/admin/stay", "?tab=hosts&module=kada-stay")).toBe(false);
